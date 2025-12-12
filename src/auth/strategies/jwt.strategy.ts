@@ -1,0 +1,40 @@
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from 'src/users/entities/user.entity';
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+  ) {
+    super({
+      secretOrKey: process.env.JWT_SECRET,
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    });
+  }
+
+  async validate(payload: any) {
+    const { sub, token_version } = payload;
+
+    const user = await this.userRepo.findOne({
+      where: { id: sub },
+    });
+
+    if (!user) throw new UnauthorizedException('User no longer exists');
+
+    if (user.token_version !== token_version) {
+      throw new UnauthorizedException('Token expired — please login again');
+    }
+
+    // Attach to req.user
+    return {
+      userId: user.id,
+      email: user.email,
+      role: user.account_type,
+    };
+  }
+}

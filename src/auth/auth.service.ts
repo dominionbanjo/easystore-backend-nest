@@ -1,0 +1,270 @@
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { OAuth2Client, TokenPayload } from 'google-auth-library';
+import * as crypto from 'crypto';
+
+import { UsersService } from '../users/users.service';
+
+import { LoginDto } from './dto/login.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { CreateAccountDto } from './dto/create-account.dto';
+
+import {
+  hashPassword,
+  comparePassword,
+} from 'src/common/utils/auth/passwordUtil';
+import { toUTCDate } from 'src/common/utils/time/toUTCDate';
+import { SalesChannel, User } from 'src/users/entities/user.entity';
+
+@Injectable()
+export class AuthService {
+  private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+  constructor(
+    private readonly users: UsersService,
+    private readonly jwt: JwtService,
+  ) {}
+
+  // ------------------------------------------------------------------
+  // SIGNUP
+  // ------------------------------------------------------------------
+  async signUp(dto: CreateAccountDto) {
+    const existing = await this.users.findByEmail(dto.email);
+    if (existing) throw new BadRequestException('User already exists');
+
+    const hashedPassword = await hashPassword(dto.password);
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otp_expiration = toUTCDate(10) as Date; // returns Date
+
+    let salesChannel: SalesChannel | null = null;
+    if (dto.current_sales_channel) {
+      const allowed: SalesChannel[] = [
+        'whatsapp',
+        'instagram',
+        'facebook',
+        'tiktok',
+        'other',
+      ];
+      if (!allowed.includes(dto.current_sales_channel as SalesChannel)) {
+        throw new BadRequestException('Invalid sales channel');
+      }
+      salesChannel = dto.current_sales_channel as SalesChannel;
+    }
+
+    const user = await this.users.create({
+      first_name: dto.first_name,
+      last_name: dto.last_name,
+      email: dto.email,
+      phone_number: dto.phone_number ?? null,
+      account_type: dto.account_type,
+      store_name: dto.store_name ?? null,
+      username: dto.username ?? null,
+      referral_code: dto.referral_code ?? null,
+      current_sales_channel: salesChannel,
+      agree_to_terms: dto.agree_to_terms,
+
+      password: hashedPassword,
+      otp,
+      otp_expiration,
+      signup_medium: 'signed',
+      email_verified: false,
+    });
+
+    return user;
+  }
+
+  // ------------------------------------------------------------------
+  // LOGIN
+  // ------------------------------------------------------------------
+  async login(dto: LoginDto) {
+    const user = await this.users.findByEmail(dto.email);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    const match = await comparePassword(dto.password, user.password ?? '');
+    if (!match) throw new UnauthorizedException('Invalid credentials');
+
+    return this.generateJwt(user);
+  }
+
+  // ------------------------------------------------------------------
+  // JWT TOKENS
+  // ------------------------------------------------------------------
+  generateJwt(user: User) {
+    return {
+      access_token: this.jwt.sign({
+        sub: user.id,
+        email: user.email,
+        role: user.account_type,
+        token_version: user.token_version,
+      }),
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // GOOGLE AUTH
+  // ------------------------------------------------------------------
+  async continueWithGoogle(idToken: string) {
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload() as
+      | (TokenPayload & { picture?: string })
+      | null;
+    if (!payload) throw new BadRequestException('Invalid Google token');
+
+    const email = payload.email;
+    const name = payload.name;
+    if (!email) throw new BadRequestException('Google account has no email');
+    if (!name)
+      throw new BadRequestException('Google account has no display name');
+
+    const picture = payload.picture ?? null;
+    const email_verified = payload.email_verified ?? false;
+
+    let user = await this.users.findByEmail(email);
+
+    if (!user) {
+      const [first, last = ''] = name.trim().split(' ');
+
+      user = await this.users.create({
+        first_name: first,
+        last_name: last,
+        email,
+        email_verified,
+        avatar: picture,
+        signup_medium: 'google',
+      });
+    }
+
+    return this.generateJwt(user);
+  }
+
+  // ------------------------------------------------------------------
+  // VERIFY OTP
+  // ------------------------------------------------------------------
+  async verifyOtp(dto: VerifyOtpDto) {
+    const user = await this.users.findByEmail(dto.email);
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.otp !== dto.otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    if (!user.otp_expiration) {
+      throw new BadRequestException('OTP expiration missing');
+    }
+
+    if (user.otp_expiration.getTime() < Date.now()) {
+      throw new BadRequestException('OTP expired');
+    }
+
+    await this.users.update(user.id, {
+      email_verified: true,
+      otp: null,
+      otp_expiration: null,
+    });
+
+    return { message: 'Email verified successfully' };
+  }
+
+  // ------------------------------------------------------------------
+  // RESEND OTP
+  // ------------------------------------------------------------------
+  async resendOtp(dto: ResendOtpDto) {
+    const user = await this.users.findByEmail(dto.email);
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.otp_expiration instanceof Date) {
+      const diff = user.otp_expiration.getTime() - Date.now();
+      if (diff > 0) {
+        throw new BadRequestException(
+          'Please wait before requesting a new OTP',
+        );
+      }
+    }
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otp_expiration = toUTCDate(10) as Date;
+
+    await this.users.update(user.id, {
+      otp,
+      otp_expiration,
+    });
+
+    return { message: 'A new OTP has been sent to your email' };
+  }
+
+  // ------------------------------------------------------------------
+  // FORGOT PASSWORD
+  // ------------------------------------------------------------------
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.users.findByEmail(dto.email);
+
+    if (!user)
+      return { message: 'If the email exists, a reset link has been sent.' };
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
+    const expiration = toUTCDate(10) as Date;
+
+    await this.users.update(user.id, {
+      password_token: hashedToken,
+      password_token_expiration_date: expiration,
+    });
+
+    return { token: rawToken };
+  }
+
+  // ------------------------------------------------------------------
+  // RESET PASSWORD
+  // ------------------------------------------------------------------
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.users.findByEmail(dto.email);
+    if (!user) throw new UnauthorizedException('Invalid request');
+
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(dto.token)
+      .digest('hex');
+
+    if (
+      user.password_token !== hashedToken ||
+      !user.password_token_expiration_date ||
+      user.password_token_expiration_date.getTime() < Date.now()
+    ) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+
+    const hashedPassword = await hashPassword(dto.password);
+
+    await this.users.update(user.id, {
+      password: hashedPassword,
+      password_token: null,
+      password_token_expiration_date: null,
+    });
+
+    return { message: 'Password reset successful' };
+  }
+
+  // ------------------------------------------------------------------
+  // LOGOUT (Invalidate Token)
+  // ------------------------------------------------------------------
+  async logout(userId: string) {
+    await this.users.incrementTokenVersion(userId);
+    return { message: 'Logged out successfully' };
+  }
+}
