@@ -23,6 +23,9 @@ import {
 } from 'src/common/utils/auth/passwordUtil';
 import { toUTCDate } from 'src/common/utils/time/toUTCDate';
 import { SalesChannel, User } from 'src/users/entities/user.entity';
+import { StoreService } from 'src/store/store.service';
+import { EmailVerificationService } from 'src/email/services/email-verification.service';
+import { ResetPasswordMailService } from 'src/email/services/reset-password-mail.service';
 
 @Injectable()
 export class AuthService {
@@ -31,7 +34,28 @@ export class AuthService {
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
+    private readonly storeService: StoreService,
+    private readonly emailVerification: EmailVerificationService,
+    private readonly resetPasswordVerification: ResetPasswordMailService,
   ) {}
+
+  private sanitizeUser(user: User) {
+    return {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      phone_number: user.phone_number,
+      account_type: user.account_type,
+      store_id: user.store_id,
+      store_name: user.store_name,
+      username: user.username,
+      avatar: user.avatar,
+      email_verified: user.email_verified,
+      signup_medium: user.signup_medium,
+      created_at: user.created_at,
+    };
+  }
 
   // ------------------------------------------------------------------
   // SIGNUP
@@ -40,26 +64,43 @@ export class AuthService {
     const existing = await this.users.findByEmail(dto.email);
     if (existing) throw new BadRequestException('User already exists');
 
-    const hashedPassword = await hashPassword(dto.password);
+    // Validate vendor requirements
+    if (dto.account_type === 'vendor') {
+      if (!dto.store_name || !dto.username) {
+        throw new BadRequestException(
+          'Vendors must provide both store_name and username',
+        );
+      }
+    }
 
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const otp_expiration = toUTCDate(10) as Date; // returns Date
+    // Validate sales channel
+    const allowed: SalesChannel[] = [
+      'whatsapp',
+      'instagram',
+      'facebook',
+      'tiktok',
+      'other',
+    ];
 
     let salesChannel: SalesChannel | null = null;
     if (dto.current_sales_channel) {
-      const allowed: SalesChannel[] = [
-        'whatsapp',
-        'instagram',
-        'facebook',
-        'tiktok',
-        'other',
-      ];
-      if (!allowed.includes(dto.current_sales_channel as SalesChannel)) {
+      const formatted = dto.current_sales_channel.trim().toLowerCase();
+      if (!allowed.includes(formatted as SalesChannel)) {
         throw new BadRequestException('Invalid sales channel');
       }
-      salesChannel = dto.current_sales_channel as SalesChannel;
+      salesChannel = formatted as SalesChannel;
     }
 
+    // Create OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otp_expiration = toUTCDate(10) as Date;
+
+    // Create hashed password
+    const hashed = await hashPassword(dto.password);
+
+    // ---------------------------
+    // 1️⃣ Create user
+    // ---------------------------
     const user = await this.users.create({
       first_name: dto.first_name,
       last_name: dto.last_name,
@@ -71,15 +112,59 @@ export class AuthService {
       referral_code: dto.referral_code ?? null,
       current_sales_channel: salesChannel,
       agree_to_terms: dto.agree_to_terms,
-
-      password: hashedPassword,
+      password: hashed,
       otp,
       otp_expiration,
-      signup_medium: 'signed',
       email_verified: false,
+      signup_medium: 'signed',
     });
 
-    return user;
+    // ---------------------------
+    // 2️⃣ If vendor → CREATE STORE using StoreService
+    // ---------------------------
+    if (dto.account_type === 'vendor') {
+      try {
+        const store = await this.storeService.createStore({
+          user_id: user.id,
+          email: dto.email,
+          store_name: dto.store_name!,
+          description: null,
+        });
+
+        // Link user to new store
+        await this.users.update(user.id, {
+          store_id: store.id,
+          store_name: store.store_name,
+        });
+
+        user.store_id = store.id;
+      } catch (e) {
+        // rollback user on failure
+        await this.users.deleteUser(user.id);
+        throw e;
+      }
+    }
+
+    // ---------------------------
+    // 3️⃣ Send Email Verification
+    // ---------------------------
+    await this.emailVerification.sendVerificationEmail({
+      name: dto.first_name,
+      email: dto.email,
+      otp,
+    });
+
+    // ---------------------------
+    // 4️⃣ Auto-login (Generate JWT)
+    // ---------------------------
+    const { access_token } = this.generateJwt(user);
+    // ---------------------------
+    // 4️⃣ Return Safe Response
+    // ---------------------------
+    return {
+      user: this.sanitizeUser(user),
+      access: access_token,
+    };
   }
 
   // ------------------------------------------------------------------
@@ -92,7 +177,13 @@ export class AuthService {
     const match = await comparePassword(dto.password, user.password ?? '');
     if (!match) throw new UnauthorizedException('Invalid credentials');
 
-    return this.generateJwt(user);
+    const { access_token } = this.generateJwt(user);
+
+    return {
+      message: 'Login Successful',
+      user: this.sanitizeUser(user),
+      access: access_token,
+    };
   }
 
   // ------------------------------------------------------------------
@@ -184,7 +275,10 @@ export class AuthService {
   async resendOtp(dto: ResendOtpDto) {
     const user = await this.users.findByEmail(dto.email);
     if (!user) throw new NotFoundException('User not found');
+    if (user.email_verified === true)
+      throw new BadRequestException('User Email Already Verified');
 
+    // Prevent spamming / rate limiting
     if (user.otp_expiration instanceof Date) {
       const diff = user.otp_expiration.getTime() - Date.now();
       if (diff > 0) {
@@ -194,12 +288,21 @@ export class AuthService {
       }
     }
 
+    // Generate new OTP + expiration
     const otp = crypto.randomInt(100000, 999999).toString();
     const otp_expiration = toUTCDate(10) as Date;
 
+    // Save new OTP
     await this.users.update(user.id, {
       otp,
       otp_expiration,
+    });
+
+    // 📩 Send verification email again
+    await this.emailVerification.sendVerificationEmail({
+      name: user.first_name,
+      email: user.email,
+      otp,
     });
 
     return { message: 'A new OTP has been sent to your email' };
@@ -211,22 +314,46 @@ export class AuthService {
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.users.findByEmail(dto.email);
 
-    if (!user)
-      return { message: 'If the email exists, a reset link has been sent.' };
+    // Always return generic response for security
+    if (!user) {
+      return { message: 'Password reset mail sent, please check your mail' };
+    }
 
+    // ⭐ Prevent spamming (similar to resendOtp)
+    // if (user.password_token_expiration_date instanceof Date) {
+    //   const diff = user.password_token_expiration_date.getTime() - Date.now();
+
+    //   if (diff > 0) {
+    //     return { message: 'Password reset mail sent, please check your mail' };
+    //   }
+    // }
+
+    // Generate secure token
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto
       .createHash('sha256')
       .update(rawToken)
       .digest('hex');
+
     const expiration = toUTCDate(10) as Date;
 
+    // Store hashed token
     await this.users.update(user.id, {
       password_token: hashedToken,
       password_token_expiration_date: expiration,
     });
 
-    return { token: rawToken };
+    const origin = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    // Send email
+    await this.resetPasswordVerification.sendResetPasswordEmail({
+      name: user.first_name,
+      email: user.email,
+      token: rawToken,
+      origin,
+    });
+
+    return { message: 'Password reset mail sent, please check your mail' };
   }
 
   // ------------------------------------------------------------------

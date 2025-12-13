@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import ms from 'ms';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -10,37 +12,45 @@ import { UsersModule } from 'src/users/users.module';
 import { User } from 'src/users/entities/user.entity';
 
 import { JwtStrategy } from './strategies/jwt.strategy';
-import ms from 'ms';
+
+// Extra modules required by AuthService
+import { StoreModule } from 'src/store/store.module';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
-    // MUST include the User repository so JwtStrategy can inject it
+    // Load environment variables globally
+    ConfigModule.forRoot({ isGlobal: true }),
+
+    // REPOSITORY FOR JwtStrategy + AuthService
     TypeOrmModule.forFeature([User]),
 
-    UsersModule, // Makes UsersService and exported repository available
+    // Required feature modules
+    UsersModule,
+    StoreModule,
+    EmailModule,
 
+    // Passport Auth
     PassportModule.register({ defaultStrategy: 'jwt' }),
 
-    JwtModule.register({
-      secret: process.env.JWT_SECRET!,
-      signOptions: {
-        expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as ms.StringValue,
-      },
+    // Register JWT using config service
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn:
+            (config.get<string>('JWT_EXPIRES_IN') as ms.StringValue) || '7d',
+        },
+      }),
     }),
   ],
 
   controllers: [AuthController],
 
-  providers: [
-    AuthService,
-    JwtStrategy, // MUST be provided
-  ],
+  providers: [AuthService, JwtStrategy],
 
-  exports: [
-    AuthService,
-    JwtModule, // helpful if other modules need jwt
-    PassportModule, // helpful for guards
-    TypeOrmModule, // exports UserRepository if needed externally
-  ],
+  exports: [AuthService, JwtModule, PassportModule, TypeOrmModule],
 })
 export class AuthModule {}

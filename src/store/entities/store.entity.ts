@@ -24,7 +24,7 @@ export interface IStoreCustomer {
   orders: number;
   spent: number;
   rating: number;
-  last_order_date: string;
+  last_order_date: string | null; // ✅ FIXED (now matches your service logic)
 }
 
 export interface IMonthlySales {

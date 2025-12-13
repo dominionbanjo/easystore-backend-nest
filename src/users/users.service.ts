@@ -282,4 +282,8 @@ export class UsersService {
 
     return { message: 'Bank account removed successfully' };
   }
+
+  async deleteUser(userId: string) {
+    await this.userRepo.delete({ id: userId });
+  }
 }

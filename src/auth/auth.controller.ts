@@ -10,6 +10,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtAuthUser } from './strategies/jwt.strategy';
 
 @Controller('auth')
 export class AuthController {
@@ -54,7 +55,7 @@ export class AuthController {
   // LOGOUT
   @Post('logout')
   @UseGuards(JwtAuthGuard)
-  async logout(@Req() req: any) {
+  logout(@Req() req: Request & { user: JwtAuthUser }) {
     return this.authService.logout(req.user.sub);
   }
 }

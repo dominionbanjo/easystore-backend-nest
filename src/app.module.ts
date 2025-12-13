@@ -18,6 +18,7 @@ import { StoreModule } from './store/store.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { EmailModule } from './email/email.module';
+import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -64,6 +65,8 @@ import { EmailModule } from './email/email.module';
     WishlistModule,
 
     EmailModule,
+
+    CacheModule,
   ],
 
   controllers: [AppController],
