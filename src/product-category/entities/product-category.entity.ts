@@ -1,3 +1,4 @@
+import { Product } from 'src/product/entities/product.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -52,6 +53,8 @@ export class ProductCategory {
   @OneToMany(() => ProductCategory, (child) => child.parent)
   children: ProductCategory[];
 
+  @OneToMany(() => Product, (product) => product.category_ref)
+  products: Product[];
   /* ────────────────────────────────────────────────
      TIMESTAMPS
   ───────────────────────────────────────────────── */

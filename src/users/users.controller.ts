@@ -17,8 +17,14 @@ import {
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import * as jwtStrategy from 'src/auth/strategies/jwt.strategy';
+import { UpdateProfileDto } from './dto/update-user.dto';
 
 @Controller('users')
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -26,20 +32,18 @@ export class UsersController {
   // GET CURRENT LOGGED-IN USER
   // ------------------------------------------------------------------
   @Get('me')
-  @UseGuards(JwtAuthGuard)
-  async getMe(@Req() req: any) {
-    return this.usersService.getProfile(req.user.sub);
+  async getMe(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.usersService.getProfile(user.sub);
   }
 
   // ------------------------------------------------------------------
   // UPDATE PROFILE (form-data + avatar upload)
   // ------------------------------------------------------------------
   @Patch('me')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('avatar'))
   async updateProfile(
-    @Req() req: any,
-    @Body() body: any,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body() body: UpdateProfileDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     // Parse address JSON if included
@@ -51,14 +55,13 @@ export class UsersController {
       }
     }
 
-    return this.usersService.updateProfile(req.user.sub, body, file);
+    return this.usersService.updateProfile(user.sub, body, file);
   }
 
   // ------------------------------------------------------------------
   // GET USER STORES
   // ------------------------------------------------------------------
   @Get('me/stores')
-  @UseGuards(JwtAuthGuard)
   async getUserStores(@Req() req: any) {
     return this.usersService.getStores(req.user.sub);
   }
@@ -67,17 +70,21 @@ export class UsersController {
   // ADMIN: GET ALL USERS (PAGINATED)
   // ------------------------------------------------------------------
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles('admin')
   async getAllUsers(@Query('page') page = 1, @Query('limit') limit = 20) {
-    return this.usersService.getAllUsers(Number(page), Number(limit));
+    return this.usersService.getAllUsers({
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
   // ------------------------------------------------------------------
   // REGISTER BANK ACCOUNT (PAYSTACK)
   // ------------------------------------------------------------------
   @Post('bank/register')
-  @UseGuards(JwtAuthGuard)
   async registerBankAccount(
-    @Req() req: any,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body()
     body: {
       bank_code: string;
@@ -94,7 +101,7 @@ export class UsersController {
     }
 
     return this.usersService.registerBankAccount(
-      req.user.sub,
+      user.sub,
       bank_code,
       account_number,
       settlement_email,
@@ -102,32 +109,10 @@ export class UsersController {
   }
 
   // ------------------------------------------------------------------
-  // UPDATE BANK ACCOUNT
-  // ------------------------------------------------------------------
-  @Patch('bank/update')
-  @UseGuards(JwtAuthGuard)
-  async updateBankAccount(
-    @Req() req: any,
-    @Body()
-    body: {
-      account_number?: string;
-      bank_code?: string;
-      settlement_email?: string;
-    },
-  ) {
-    if (!body.account_number && !body.bank_code && !body.settlement_email) {
-      throw new BadRequestException('Provide at least one field to update');
-    }
-
-    return this.usersService.updateBankAccount(req.user.sub, body);
-  }
-
-  // ------------------------------------------------------------------
   // DELETE BANK ACCOUNT
   // ------------------------------------------------------------------
   @Delete('bank')
-  @UseGuards(JwtAuthGuard)
-  async deleteBankAccount(@Req() req: any) {
-    return this.usersService.deleteBankAccount(req.user.sub);
+  async deleteBankAccount(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.usersService.deleteBankAccount(user.sub);
   }
 }

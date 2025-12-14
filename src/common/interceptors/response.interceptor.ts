@@ -10,43 +10,83 @@ import { Observable, map } from 'rxjs';
 export class ResponseInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
-      map((data) => {
-        // If the response is an object
-        if (data && typeof data === 'object') {
-          const hasMessage = typeof data.message === 'string';
+      map((response) => {
+        let message = 'Request successful';
 
-          // Case 1: ONLY message
-          if (hasMessage && Object.keys(data).length === 1) {
-            return {
-              status: 'success',
-              message: data.message,
-              data: null,
-            };
-          }
-
-          // Case 2: Has message + more fields
-          if (hasMessage) {
-            const { message, ...rest } = data; // remove message from data
-            return {
-              status: 'success',
-              message,
-              data: Object.keys(rest).length ? rest : null,
-            };
-          }
-
-          // Case 3: No message → use default
+        // Primitive responses
+        if (!response || typeof response !== 'object') {
           return {
             status: 'success',
-            message: 'Request successful',
-            data,
+            message,
+            data: response,
           };
         }
 
-        // For non-objects (string, number, boolean)
+        const hasMessage = typeof response.message === 'string';
+
+        if (hasMessage) {
+          message = response.message;
+        }
+
+        // Prefer explicit data if present
+        let payload =
+          hasMessage && 'data' in response ? response.data : response;
+
+        /**
+         * 🔥 REMOVE DUPLICATE message INSIDE data
+         */
+        if (
+          payload &&
+          typeof payload === 'object' &&
+          typeof payload.message === 'string'
+        ) {
+          const { message: _discard, ...rest } = payload;
+          payload = rest;
+        }
+
+        /**
+         * CASE 1: TypeORM findAndCount → [rows, total]
+         */
+        if (
+          Array.isArray(payload) &&
+          payload.length === 2 &&
+          Array.isArray(payload[0]) &&
+          typeof payload[1] === 'number'
+        ) {
+          payload = {
+            items: payload[0],
+            total: payload[1],
+          };
+        } else if (
+
+        /**
+         * CASE 2: buildPagination()
+         * { data: [], pagination: {} }
+         */
+          payload &&
+          typeof payload === 'object' &&
+          Array.isArray(payload.data) &&
+          payload.pagination
+        ) {
+          const { data, pagination, ...rest } = payload;
+          payload = {
+            items: data,
+            pagination,
+            ...rest, // keep extras
+          };
+        }
+
+        /**
+         * CASE 3: Only message, no data
+         */
+        if (hasMessage && (!payload || Object.keys(payload).length === 0)) {
+          payload = null;
+        }
+
         return {
           status: 'success',
-          message: 'Request successful',
-          data,
+          message,
+          data: payload,
         };
       }),
     );

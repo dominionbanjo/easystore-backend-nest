@@ -35,7 +35,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload): Promise<JwtAuthUser> {
     const { sub, token_version } = payload;
 
-    const user = await this.userRepo.findOne({ where: { id: sub } });
+    const user = await this.userRepo.findOne({
+      where: { id: sub },
+      select: ['id', 'email', 'account_type', 'token_version'],
+    });
     if (!user) throw new UnauthorizedException('User no longer exists');
 
     if (user.token_version !== token_version) {

@@ -1,3 +1,5 @@
+import { Product } from 'src/product/entities/product.entity';
+import { User } from 'src/users/entities/user.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -5,7 +7,14 @@ import {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
 } from 'typeorm';
+
+/* ────────────────────────────────────────────────
+   JSON / INTERFACES
+──────────────────────────────────────────────── */
 
 export interface IStoreAddress {
   street?: string | null;
@@ -24,7 +33,7 @@ export interface IStoreCustomer {
   orders: number;
   spent: number;
   rating: number;
-  last_order_date: string | null; // ✅ FIXED (now matches your service logic)
+  last_order_date: string | null;
 }
 
 export interface IMonthlySales {
@@ -52,33 +61,25 @@ export interface IAnalytics {
   customers: IMonthlyCustomers[];
 }
 
+/* ────────────────────────────────────────────────
+   STORE ENTITY
+──────────────────────────────────────────────── */
+
 @Entity({ name: 'stores' })
 export class Store {
-  /* ────────────────────────────────────────────────
-     PRIMARY KEY
-  ───────────────────────────────────────────────── */
+  /* PRIMARY KEY */
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  /* ────────────────────────────────────────────────
-     USER RELATION (FK)
-  ───────────────────────────────────────────────── */
-  @Index('IDX_STORE_USER_ID')
+  @Index('IDX_STORE_USER_ID', { unique: true })
   @Column({ type: 'uuid' })
   user_id: string;
 
-  /* NOTE:
-     ON DELETE CASCADE is added via migration:
-     ALTER TABLE stores
-       ADD CONSTRAINT fk_store_user
-       FOREIGN KEY (user_id)
-       REFERENCES users(id)
-       ON DELETE CASCADE ON UPDATE CASCADE;
-  */
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 
-  /* ────────────────────────────────────────────────
-     STORE NAME + SLUG
-  ───────────────────────────────────────────────── */
+  /* STORE IDENTITY */
   @Index('IDX_STORE_NAME')
   @Column({ type: 'varchar', length: 255, unique: true })
   store_name: string;
@@ -87,18 +88,14 @@ export class Store {
   @Column({ type: 'varchar', length: 255, unique: true })
   slug: string;
 
-  /* ────────────────────────────────────────────────
-     CATEGORY + DESCRIPTION
-  ───────────────────────────────────────────────── */
+  /* CATEGORY + DESCRIPTION */
   @Column({ type: 'varchar', length: 100, nullable: true })
   category: string | null;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  /* ────────────────────────────────────────────────
-     IMAGES (including public_id)
-  ───────────────────────────────────────────────── */
+  /* MEDIA */
   @Column({ type: 'text', nullable: true })
   logo: string | null;
 
@@ -111,9 +108,7 @@ export class Store {
   @Column({ type: 'varchar', length: 255, nullable: true })
   cover_image_public_id: string | null;
 
-  /* ────────────────────────────────────────────────
-     CONTACT INFO
-  ───────────────────────────────────────────────── */
+  /* CONTACT INFO */
   @Column({ type: 'varchar', length: 255, nullable: true })
   email: string | null;
 
@@ -123,9 +118,7 @@ export class Store {
   @Column({ type: 'varchar', length: 255, nullable: true })
   website: string | null;
 
-  /* ────────────────────────────────────────────────
-     RATINGS
-  ───────────────────────────────────────────────── */
+  /* RATINGS */
   @Column({ type: 'numeric', precision: 3, scale: 2, default: 0 })
   rating_average: number;
 
@@ -135,9 +128,7 @@ export class Store {
   @Column({ type: 'text', array: true, nullable: true })
   category_ids: string[] | null;
 
-  /* ────────────────────────────────────────────────
-     STORE METRICS
-  ───────────────────────────────────────────────── */
+  /* STORE METRICS */
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
   total_revenue: number;
 
@@ -153,9 +144,7 @@ export class Store {
   @Column({ type: 'int', default: 0 })
   products_listed: number;
 
-  /* ────────────────────────────────────────────────
-     BANK INFORMATION
-  ───────────────────────────────────────────────── */
+  /* BANK INFORMATION */
   @Column({ type: 'varchar', length: 20, nullable: true })
   account_number: string | null;
 
@@ -174,27 +163,32 @@ export class Store {
   @Column({ type: 'boolean', default: false })
   payout_verified: boolean;
 
-  /* ────────────────────────────────────────────────
-     ANALYTICS + CACHED CUSTOMERS (JSONB)
-  ───────────────────────────────────────────────── */
-  @Column({ type: 'jsonb', nullable: true })
-  analytics: IAnalytics | null;
+  // /* ANALYTICS (PRE-COMPUTED, NOT CALCULATED ON READ) */
+  // @Column({
+  //   type: 'jsonb',
+  //   nullable: true,
+  //   default: () => `'{"sales":[],"orders":[],"customers":[]}'`,
+  // })
+  // analytics: IAnalytics | null;
 
-  @Column({ type: 'jsonb', nullable: true })
-  customers: IStoreCustomer[] | null;
+  // @Column({
+  //   type: 'jsonb',
+  //   nullable: true,
+  //   default: () => `'[]'`,
+  // })
+  // customers: IStoreCustomer[] | null;
 
-  /* ────────────────────────────────────────────────
-     ADDRESS (JSONB)
-  ───────────────────────────────────────────────── */
+  /* ADDRESS */
   @Column({ type: 'jsonb', nullable: true })
   address: IStoreAddress | null;
 
-  /* ────────────────────────────────────────────────
-     TIMESTAMPS
-  ───────────────────────────────────────────────── */
+  /* TIMESTAMPS */
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  @OneToMany(() => Product, (product) => product.store)
+  products: Product[];
 }

@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Store } from 'src/store/entities/store.entity';
+import { ProductCategory } from 'src/product-category/entities/product-category.entity';
 
 export interface ProductImage {
   url: string;
@@ -56,14 +57,16 @@ export class Product {
   })
   @JoinColumn({ name: 'store_id' })
   store: Store;
+  @Index('IDX_PRODUCT_CATEGORY_ID')
+  @Column({ type: 'uuid' })
+  category_id: string;
 
-  /* ────────────────────────────────────────────────
-     category → product_categories(name)
-     NOTE: This FK is via migration only
-  ───────────────────────────────────────────────── */
-  @Column({ type: 'varchar', length: 100 })
-  category: string;
-
+  @ManyToOne(() => ProductCategory, (category) => category.products, {
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'category_id' })
+  category_ref: ProductCategory;
   /* ────────────────────────────────────────────────
      BASIC PRODUCT FIELDS
   ───────────────────────────────────────────────── */

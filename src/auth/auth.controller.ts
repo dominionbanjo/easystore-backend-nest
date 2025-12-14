@@ -25,31 +25,31 @@ export class AuthController {
   // LOGIN
   @Post('login')
   async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto); // FIXED
+    return this.authService.login(dto);
   }
 
   // VERIFY OTP
   @Post('verify-otp')
   async verifyOtp(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtp(dto); // FIXED
+    return this.authService.verifyOtp(dto);
   }
 
   // RESEND OTP
   @Post('resend-otp')
   async resendOtp(@Body() dto: ResendOtpDto) {
-    return this.authService.resendOtp(dto); // FIXED
+    return this.authService.resendOtp(dto);
   }
 
   // FORGOT PASSWORD
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto); // FIXED
+    return this.authService.forgotPassword(dto);
   }
 
   // RESET PASSWORD
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto); // FIXED
+    return this.authService.resetPassword(dto);
   }
 
   // LOGOUT

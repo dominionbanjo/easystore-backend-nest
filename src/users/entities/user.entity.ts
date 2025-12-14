@@ -1,3 +1,4 @@
+// src/users/entities/user.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -13,6 +14,7 @@ import { Order } from 'src/order/entities/order.entity';
 import { Product } from 'src/product/entities/product.entity';
 import { Wishlist } from 'src/wishlist/entities/wishlist.entity';
 import { Delivery } from 'src/delivery/entities/delivery.entity';
+import { Store } from 'src/store/entities/store.entity';
 
 /* ENUMS */
 export type AccountType = 'user' | 'vendor' | 'admin';
@@ -24,7 +26,7 @@ export type SalesChannel =
   | 'other';
 export type SignupMedium = 'signed' | 'google';
 
-/* JSONB Address Type */
+/* JSONB Address */
 export interface IUserAddress {
   street?: string | null;
   city?: string | null;
@@ -35,7 +37,6 @@ export interface IUserAddress {
 
 @Entity({ name: 'users' })
 export class User {
-  /* UUID PRIMARY KEY */
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -50,13 +51,13 @@ export class User {
   @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, select: false })
   password: string | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone_number: string | null;
 
-  /* ACCOUNT TYPE ENUM */
+  /* ACCOUNT */
   @Index('IDX_USER_ACCOUNT_TYPE')
   @Column({
     type: 'enum',
@@ -65,7 +66,7 @@ export class User {
   })
   account_type: AccountType;
 
-  /* STORE INFO */
+  /* STORE POINTER (SET NULL ON STORE DELETE) */
   @Index('IDX_USER_STORE_ID')
   @Column({ type: 'uuid', nullable: true })
   store_id: string | null;
@@ -76,7 +77,7 @@ export class User {
   @Column({ type: 'varchar', length: 100, nullable: true })
   username: string | null;
 
-  /* TOKENS + SECURITY */
+  /* SECURITY */
   @Column({ type: 'int', default: 0 })
   token_version: number;
 
@@ -138,11 +139,11 @@ export class User {
   @Column({ type: 'int', default: 0 })
   review_count: number | null;
 
-  /* ADDRESS JSONB */
+  /* ADDRESS */
   @Column({ type: 'jsonb', nullable: true })
   address: IUserAddress | null;
 
-  /* PAYOUT INFO */
+  /* PAYOUT */
   @Column({ type: 'varchar', length: 20, nullable: true })
   account_number: string | null;
 
@@ -161,39 +162,38 @@ export class User {
   @Column({ type: 'boolean', default: false })
   payout_verified: boolean;
 
-  /* RELATIONS → ESCROW */
-  @OneToMany(() => Escrow, (escrow) => escrow.buyer)
+  /* RELATION → STORES */
+  @OneToMany(() => Store, (store) => store.user_id)
+  stores: Store[];
+
+  /* OTHER RELATIONS */
+  @OneToMany(() => Escrow, (e) => e.buyer)
   escrows_as_buyer: Escrow[];
 
-  @OneToMany(() => Escrow, (escrow) => escrow.vendor)
+  @OneToMany(() => Escrow, (e) => e.vendor)
   escrows_as_vendor: Escrow[];
 
-  /* RELATIONS → ORDERS */
-  @OneToMany(() => Order, (order) => order.buyer)
+  @OneToMany(() => Order, (o) => o.buyer)
   orders_as_buyer: Order[];
 
-  @OneToMany(() => Order, (order) => order.vendor)
+  @OneToMany(() => Order, (o) => o.vendor)
   orders_as_vendor: Order[];
 
-  /* RELATIONS → PRODUCTS */
-  @OneToMany(() => Product, (product) => product.vendor)
+  @OneToMany(() => Product, (p) => p.vendor)
   products: Product[];
 
-  /* RELATIONS → WISHLIST */
-  @OneToMany(() => Wishlist, (wish) => wish.user)
+  @OneToMany(() => Wishlist, (w) => w.user)
   wishlist_items: Wishlist[];
 
-  /* RELATIONS → DELIVERIES */
-  @OneToMany(() => Delivery, (delivery) => delivery.buyer)
+  @OneToMany(() => Delivery, (d) => d.buyer)
   deliveries_as_buyer: Delivery[];
 
-  @OneToMany(() => Delivery, (delivery) => delivery.vendor)
+  @OneToMany(() => Delivery, (d) => d.vendor)
   deliveries_as_vendor: Delivery[];
 
-  @OneToMany(() => Delivery, (delivery) => delivery.courier)
+  @OneToMany(() => Delivery, (d) => d.courier)
   deliveries_as_courier: Delivery[];
 
-  /* TIMESTAMPS */
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

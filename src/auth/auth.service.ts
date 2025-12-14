@@ -26,6 +26,7 @@ import { SalesChannel, User } from 'src/users/entities/user.entity';
 import { StoreService } from 'src/store/store.service';
 import { EmailVerificationService } from 'src/email/services/email-verification.service';
 import { ResetPasswordMailService } from 'src/email/services/reset-password-mail.service';
+import createHash from 'src/common/utils/auth/createHash';
 
 @Injectable()
 export class AuthService {
@@ -320,21 +321,17 @@ export class AuthService {
     }
 
     // ⭐ Prevent spamming (similar to resendOtp)
-    // if (user.password_token_expiration_date instanceof Date) {
-    //   const diff = user.password_token_expiration_date.getTime() - Date.now();
+    if (user.password_token_expiration_date instanceof Date) {
+      const diff = user.password_token_expiration_date.getTime() - Date.now();
 
-    //   if (diff > 0) {
-    //     return { message: 'Password reset mail sent, please check your mail' };
-    //   }
-    // }
+      if (diff > 0) {
+        return { message: 'Password reset mail sent, please check your mail' };
+      }
+    }
 
     // Generate secure token
     const rawToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(rawToken)
-      .digest('hex');
-
+    const hashedToken = createHash(rawToken);
     const expiration = toUTCDate(10) as Date;
 
     // Store hashed token
@@ -363,11 +360,7 @@ export class AuthService {
     const user = await this.users.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid request');
 
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(dto.token)
-      .digest('hex');
-
+    const hashedToken = createHash(dto.token);
     if (
       user.password_token !== hashedToken ||
       !user.password_token_expiration_date ||
