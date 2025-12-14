@@ -5,30 +5,23 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Store } from 'src/store/entities/store.entity';
+import { StoreService } from '../store.service';
 
 @Injectable()
 export class StoreOwnerGuard implements CanActivate {
-  constructor(
-    @InjectRepository(Store)
-    private readonly storeRepo: Repository<Store>,
-  ) {}
+  constructor(private readonly storeService: StoreService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
     const user = req.user as { sub: string; role: string };
     const storeId = req.params.id;
 
-    const store = await this.storeRepo.findOne({ where: { id: storeId } });
-    if (!store) throw new NotFoundException('Store not found');
-
     // Admin can access anything
     if (user.role === 'admin') return true;
 
-    // Vendor must own the store
-    if (store.user_id !== user.sub) {
+    const isOwner = await this.storeService.isStoreOwner(storeId, user.sub);
+
+    if (!isOwner) {
       throw new ForbiddenException('You do not own this store');
     }
 

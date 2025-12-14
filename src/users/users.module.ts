@@ -3,23 +3,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { User } from './entities/user.entity';
 import { Store } from 'src/store/entities/store.entity';
-import { Product } from 'src/product/entities/product.entity';
 
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
-
-import { UploadService } from 'src/common/services/upload.service';
-import { PaystackService } from 'src/common/services/paystack.service';
-
-import { WishlistModule } from 'src/wishlist/wishlist.module';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User, Store, Product]),
-    WishlistModule, // <---- FIX
-  ],
+  imports: [TypeOrmModule.forFeature([User, Store]), CommonModule],
   controllers: [UsersController],
-  providers: [UsersService, UploadService, PaystackService],
+  providers: [UsersService],
   exports: [UsersService],
 })
 export class UsersModule {}

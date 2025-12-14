@@ -31,7 +31,7 @@ import { StoreAnalyticsModule } from './store-analytics/store-analytics.module';
       type: 'postgres',
       url: process.env.DATABASE_URL, // Neon connection string
       autoLoadEntities: true,
-      synchronize: true, // turn off in production
+      synchronize: false, // turn off in production
       ssl: {
         rejectUnauthorized: false, // required for Neon
       },

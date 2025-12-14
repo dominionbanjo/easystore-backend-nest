@@ -9,7 +9,7 @@ import { Product } from 'src/product/entities/product.entity';
 import { User } from 'src/users/entities/user.entity';
 
 import { CacheModule } from 'src/cache/cache.module';
-import { CommonModule } from 'src/common/common.module'; // <-- your module
+import { CommonModule } from 'src/common/common.module';
 
 import { StoreOwnerGuard } from './guards/store-owner.guard';
 import { StoreLookupController } from './controllers/store-lookup.controller';
@@ -23,11 +23,7 @@ import { ProductCategory } from 'src/product-category/entities/product-category.
     CommonModule,
   ],
   controllers: [StoreController, StoreLookupController, StoreAdminController],
-  providers: [StoreService, StoreOwnerGuard], // 👈 ensure guard is here
-  exports: [
-    StoreService,
-    StoreOwnerGuard, // ✅ EXPORT IT
-    TypeOrmModule, // ✅ ALSO export repositories
-  ],
+  providers: [StoreService, StoreOwnerGuard],
+  exports: [StoreService, StoreOwnerGuard],
 })
 export class StoreModule {}

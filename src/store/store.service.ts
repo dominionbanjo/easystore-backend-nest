@@ -95,9 +95,8 @@ export class StoreService {
     }
 
     // 4️⃣ Store name uniqueness (business rule)
-    const existingStoreName = await this.storeRepo.findOne({
+    const existingStoreName = await this.storeRepo.exists({
       where: { store_name },
-      select: ['id'],
     });
 
     if (existingStoreName) {
@@ -595,5 +594,25 @@ export class StoreService {
     await this.cache.clearPrefix('svc:store:list');
 
     return { success: true, message: 'Bank account removed', store: updated };
+  }
+
+  /* ────────────────────────────────────────────────
+   STORE OWNERSHIP CHECK (USED BY GUARDS)
+──────────────────────────────────────────────── */
+  async isStoreOwner(storeId: string, userId: string): Promise<boolean> {
+    if (!storeId || !userId) {
+      throw new BadRequestException('Store ID and User ID are required');
+    }
+
+    const store = await this.storeRepo.findOne({
+      where: { id: storeId },
+      select: ['id', 'user_id'],
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    return store.user_id === userId;
   }
 }
