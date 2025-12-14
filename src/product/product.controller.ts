@@ -1,34 +1,141 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseInterceptors,
+  UploadedFiles,
+  UseGuards,
+} from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
+import { CreateManyProductsDto } from './dto/create-many-products.dto';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { StoreOwnerGuard } from 'src/store/guards/store-owner.guard';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import * as jwtStrategy from 'src/auth/strategies/jwt.strategy';
 
 @Controller('product')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
-  @Post()
-  create(@Body() createProductDto: CreateProductDto) {
-    return this.productService.create(createProductDto);
+  /* ────────────────────────────────────────────────
+     LISTING ROUTES (STATIC FIRST)
+  ──────────────────────────────────────────────── */
+
+  /**
+   * 1️⃣ Homepage: Categories with limited products (20 max per category)
+   */
+  @Get('by-category')
+  getProductsGroupedByCategory(@Query() pagination: PaginationQueryDto) {
+    return this.productService.getProductsGroupedByCategory(pagination);
   }
 
+  /**
+   * 2️⃣ Search products
+   */
+  @Get('search')
+  search(@Query('q') query: string, @Query() pagination: PaginationQueryDto) {
+    return this.productService.search(query, pagination);
+  }
+
+  /**
+   * 3️⃣ Products by single category (id or slug)
+   */
+  @Get('category/:identifier')
+  getProductsByCategory(
+    @Param('identifier') identifier: string,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.productService.getProductsByCategory(identifier, pagination);
+  }
+
+  /**
+   * 4️⃣ Products by store
+   */
+  @Get('store/:storeId')
+  getProductsByStore(
+    @Param('storeId') storeId: string,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.productService.getByStore(storeId, pagination);
+  }
+
+  /**
+   * 5️⃣ All products (flat list)
+   */
   @Get()
-  findAll() {
-    return this.productService.findAll();
+  getAllProducts(@Query() pagination: PaginationQueryDto) {
+    return this.productService.getAllProducts(pagination);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productService.findOne(+id);
+  /* ────────────────────────────────────────────────
+     SINGLE RESOURCE
+  ──────────────────────────────────────────────── */
+
+  /**
+   * 6️⃣ Get single product (id or slug)
+   */
+  @Get(':identifier')
+  getSingle(@Param('identifier') identifier: string) {
+    return this.productService.getSingle(identifier);
   }
 
+  /* ────────────────────────────────────────────────
+     MUTATION ROUTES
+  ──────────────────────────────────────────────── */
+
+  /**
+   * 7️⃣ Create product (generic)
+   */
+  @Post()
+  @UseGuards(JwtAuthGuard, StoreOwnerGuard)
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'image', maxCount: 1 },
+      { name: 'gallery', maxCount: 10 },
+    ]),
+  )
+  create(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body() dto: CreateProductDto,
+    @UploadedFiles()
+    files: {
+      image?: Express.Multer.File[];
+      gallery?: Express.Multer.File[];
+    },
+  ) {
+    return this.productService.create(user, dto, files);
+  }
+
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard, StoreOwnerGuard)
+  createMany(
+    @CurrentUser() user: { sub: string; store_id: string | null },
+    @Body() dto: CreateManyProductsDto,
+  ) {
+    return this.productService.createMany(user, dto.products);
+  }
+  /**
+   * 9️⃣ Update product
+   */
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productService.update(+id, updateProductDto);
+  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
+    return this.productService.update(id, dto);
   }
 
+  /**
+   * 🔟 Delete product
+   */
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.productService.remove(+id);
+    return this.productService.remove(id);
   }
 }

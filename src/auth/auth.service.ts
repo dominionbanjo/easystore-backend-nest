@@ -172,11 +172,15 @@ export class AuthService {
   // LOGIN
   // ------------------------------------------------------------------
   async login(dto: LoginDto) {
-    const user = await this.users.findByEmail(dto.email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    const user = await this.users.findByEmailWithPassword(dto.email);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
-    const match = await comparePassword(dto.password, user.password ?? '');
-    if (!match) throw new UnauthorizedException('Invalid credentials');
+    const match = await comparePassword(dto.password, user.password!);
+    if (!match) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const { access_token } = this.generateJwt(user);
 

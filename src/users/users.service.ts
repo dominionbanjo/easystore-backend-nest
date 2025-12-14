@@ -23,15 +23,20 @@ export class UsersService {
     @InjectRepository(Store)
     private readonly storeRepo: Repository<Store>,
 
-    @InjectRepository(Product)
-    private readonly productRepo: Repository<Product>,
-
     private readonly uploadService: UploadService,
     private readonly paystackService: PaystackService,
   ) {}
 
   findByEmail(email: string) {
     return this.userRepo.findOne({ where: { email } });
+  }
+
+  async findByEmailWithPassword(email: string) {
+    return this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.email = :email', { email })
+      .getOne();
   }
 
   // findOne(opts: any) {
@@ -117,6 +122,13 @@ export class UsersService {
     });
 
     return { token_version: newVersion };
+  }
+
+  async getForJwtValidation(userId: string) {
+    return this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'account_type', 'store_id', 'token_version'],
+    });
   }
 
   /* ────────────────────────────────────────────────

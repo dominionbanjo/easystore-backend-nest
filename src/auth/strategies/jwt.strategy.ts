@@ -1,31 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from 'src/users/entities/user.entity';
-
-export interface JwtAuthUser {
-  sub: string; // user ID
-  email: string;
-  role: string;
-}
-
-export interface JwtPayload {
-  sub: string;
-  email: string;
-  role: string;
-  token_version: number;
-  iat?: number; // issued at
-  exp?: number; // expiration timestamp
-}
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-  ) {
+  constructor(private readonly usersService: UsersService) {
     super({
       secretOrKey: process.env.JWT_SECRET,
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -35,11 +15,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload): Promise<JwtAuthUser> {
     const { sub, token_version } = payload;
 
-    const user = await this.userRepo.findOne({
-      where: { id: sub },
-      select: ['id', 'email', 'account_type', 'token_version'],
-    });
-    if (!user) throw new UnauthorizedException('User no longer exists');
+    const user = await this.usersService.getForJwtValidation(sub);
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
 
     if (user.token_version !== token_version) {
       throw new UnauthorizedException('Token expired — please login again');
@@ -47,8 +27,23 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     return {
       sub: user.id,
-      email: user.email,
       role: user.account_type,
+      store_id: user.store_id,
     };
   }
+}
+
+export interface JwtAuthUser {
+  sub: string; // user ID
+  role: string; // account_type
+  store_id: string | null;
+}
+
+export interface JwtPayload {
+  sub: string;
+  role: string;
+  store_id: string | null;
+  token_version: number;
+  iat?: number;
+  exp?: number;
 }
