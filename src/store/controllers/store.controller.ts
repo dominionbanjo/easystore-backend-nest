@@ -64,6 +64,18 @@ export class StoreController {
     });
   }
 
+  // GET /store/:identifier/products/grouped-by-category
+  @Get(':identifier/products/grouped-by-category')
+  getStoreProductsGroupedByCategory(
+    @Param('identifier') identifier: string,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.storeService.getStoreProductsGroupedByCategory(
+      identifier,
+      pagination,
+    );
+  }
+
   /* ────────────────────────────────────────────────
      CREATE STORE
   ──────────────────────────────────────────────── */

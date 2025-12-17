@@ -1,4 +1,4 @@
-import { ICartItem } from 'src/cart/entities/cart.entity';
+import { ICartItem } from 'src/cart/types/types';
 import { Delivery } from 'src/delivery/entities/delivery.entity';
 import { Escrow } from 'src/escrow/entities/escrow.entity';
 import { Payout } from 'src/payout/entities/payout.entity';

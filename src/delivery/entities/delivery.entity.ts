@@ -11,7 +11,7 @@ import {
 
 import { User } from 'src/users/entities/user.entity';
 import { Order } from 'src/order/entities/order.entity';
-import { ICartItem } from 'src/cart/entities/cart.entity';
+import { ICartItem } from 'src/cart/types/types';
 
 export type DeliveryStatus =
   | 'pending'

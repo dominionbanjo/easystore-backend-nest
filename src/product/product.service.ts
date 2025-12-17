@@ -20,6 +20,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { buildPagination } from 'src/common/utils/response/pagination.util';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { UploadService } from 'src/common/services/upload.service';
+import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from './queries/products-grouped-by-category.sql';
 
 @Injectable()
 export class ProductService {
@@ -50,64 +51,43 @@ export class ProductService {
      1️⃣ CATEGORIES WITH LIMITED PRODUCTS (20 MAX)
   ──────────────────────────────────────────────── */
   async getProductsGroupedByCategory(
-    pagination: PaginationQueryDto = { page: 1, limit: 10 },
+    pagination: PaginationQueryDto = { limit: 10 },
   ) {
-    const page = pagination.page ?? 1;
-    const limit = pagination.limit ?? 10;
+    const perCategoryLimit = pagination.limit ?? 10;
 
-    // 1️⃣ Fetch parent categories
-    const [parents, total] = await this.categoryRepo.findAndCount({
+    const rows = await this.productRepo.query(
+      PRODUCTS_GROUPED_BY_CATEGORY_SQL,
+      [perCategoryLimit],
+    );
+
+    // 2️⃣ Fetch parent categories (cheap)
+    const parents = await this.categoryRepo.find({
       where: { parent_id: IsNull() },
+      select: ['id', 'name', 'slug'],
       order: { created_at: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
     });
 
-    if (!parents.length) {
-      return {
-        message: 'Categories with products retrieved successfully',
-        data: buildPagination([], total, page, limit),
-      };
-    }
+    // 3️⃣ Group results
+    const grouped = new Map<string, any[]>();
 
-    const parentIds = parents.map((c) => c.id);
-
-    // 2️⃣ Fetch child categories
-    const children = await this.categoryRepo.find({
-      where: { parent_id: In(parentIds) },
-      select: ['id', 'parent_id'],
-    });
-
-    const childIds = children.map((c) => c.id);
-
-    // 3️⃣ Fetch products belonging to child categories
-    const products = await this.productRepo.find({
-      where: {
-        category_id: In(childIds),
-      },
-      order: { created_at: 'DESC' },
-      take: 20 * parents.length,
-    });
-
-    // 4️⃣ Group products by parent category
-    const childToParent = new Map(children.map((c) => [c.id, c.parent_id]));
-
-    const grouped = new Map<string, Product[]>();
-
-    for (const product of products) {
-      const parentId = childToParent.get(product.category_id);
-      if (!parentId) continue;
-
-      if (!grouped.has(parentId)) {
-        grouped.set(parentId, []);
+    for (const row of rows) {
+      if (!grouped.has(row.parent_category_id)) {
+        grouped.set(row.parent_category_id, []);
       }
 
-      if (grouped.get(parentId)!.length < 20) {
-        grouped.get(parentId)!.push(product);
-      }
+      grouped.get(row.parent_category_id)!.push({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        price: row.price,
+        discount_price: row.discount_price,
+        stock: row.stock,
+        rating_average: row.rating_average,
+        store_name: row.store_name,
+      });
     }
 
-    // 5️⃣ Attach products to parent categories
+    // 4️⃣ Attach to categories
     const data = parents.map((parent) => ({
       id: parent.id,
       name: parent.name,
@@ -117,7 +97,47 @@ export class ProductService {
 
     return {
       message: 'Categories with products retrieved successfully',
-      data: buildPagination(data, total, page, limit),
+      data,
+    };
+  }
+
+  /* ────────────────────────────────────────────────
+   FEATURED PRODUCTS
+─────────────────────────────────────────────── */
+  async getFeaturedProducts(pagination: PaginationQueryDto = { limit: 20 }) {
+    const limit = pagination.limit ?? 20;
+
+    const products = await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoin('product.store', 'store')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.discount_price',
+        'product.stock',
+        'product.rating_average',
+        'product.created_at',
+        'store.store_name',
+      ])
+      .where('product.featured = :featured', { featured: true })
+      .orderBy('product.created_at', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return {
+      message: 'Featured products retrieved successfully',
+      data: products.map((p) => ({
+        id: p.product_id,
+        name: p.product_name,
+        slug: p.product_slug,
+        price: p.product_price,
+        discount_price: p.product_discount_price,
+        stock: p.product_stock,
+        rating_average: p.product_rating_average,
+        store_name: p.store_store_name,
+      })),
     };
   }
 

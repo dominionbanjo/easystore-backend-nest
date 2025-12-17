@@ -76,6 +76,14 @@ export class ProductController {
     return this.productService.getAllProducts(pagination);
   }
 
+  /**
+   * ⭐ Featured products (homepage)
+   */
+  @Get('featured')
+  getFeaturedProducts(@Query() pagination: PaginationQueryDto) {
+    return this.productService.getFeaturedProducts(pagination);
+  }
+
   /* ────────────────────────────────────────────────
      SINGLE RESOURCE
   ──────────────────────────────────────────────── */

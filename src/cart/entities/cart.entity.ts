@@ -1,56 +1,45 @@
-import { User } from 'src/users/entities/user.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  OneToOne,
-  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
 
-export interface ICartItem {
-  product_id: string;
-  name: string;
-  slug: string;
-  price: number;
-  discount_price: number | null;
-  image: string | null;
-  quantity: number;
-  size: string | null;
-  color: string | null;
-  shipping_cost: number | null;
-}
+import { User } from 'src/users/entities/user.entity';
+import { ICartItem } from '../types/types';
 
 @Entity({ name: 'cart' })
+@Index('IDX_CART_USER_ID', ['user_id'], { unique: true }) // one cart per user
 export class Cart {
-  /* ───────────────────────────────────────────────
-     PRIMARY KEY
-  ─────────────────────────────────────────────── */
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  /* ───────────────────────────────────────────────
-     RELATION → USER (ONE CART PER USER)
-  ─────────────────────────────────────────────── */
-  @Index('IDX_CART_USER_ID')
-  @Column({ type: 'uuid', unique: true })
+  /* ────────────────────────────────────────────────
+     RELATION → USER
+  ──────────────────────────────────────────────── */
+  @Column({ type: 'uuid' })
   user_id: string;
 
   @OneToOne(() => User, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  /* ───────────────────────────────────────────────
-     CART ITEMS — JSONB ARRAY
-  ─────────────────────────────────────────────── */
-  @Column({ type: 'jsonb', default: [] })
+  /* ────────────────────────────────────────────────
+     CART ITEMS (JSONB)
+  ──────────────────────────────────────────────── */
+  @Column({
+    type: 'jsonb',
+    default: () => "'[]'",
+  })
   cart_items: ICartItem[];
 
-  /* ───────────────────────────────────────────────
+  /* ────────────────────────────────────────────────
      TIMESTAMPS
-  ─────────────────────────────────────────────── */
+  ──────────────────────────────────────────────── */
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

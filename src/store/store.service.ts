@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 
@@ -23,6 +23,7 @@ import { VerifiedBankInfo } from './types/store-analytics.interface';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { CreateStorePublicDto } from './dto/create-pstore.dto';
 import { ProductCategory } from 'src/product-category/entities/product-category.entity';
+import { STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL } from 'src/product/queries/products-grouped-by-category.store.sql';
 
 @Injectable()
 export class StoreService {
@@ -319,6 +320,78 @@ export class StoreService {
 
     await this.cache.set(cacheKey, response);
     return response;
+  }
+
+  async getStoreProductsGroupedByCategory(
+    identifier: string,
+    pagination: PaginationDto = { limit: 10 },
+  ) {
+    if (!identifier) {
+      throw new BadRequestException('Store identifier required');
+    }
+
+    const perCategoryLimit = pagination.limit ?? 10;
+
+    const isUUID = /^[0-9a-f]{8}-/.test(identifier);
+
+    // 1️⃣ Resolve store id only
+    const store = await this.storeRepo.findOne({
+      where: isUUID ? { id: identifier } : { slug: identifier },
+      select: ['id', 'store_name'],
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    // 2️⃣ Run optimized store-scoped query
+    const rows = await this.productRepo.query(
+      STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL,
+      [store.id, perCategoryLimit],
+    );
+
+    // 3️⃣ Fetch parent categories (cheap)
+    const parents = await this.categoryRepo.find({
+      where: { parent_id: IsNull() },
+      select: ['id', 'name', 'slug'],
+      order: { created_at: 'ASC' },
+    });
+
+    // 4️⃣ Group products by parent category
+    const grouped = new Map<string, any[]>();
+
+    for (const row of rows) {
+      if (!grouped.has(row.parent_category_id)) {
+        grouped.set(row.parent_category_id, []);
+      }
+
+      grouped.get(row.parent_category_id)!.push({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        price: row.price,
+        discount_price: row.discount_price,
+        stock: row.stock,
+        rating_average: row.rating_average,
+      });
+    }
+
+    // 5️⃣ Attach to categories (same format as global)
+    const data = parents.map((parent) => ({
+      id: parent.id,
+      name: parent.name,
+      slug: parent.slug,
+      products: grouped.get(parent.id) ?? [],
+    }));
+
+    return {
+      message: 'Store products retrieved successfully',
+      store: {
+        id: store.id,
+        store_name: store.store_name,
+      },
+      data,
+    };
   }
 
   /* ────────────────────────────────────────────────

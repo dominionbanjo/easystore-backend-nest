@@ -9,7 +9,7 @@ import {
 } from './entities/store-analytics.entity';
 import { User } from 'src/users/entities/user.entity';
 import { CacheService } from 'src/cache/cache.service';
-import { ICartItem } from 'src/cart/entities/cart.entity';
+import { ICartItem } from 'src/cart/types/types';
 
 @Injectable()
 export class StoreAnalyticsService {
