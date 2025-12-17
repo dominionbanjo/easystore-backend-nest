@@ -5,7 +5,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { StoreOwnerGuard } from 'src/store/guards/store-owner.guard';
-import { ICartItem } from 'src/cart/entities/cart.entity';
+import { ICartItem } from 'src/cart/types/types';
 
 @Controller('store-analytics')
 @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)

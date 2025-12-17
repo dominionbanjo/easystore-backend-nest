@@ -149,6 +149,8 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   total_sold: number;
 
+  @Column({ type: 'boolean', default: false })
+  featured: boolean;
   /* ────────────────────────────────────────────────
      TIMESTAMPS
   ───────────────────────────────────────────────── */
