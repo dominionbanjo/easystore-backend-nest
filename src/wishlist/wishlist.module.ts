@@ -5,10 +5,13 @@ import { Wishlist } from './entities/wishlist.entity';
 import { WishlistService } from './wishlist.service';
 import { WishlistController } from './wishlist.controller';
 
+import { Product } from 'src/product/entities/product.entity';
+import { CacheModule } from 'src/cache/cache.module';
+
 @Module({
-  imports: [TypeOrmModule.forFeature([Wishlist])],
+  imports: [TypeOrmModule.forFeature([Wishlist, Product]), CacheModule],
   controllers: [WishlistController],
   providers: [WishlistService],
-  exports: [TypeOrmModule], // <-- Important for UserModule to use it
+  exports: [WishlistService],
 })
 export class WishlistModule {}

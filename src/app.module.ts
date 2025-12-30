@@ -29,7 +29,7 @@ import { StoreAnalyticsModule } from './store-analytics/store-analytics.module';
 
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url: process.env.DATABASE_URL, // Neon connection string
+      url: process.env.DATABASE_URL,
       autoLoadEntities: true,
       synchronize: false, // turn off in production
       ssl: {

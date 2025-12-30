@@ -1,34 +1,31 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Query } from '@nestjs/common';
+
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
-import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { ListTransactionsDto } from './dto/list-transactions.dto';
+import { ReverseTransactionDto } from './dto/reverse-transaction.dto';
 
 @Controller('transactions')
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(private readonly service: TransactionsService) {}
 
   @Post()
-  create(@Body() createTransactionDto: CreateTransactionDto) {
-    return this.transactionsService.create(createTransactionDto);
+  create(@Body() dto: CreateTransactionDto) {
+    return this.service.create(dto);
   }
 
   @Get()
-  findAll() {
-    return this.transactionsService.findAll();
+  list(@Query() query: ListTransactionsDto) {
+    return this.service.list(query);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.transactionsService.findOne(+id);
+  getOne(@Param('id') id: string) {
+    return this.service.getOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTransactionDto: UpdateTransactionDto) {
-    return this.transactionsService.update(+id, updateTransactionDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.transactionsService.remove(+id);
+  @Post(':id/reverse')
+  reverse(@Param('id') id: string, @Body() dto: ReverseTransactionDto) {
+    return this.service.reverse(id, dto.reason);
   }
 }

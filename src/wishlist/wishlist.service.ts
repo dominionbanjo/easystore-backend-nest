@@ -1,26 +1,169 @@
-import { Injectable } from '@nestjs/common';
-import { CreateWishlistDto } from './dto/create-wishlist.dto';
-import { UpdateWishlistDto } from './dto/update-wishlist.dto';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
+import { Wishlist } from './entities/wishlist.entity';
+import { Product } from 'src/product/entities/product.entity';
+import { CacheService } from 'src/cache/cache.service';
 
 @Injectable()
 export class WishlistService {
-  create(createWishlistDto: CreateWishlistDto) {
-    return 'This action adds a new wishlist';
+  constructor(
+    @InjectRepository(Wishlist)
+    private readonly wishlistRepo: Repository<Wishlist>,
+
+    @InjectRepository(Product)
+    private readonly productRepo: Repository<Product>,
+
+    private readonly cache: CacheService,
+  ) {}
+
+  /* ────────────────────────────────────────────────
+     📄 GET WISHLIST (CACHED)
+  ──────────────────────────────────────────────── */
+  async getWishlist(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
+    const cacheKey = `wishlist:user:${userId}`;
+    const cached = await this.cache.get<{
+      message: string;
+      wishlist: Wishlist[];
+    }>(cacheKey);
+
+    if (cached) return cached;
+
+    const wishlist = await this.wishlistRepo.find({
+      where: { user_id: userId },
+      order: { created_at: 'DESC' },
+    });
+
+    const response = {
+      message: 'Wishlist retrieved successfully',
+      wishlist,
+    };
+
+    await this.cache.set(cacheKey, response);
+    return response;
   }
 
-  findAll() {
-    return `This action returns all wishlist`;
+  /* ────────────────────────────────────────────────
+     ➕ ADD TO WISHLIST
+  ──────────────────────────────────────────────── */
+  async addToWishlist(
+    userId: string,
+    product: {
+      product_id: string;
+      name: string;
+      image?: string | null;
+      price: number;
+    },
+  ) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
+    if (!product?.product_id) {
+      throw new BadRequestException('Product ID is required');
+    }
+
+    const exists = await this.productRepo.findOne({
+      where: { id: product.product_id },
+    });
+
+    if (!exists) {
+      throw new BadRequestException(
+        'Product does not exist, cannot be added to wishlist',
+      );
+    }
+
+    const existing = await this.wishlistRepo.findOne({
+      where: {
+        user_id: userId,
+        product_id: product.product_id,
+      },
+    });
+
+    if (existing) {
+      return {
+        message: 'Product already in wishlist',
+        wishlist: existing,
+      };
+    }
+
+    const wishlistItem = this.wishlistRepo.create({
+      user_id: userId,
+      product_id: product.product_id,
+      name: product.name,
+      image: product.image ?? null,
+      price: product.price,
+    });
+
+    const saved = await this.wishlistRepo.save(wishlistItem);
+
+    await this.cache.clearPrefix('wishlist');
+
+    return {
+      message: 'Added to wishlist',
+      wishlist: saved,
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} wishlist`;
+  /* ────────────────────────────────────────────────
+     🗑️ REMOVE FROM WISHLIST
+  ──────────────────────────────────────────────── */
+  async removeFromWishlist(userId: string, productId: string) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
+    if (!productId) {
+      throw new BadRequestException('Product ID is required');
+    }
+
+    const existing = await this.wishlistRepo.findOne({
+      where: {
+        user_id: userId,
+        product_id: productId,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Product not found in wishlist');
+    }
+
+    await this.wishlistRepo.delete(existing.id);
+
+    await this.cache.clearPrefix('wishlist');
+
+    return {
+      message: 'Product removed from wishlist',
+    };
   }
 
-  update(id: number, updateWishlistDto: UpdateWishlistDto) {
-    return `This action updates a #${id} wishlist`;
-  }
+  /* ────────────────────────────────────────────────
+     ❌ CLEAR WISHLIST
+  ──────────────────────────────────────────────── */
+  async clearWishlist(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} wishlist`;
+    const result = await this.wishlistRepo.delete({
+      user_id: userId,
+    });
+
+    await this.cache.clearPrefix('wishlist');
+
+    return {
+      message: `Wishlist cleared (${result.affected ?? 0} item${
+        result.affected === 1 ? '' : 's'
+      } removed)`,
+    };
   }
 }
