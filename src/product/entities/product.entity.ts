@@ -7,10 +7,12 @@ import {
   Index,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Store } from 'src/store/entities/store.entity';
 import { ProductCategory } from 'src/product-category/entities/product-category.entity';
+import { ProductReview } from 'src/review/entities/review.entity';
 
 export interface ProductImage {
   url: string;
@@ -67,6 +69,9 @@ export class Product {
   })
   @JoinColumn({ name: 'category_id' })
   category_ref: ProductCategory;
+
+  @OneToMany(() => ProductReview, (review) => review.product)
+  reviews: ProductReview[];
   /* ────────────────────────────────────────────────
      BASIC PRODUCT FIELDS
   ───────────────────────────────────────────────── */

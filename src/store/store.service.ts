@@ -60,8 +60,38 @@ export class StoreService {
   }
 
   /* ────────────────────────────────────────────────
-     CREATE STORE
-  ──────────────────────────────────────────────── */
+   VALIDATE VENDOR FOR ONLINE PAYMENTS
+   (USED BY ORDER SERVICE)
+──────────────────────────────────────────────── */
+  async validateVendorForOnline(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('Vendor user ID is required');
+    }
+
+    const store = await this.storeRepo.findOne({
+      where: { user_id: userId },
+      select: [
+        'id',
+        'user_id',
+        'store_name',
+        'payout_verified',
+        'recipient_code',
+      ],
+    });
+
+    if (!store) {
+      throw new BadRequestException(`Vendor not found: ${userId}`);
+    }
+
+    if (!store.payout_verified || !store.recipient_code) {
+      throw new BadRequestException(
+        `Vendor ${store.store_name} cannot receive online payments`,
+      );
+    }
+
+    return store;
+  }
+
   /* ────────────────────────────────────────────────
    CREATE STORE (INTERNAL CORE)
 ──────────────────────────────────────────────── */
@@ -215,6 +245,30 @@ export class StoreService {
 
     await this.cache.set(cacheKey, response);
     return response;
+  }
+
+  /* ────────────────────────────────────────────────
+   GET STORE BY USER (INTERNAL / GUARDED)
+──────────────────────────────────────────────── */
+  async getStoreByUser(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
+    const cacheKey = `svc:store:user:${userId}`;
+    const cached = await this.cache.get<Store>(cacheKey);
+    if (cached) return cached;
+
+    const store = await this.storeRepo.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found for this user');
+    }
+
+    await this.cache.set(cacheKey, store);
+    return store;
   }
 
   /* ────────────────────────────────────────────────

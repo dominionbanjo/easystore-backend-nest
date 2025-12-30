@@ -31,9 +31,6 @@ export class ProductService {
     @InjectRepository(ProductCategory)
     private readonly categoryRepo: Repository<ProductCategory>,
 
-    @InjectRepository(Store)
-    private readonly storeRepo: Repository<Store>,
-
     private readonly upload: UploadService,
   ) {}
 
@@ -60,12 +57,29 @@ export class ProductService {
       [perCategoryLimit],
     );
 
-    // 2️⃣ Fetch parent categories (cheap)
+    // 2️⃣ Fetch parent categories
     const parents = await this.categoryRepo.find({
       where: { parent_id: IsNull() },
       select: ['id', 'name', 'slug'],
       order: { created_at: 'ASC' },
     });
+
+    // 🔒 Normalize JSONB → return ONLY image URL
+    const extractImageUrl = (image: any): string | null => {
+      if (!image) return null;
+
+      // JSONB sometimes comes as string
+      if (typeof image === 'string') {
+        try {
+          const parsed = JSON.parse(image);
+          return parsed?.url ?? null;
+        } catch {
+          return null;
+        }
+      }
+
+      return image?.url ?? null;
+    };
 
     // 3️⃣ Group results
     const grouped = new Map<string, any[]>();
@@ -79,11 +93,14 @@ export class ProductService {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        price: row.price,
-        discount_price: row.discount_price,
+        price: Number(row.price),
+        discount_price: row.discount_price ? Number(row.discount_price) : null,
         stock: row.stock,
-        rating_average: row.rating_average,
+        rating_average: Number(row.rating_average),
         store_name: row.store_name,
+
+        // ✅ FINAL: image URL only
+        image: extractImageUrl(row.image),
       });
     }
 
@@ -150,16 +167,51 @@ export class ProductService {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
 
-    const [products, total] = await this.productRepo.findAndCount({
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { created_at: 'DESC' },
-      relations: ['category_ref'],
-    });
+    const qb = this.productRepo
+      .createQueryBuilder('product')
+      .leftJoin('product.category_ref', 'category')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.discount_price',
+        'product.stock',
+        'product.rating_average',
+        'product.image',
+        'product.created_at',
+
+        'category.id',
+        'category.name',
+        'category.slug',
+      ])
+      .orderBy('product.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [products, total] = await qb.getManyAndCount();
+
+    const data = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      stock: p.stock,
+      rating_average: Number(p.rating_average),
+      image: p.image?.url ?? null, // ✅ URL only
+      category: p.category_ref
+        ? {
+            id: p.category_ref.id,
+            name: p.category_ref.name,
+            slug: p.category_ref.slug,
+          }
+        : null,
+    }));
 
     return {
       message: 'Products retrieved successfully',
-      data: buildPagination(products, total, page, limit),
+      data: buildPagination(data, total, page, limit),
     };
   }
 

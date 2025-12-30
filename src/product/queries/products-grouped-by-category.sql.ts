@@ -9,6 +9,10 @@ WITH ranked_products AS (
     p.stock,
     p.rating_average,
     p.created_at,
+
+    -- ✅ FIX: include product image (JSONB)
+    p.image,
+
     s.store_name,
 
     -- Resolve MAIN category

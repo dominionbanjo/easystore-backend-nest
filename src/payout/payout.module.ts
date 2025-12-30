@@ -1,13 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { Payout } from './entities/payout.entity';
 import { PayoutService } from './payout.service';
-import { PayoutController } from './payout.controller';
+
+import { CacheModule } from 'src/cache/cache.module';
+import { TransactionsModule } from 'src/transactions/transactions.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Payout])],
-  controllers: [PayoutController],
+  imports: [
+    TypeOrmModule.forFeature([Payout]),
+
+    CacheModule,
+    TransactionsModule, //
+  ],
   providers: [PayoutService],
-  exports: [TypeOrmModule], // <-- REQUIRED
+  exports: [PayoutService],
 })
 export class PayoutModule {}

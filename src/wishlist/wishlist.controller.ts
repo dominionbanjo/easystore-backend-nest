@@ -1,34 +1,78 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
+
 import { WishlistService } from './wishlist.service';
-import { CreateWishlistDto } from './dto/create-wishlist.dto';
-import { UpdateWishlistDto } from './dto/update-wishlist.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import * as jwtStrategy from 'src/auth/strategies/jwt.strategy';
 
 @Controller('wishlist')
+@UseGuards(JwtAuthGuard)
 export class WishlistController {
   constructor(private readonly wishlistService: WishlistService) {}
 
-  @Post()
-  create(@Body() createWishlistDto: CreateWishlistDto) {
-    return this.wishlistService.create(createWishlistDto);
-  }
-
+  /* ────────────────────────────────────────────────
+     📄 GET MY WISHLIST
+  ──────────────────────────────────────────────── */
   @Get()
-  findAll() {
-    return this.wishlistService.findAll();
+  async getMyWishlist(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.wishlistService.getWishlist(user.sub);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.wishlistService.findOne(+id);
+  /* ────────────────────────────────────────────────
+     ➕ ADD TO WISHLIST
+  ──────────────────────────────────────────────── */
+  @Post()
+  async addToWishlist(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body()
+    body: {
+      product_id: string;
+      name: string;
+      image?: string | null;
+      price: number;
+    },
+  ) {
+    if (!body.product_id || !body.name || body.price == null) {
+      throw new BadRequestException('product_id, name and price are required');
+    }
+
+    return this.wishlistService.addToWishlist(user.sub, {
+      product_id: body.product_id,
+      name: body.name,
+      image: body.image ?? null,
+      price: body.price,
+    });
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateWishlistDto: UpdateWishlistDto) {
-    return this.wishlistService.update(+id, updateWishlistDto);
+  /* ────────────────────────────────────────────────
+     🗑️ REMOVE FROM WISHLIST
+  ──────────────────────────────────────────────── */
+  @Delete(':productId')
+  async removeFromWishlist(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Param('productId') productId: string,
+  ) {
+    if (!productId) {
+      throw new BadRequestException('Product ID is required');
+    }
+
+    return this.wishlistService.removeFromWishlist(user.sub, productId);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.wishlistService.remove(+id);
+  /* ────────────────────────────────────────────────
+     ❌ CLEAR WISHLIST
+  ──────────────────────────────────────────────── */
+  @Delete()
+  async clearWishlist(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.wishlistService.clearWishlist(user.sub);
   }
 }
