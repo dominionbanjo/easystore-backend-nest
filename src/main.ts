@@ -16,7 +16,7 @@ async function bootstrap() {
   app.enableCors({
     origin:
       process.env.NODE_ENV === 'production'
-        ? ['https://easystore.com', 'https://admin.easystore.com']
+        ? ['https://easystore01.netlify.app']
         : true, // allow all origins in dev
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
