@@ -242,26 +242,36 @@ export class AuthService {
     const payload = ticket.getPayload() as
       | (TokenPayload & { picture?: string })
       | null;
-    if (!payload) throw new BadRequestException('Invalid Google token');
+
+    if (!payload) {
+      throw new BadRequestException('Invalid Google token');
+    }
 
     const email = payload.email;
     const name = payload.name;
-    if (!email) throw new BadRequestException('Google account has no email');
-    if (!name)
-      throw new BadRequestException('Google account has no display name');
-
     const picture = payload.picture ?? null;
     const email_verified = payload.email_verified ?? false;
+
+    if (!email) {
+      throw new BadRequestException('Google account has no email');
+    }
+
+    if (!name) {
+      throw new BadRequestException('Google account has no display name');
+    }
 
     let user = await this.users.findByEmail(email);
 
     if (!user) {
       const [first, last = ''] = name.trim().split(' ');
 
+      const username = await this.generateUniqueUsername(first, last);
+
       user = await this.users.create({
         first_name: first,
         last_name: last,
         email,
+        username, // ✅ REQUIRED
         email_verified,
         avatar: picture,
         signup_medium: 'google',
