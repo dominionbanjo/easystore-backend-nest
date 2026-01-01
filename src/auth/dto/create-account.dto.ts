@@ -39,7 +39,7 @@ export class CreateAccountDto {
 
   @IsOptional()
   @IsString()
-  username?: string;
+  description?: string;
 
   @IsOptional()
   @IsString()
