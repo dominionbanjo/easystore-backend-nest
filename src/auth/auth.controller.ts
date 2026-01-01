@@ -11,6 +11,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtAuthUser } from './strategies/jwt.strategy';
+import { GoogleLoginDto } from './dto/google-login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -26,6 +27,11 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('google')
+  continueWithGoogle(@Body() dto: GoogleLoginDto) {
+    return this.authService.continueWithGoogle(dto.token);
   }
 
   // VERIFY OTP

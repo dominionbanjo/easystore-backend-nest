@@ -39,6 +39,12 @@ export class UsersService {
       .getOne();
   }
 
+  async existsByUsername(username: string): Promise<boolean> {
+    return this.userRepo.exist({
+      where: { username },
+    });
+  }
+
   // findOne(opts: any) {
   //   return this.userRepo.findOne(opts);
   // }

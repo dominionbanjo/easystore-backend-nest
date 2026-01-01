@@ -20,8 +20,6 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 
 @Controller('categories')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin') // 🔒 ALL routes admin-only
 export class ProductCategoryController {
   constructor(
     private readonly productCategoryService: ProductCategoryService,
@@ -31,6 +29,8 @@ export class ProductCategoryController {
      CREATE CATEGORY
      POST /product-categories
   ──────────────────────────────────────────────── */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin') // 🔒 ALL routes admin-only
   @Post()
   create(@Body() dto: CreateProductCategoryDto) {
     return this.productCategoryService.create(dto);
@@ -58,6 +58,8 @@ export class ProductCategoryController {
      UPDATE CATEGORY
      PATCH /product-categories/:id
   ──────────────────────────────────────────────── */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin') // 🔒 ALL routes admin-only
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateProductCategoryDto) {
     return this.productCategoryService.update(id, dto);
@@ -67,6 +69,8 @@ export class ProductCategoryController {
      DELETE CATEGORY
      DELETE /product-categories/:id
   ──────────────────────────────────────────────── */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin') // 🔒 ALL routes admin-only
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.productCategoryService.remove(id);

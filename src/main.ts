@@ -12,16 +12,30 @@ async function bootstrap() {
   // 🔧 Cloudinary
   configureCloudinary();
 
-  // ✅ GLOBAL VALIDATION (THIS WAS MISSING)
+  // 🌍 CORS (safe for cookies & auth)
+  app.enableCors({
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? ['https://easystore.com', 'https://admin.easystore.com']
+        : true, // allow all origins in dev
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  });
+
+  // ✅ GLOBAL VALIDATION
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // strip unknown fields
       forbidNonWhitelisted: true, // throw on extra fields
       transform: true, // JSON → DTO instance
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     }),
   );
 
-  // 🌍 Global interceptors
+  // 🌍 GLOBAL INTERCEPTORS
   app.useGlobalInterceptors(
     new LoggingInterceptor(), // logs all requests
     new ResponseInterceptor(), // wraps responses { status, message, data }

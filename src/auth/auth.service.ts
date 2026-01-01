@@ -58,6 +58,25 @@ export class AuthService {
     };
   }
 
+  private async generateUniqueUsername(
+    firstName: string,
+    lastName?: string,
+  ): Promise<string> {
+    const base = `${firstName}${lastName ?? ''}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+
+    let username = base;
+    let counter = 0;
+
+    while (await this.users.existsByUsername(username)) {
+      counter += 1;
+      username = `${base}${counter}`;
+    }
+
+    return username;
+  }
+
   // ------------------------------------------------------------------
   // SIGNUP
   // ------------------------------------------------------------------
@@ -67,9 +86,9 @@ export class AuthService {
 
     // Validate vendor requirements
     if (dto.account_type === 'vendor') {
-      if (!dto.store_name || !dto.username) {
+      if (!dto.store_name || !dto.description) {
         throw new BadRequestException(
-          'Vendors must provide both store_name and username',
+          'Vendors must provide both store name and description',
         );
       }
     }
@@ -99,6 +118,11 @@ export class AuthService {
     // Create hashed password
     const hashed = await hashPassword(dto.password);
 
+    const username =
+      dto.account_type === 'vendor'
+        ? await this.generateUniqueUsername(dto.first_name, dto.last_name)
+        : null;
+
     // ---------------------------
     // 1️⃣ Create user
     // ---------------------------
@@ -109,7 +133,7 @@ export class AuthService {
       phone_number: dto.phone_number ?? null,
       account_type: dto.account_type,
       store_name: dto.store_name ?? null,
-      username: dto.username ?? null,
+      username: username || undefined,
       referral_code: dto.referral_code ?? null,
       current_sales_channel: salesChannel,
       agree_to_terms: dto.agree_to_terms,
@@ -129,7 +153,7 @@ export class AuthService {
           user_id: user.id,
           email: dto.email,
           store_name: dto.store_name!,
-          description: null,
+          description: dto.description,
         });
 
         // Link user to new store
@@ -165,6 +189,7 @@ export class AuthService {
     return {
       user: this.sanitizeUser(user),
       access: access_token,
+      message: 'Signup Successful',
     };
   }
 
@@ -243,7 +268,13 @@ export class AuthService {
       });
     }
 
-    return this.generateJwt(user);
+    const { access_token } = this.generateJwt(user);
+
+    return {
+      user: this.sanitizeUser(user),
+      access: access_token,
+      message: 'Login Successful',
+    };
   }
 
   // ------------------------------------------------------------------

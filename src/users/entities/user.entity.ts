@@ -73,8 +73,9 @@ export class User {
   @Column({ type: 'varchar', length: 100, nullable: true })
   store_name: string | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  username: string | null;
+  @Index('IDX_USER_USERNAME', { unique: true })
+  @Column({ type: 'varchar', length: 100 })
+  username: string;
 
   /* SECURITY */
   @Column({ type: 'int', default: 0 })
