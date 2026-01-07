@@ -128,6 +128,9 @@ export class EscrowService {
 
     const buyer = await this.users.findById(escrow.buyer_id);
     const vendor = await this.users.findById(escrow.vendor_id);
+    const store = await this.storeService.getStoreByUser(escrow.vendor_id);
+
+    const vendorName = store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     if (buyer?.email) {
       await this.mail.sendEscrowFundedBuyer({
@@ -140,7 +143,7 @@ export class EscrowService {
     if (vendor?.email) {
       await this.mail.sendEscrowFundedVendor({
         email: vendor.email,
-        name: vendor.first_name ?? vendor.store_name ?? 'Vendor',
+        name: vendorName,
         order_id: escrow.order_id!,
       });
     }

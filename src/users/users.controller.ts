@@ -12,6 +12,8 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -46,15 +48,6 @@ export class UsersController {
     @Body() body: UpdateProfileDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    // Parse address JSON if included
-    if (typeof body.address === 'string') {
-      try {
-        body.address = JSON.parse(body.address);
-      } catch {
-        throw new BadRequestException('Invalid address JSON format');
-      }
-    }
-
     return this.usersService.updateProfile(user.sub, body, file);
   }
 

@@ -134,6 +134,7 @@ export class ProductService {
         'product.price',
         'product.discount_price',
         'product.stock',
+        'product.image',
         'product.rating_average',
         'product.created_at',
         'store.store_name',
@@ -153,6 +154,7 @@ export class ProductService {
         discount_price: p.product_discount_price,
         stock: p.product_stock,
         rating_average: p.product_rating_average,
+        image: p.product_image?.url ?? null, // ✅ URL only
         store_name: p.store_store_name,
       })),
     };

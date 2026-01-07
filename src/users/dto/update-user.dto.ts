@@ -1,32 +1,36 @@
+import { Transform, Type } from 'class-transformer';
 import {
   IsOptional,
   IsString,
   IsPhoneNumber,
-  IsEnum,
-  ValidateNested,
+  Allow,
+  IsObject,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-import * as userEntity from '../entities/user.entity';
 
-class AddressDto {
+export class AddressDto {
   @IsOptional()
   @IsString()
+  @Allow()
   street?: string;
 
   @IsOptional()
   @IsString()
+  @Allow()
   city?: string;
 
   @IsOptional()
   @IsString()
+  @Allow()
   state?: string;
 
   @IsOptional()
   @IsString()
+  @Allow()
   country?: string;
 
   @IsOptional()
   @IsString()
+  @Allow()
   postal_code?: string;
 }
 
@@ -40,19 +44,29 @@ export class UpdateProfileDto {
   last_name?: string;
 
   @IsOptional()
-  @IsPhoneNumber(undefined)
+  @IsPhoneNumber('NG')
   phone_number?: string;
-
-  @IsOptional()
-  @IsString()
-  store_name?: string;
 
   @IsOptional()
   @IsString()
   username?: string;
 
   @IsOptional()
-  @ValidateNested()
-  @Type(() => AddressDto)
-  address?: AddressDto;
+  @IsObject()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+
+    // multipart/form-data → string
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return undefined;
+      }
+    }
+
+    // already an object
+    return value;
+  })
+  address?: Record<string, string>;
 }

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   Index,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 
 import { Escrow } from 'src/escrow/entities/escrow.entity';
@@ -65,13 +66,8 @@ export class User {
   })
   account_type: AccountType;
 
-  /* STORE POINTER (SET NULL ON STORE DELETE) */
-  @Index('IDX_USER_STORE_ID')
-  @Column({ type: 'uuid', nullable: true })
-  store_id: string | null;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  store_name: string | null;
+  @OneToOne(() => Store, (store) => store.user)
+  store: Store | null;
 
   @Index('IDX_USER_USERNAME', { unique: true })
   @Column({ type: 'varchar', length: 100 })
@@ -161,10 +157,6 @@ export class User {
 
   @Column({ type: 'boolean', default: false })
   payout_verified: boolean;
-
-  /* RELATION → STORES */
-  @OneToMany(() => Store, (store) => store.user_id)
-  stores: Store[];
 
   /* OTHER RELATIONS */
   @OneToMany(() => Escrow, (e) => e.buyer)
