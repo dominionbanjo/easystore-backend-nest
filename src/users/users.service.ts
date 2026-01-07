@@ -13,6 +13,7 @@ import { Product } from 'src/product/entities/product.entity';
 import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { buildPagination } from 'src/common/utils/response/pagination.util';
+import { sanitizeUser } from 'src/utils/sanitizeUser';
 
 @Injectable()
 export class UsersService {
@@ -96,7 +97,6 @@ export class UsersService {
         'phone_number',
         'account_type',
         'email_verified',
-        'store_name',
         'created_at',
         'updated_at',
       ],
@@ -131,21 +131,33 @@ export class UsersService {
   }
 
   async getForJwtValidation(userId: string) {
-    return this.userRepo.findOne({
+    const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'account_type', 'store_id', 'token_version'],
+      select: ['id', 'account_type', 'token_version'],
+      relations: ['store'],
     });
+
+    if (!user) return null;
+
+    return {
+      id: user.id,
+      account_type: user.account_type,
+      token_version: user.token_version,
+      store_id: user.store?.id ?? null,
+    };
   }
 
   /* ────────────────────────────────────────────────
      USER PROFILE
   ──────────────────────────────────────────────── */
   async getProfile(userId: string) {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
+    const user2 = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user2) throw new NotFoundException('User not found');
 
-    delete (user as any).password;
-    return user;
+    delete (user2 as any).password;
+    const user = sanitizeUser(user2);
+
+    return { message: 'Profile retrieved successfully', user };
   }
 
   async updateProfile(
@@ -156,6 +168,9 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
+    // ---------------------------
+    // Avatar upload
+    // ---------------------------
     if (file) {
       const uploaded = await this.uploadService.uploadSingle(
         file,
@@ -172,6 +187,20 @@ export class UsersService {
       }
     }
 
+    // ---------------------------
+    // Address (merge, don't overwrite)
+    // ---------------------------
+    console.log(data.address);
+    if (data.address && typeof data.address === 'object') {
+      user.address = {
+        ...(user.address ?? {}),
+        ...data.address,
+      };
+    }
+
+    // ---------------------------
+    // Other allowed fields
+    // ---------------------------
     const allowed = [
       'first_name',
       'last_name',
@@ -179,23 +208,23 @@ export class UsersService {
       'store_name',
       'username',
       'current_sales_channel',
-      'address',
       'avatar',
       'avatar_public_id',
     ];
 
-    const filtered: Record<string, any> = {};
     for (const key of allowed) {
-      if (data[key] !== undefined) filtered[key] = data[key];
+      if (data[key] !== undefined) {
+        (user as any)[key] = data[key];
+      }
     }
 
-    if (Object.keys(filtered).length === 0) {
+    if (!data.address && !allowed.some((key) => data[key] !== undefined)) {
       throw new BadRequestException('No valid fields to update');
     }
 
-    filtered.updated_at = new Date();
+    user.updated_at = new Date();
 
-    await this.userRepo.update(userId, filtered);
+    await this.userRepo.save(user);
     return this.getProfile(userId);
   }
 

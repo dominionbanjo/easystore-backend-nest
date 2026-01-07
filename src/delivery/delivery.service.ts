@@ -33,6 +33,15 @@ export class DeliveryService {
     private readonly mail: DeliveryMailService,
   ) {}
 
+  private async getVendorEmailAndStoreName(vendorId: string) {
+    return this.userRepo
+      .createQueryBuilder('u')
+      .leftJoin('u.store', 's')
+      .select(['u.email', 'u.first_name', 's.store_name'])
+      .where('u.id = :id', { id: vendorId })
+      .getOne();
+  }
+
   /* ────────────────────────────────────────────────
      1️⃣ CREATE DELIVERY (IDEMPOTENT)
   ──────────────────────────────────────────────── */
@@ -71,7 +80,7 @@ export class DeliveryService {
     const buyer = await this.userRepo.findOne({ where: { id: buyer_id } });
     if (!buyer) throw new BadRequestException('Buyer not found');
 
-    const vendor = await this.userRepo.findOne({ where: { id: vendor_id } });
+    const vendor = await this.getVendorEmailAndStoreName(vendor_id);
 
     const addr = buyer.address ?? {};
 
@@ -102,7 +111,8 @@ export class DeliveryService {
     const buyerName = buyer.first_name ?? 'Customer';
 
     const vendorEmail = vendor?.email;
-    const vendorName = vendor?.first_name ?? vendor?.store_name ?? 'Vendor';
+    const vendorName =
+      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     if (buyerEmail) {
       await this.mail.sendDeliveryCreatedBuyer({
@@ -171,9 +181,10 @@ export class DeliveryService {
       where: { id: delivery.buyer_id },
     });
 
-    const vendor = await this.userRepo.findOne({
-      where: { id: delivery.vendor_id },
-    });
+    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+
+    const vendorName =
+      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Notifications
     if (buyer?.email) {
@@ -187,7 +198,7 @@ export class DeliveryService {
     if (vendor?.email) {
       await this.mail.sendDeliveryConfirmedVendor({
         email: vendor.email,
-        name: vendor.first_name ?? vendor.store_name ?? 'Vendor',
+        name: vendorName,
         order_id,
       });
     }
@@ -220,9 +231,10 @@ export class DeliveryService {
       where: { id: delivery.buyer_id },
     });
 
-    const vendor = await this.userRepo.findOne({
-      where: { id: delivery.vendor_id },
-    });
+    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+
+    const vendorName =
+      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     if (buyer?.email) {
       await this.mail.sendCourierAssignedBuyer({
@@ -236,7 +248,7 @@ export class DeliveryService {
     if (vendor?.email) {
       await this.mail.sendCourierAssignedVendor({
         email: vendor.email,
-        name: vendor.first_name ?? vendor.store_name ?? 'Vendor',
+        name: vendorName,
         order_id: delivery.order_id!,
         courier_id,
       });
@@ -315,9 +327,10 @@ export class DeliveryService {
       where: { id: delivery.buyer_id },
     });
 
-    const vendor = await this.userRepo.findOne({
-      where: { id: delivery.vendor_id },
-    });
+    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+
+    const vendorName =
+      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     if (buyer?.email) {
       await this.mail.sendDeliveryStatusUpdateBuyer({
@@ -331,7 +344,7 @@ export class DeliveryService {
     if (vendor?.email) {
       await this.mail.sendDeliveryStatusUpdateVendor({
         email: vendor.email,
-        name: vendor.first_name ?? vendor.store_name ?? 'Vendor',
+        name: vendorName,
         order_id: delivery.order_id!,
         status,
       });
@@ -388,9 +401,10 @@ export class DeliveryService {
       where: { id: delivery.buyer_id },
     });
 
-    const vendor = await this.userRepo.findOne({
-      where: { id: delivery.vendor_id },
-    });
+    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+
+    const vendorName =
+      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     if (buyer?.email) {
       await this.mail.sendDeliveryConfirmedBuyer({
@@ -403,7 +417,7 @@ export class DeliveryService {
     if (vendor?.email) {
       await this.mail.sendDeliveryConfirmedVendor({
         email: vendor.email,
-        name: vendor.first_name ?? vendor.store_name ?? 'Vendor',
+        name: vendorName,
         order_id,
       });
     }

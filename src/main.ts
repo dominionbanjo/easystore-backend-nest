@@ -12,33 +12,31 @@ async function bootstrap() {
   // 🔧 Cloudinary
   configureCloudinary();
 
-  // 🌍 CORS (safe for cookies & auth)
+  // 🌍 CORS
   app.enableCors({
     origin:
       process.env.NODE_ENV === 'production'
         ? ['https://easystore01.netlify.app']
-        : true, // allow all origins in dev
+        : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
-  // ✅ GLOBAL VALIDATION
+  // ✅ Global validation
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // strip unknown fields
-      forbidNonWhitelisted: true, // throw on extra fields
-      transform: true, // JSON → DTO instance
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
-  // 🌍 GLOBAL INTERCEPTORS
+  // 🌍 Interceptors
   app.useGlobalInterceptors(
-    new LoggingInterceptor(), // logs all requests
-    new ResponseInterceptor(), // wraps responses { status, message, data }
+    new LoggingInterceptor(),
+    new ResponseInterceptor(),
   );
 
   await app.listen(process.env.PORT ?? 3000);

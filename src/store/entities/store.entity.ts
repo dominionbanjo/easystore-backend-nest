@@ -10,6 +10,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 
 /* ────────────────────────────────────────────────
@@ -75,7 +76,7 @@ export class Store {
   @Column({ type: 'uuid' })
   user_id: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, (user) => user.store, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 

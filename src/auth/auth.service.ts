@@ -16,7 +16,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
-
+import { sanitizeUser } from 'src/utils/sanitizeUser';
 import {
   hashPassword,
   comparePassword,
@@ -39,24 +39,6 @@ export class AuthService {
     private readonly emailVerification: EmailVerificationService,
     private readonly resetPasswordVerification: ResetPasswordMailService,
   ) {}
-
-  private sanitizeUser(user: User) {
-    return {
-      id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      phone_number: user.phone_number,
-      account_type: user.account_type,
-      store_id: user.store_id,
-      store_name: user.store_name,
-      username: user.username,
-      avatar: user.avatar,
-      email_verified: user.email_verified,
-      signup_medium: user.signup_medium,
-      created_at: user.created_at,
-    };
-  }
 
   private async generateUniqueUsername(
     firstName: string,
@@ -84,7 +66,9 @@ export class AuthService {
     const existing = await this.users.findByEmail(dto.email);
     if (existing) throw new BadRequestException('User already exists');
 
-    // Validate vendor requirements
+    // ---------------------------
+    // Vendor validation
+    // ---------------------------
     if (dto.account_type === 'vendor') {
       if (!dto.store_name || !dto.description) {
         throw new BadRequestException(
@@ -93,7 +77,9 @@ export class AuthService {
       }
     }
 
-    // Validate sales channel
+    // ---------------------------
+    // Sales channel validation
+    // ---------------------------
     const allowed: SalesChannel[] = [
       'whatsapp',
       'instagram',
@@ -111,20 +97,20 @@ export class AuthService {
       salesChannel = formatted as SalesChannel;
     }
 
-    // Create OTP
+    // ---------------------------
+    // OTP + Password
+    // ---------------------------
     const otp = crypto.randomInt(100000, 999999).toString();
     const otp_expiration = toUTCDate(10) as Date;
-
-    // Create hashed password
     const hashed = await hashPassword(dto.password);
 
     const username =
       dto.account_type === 'vendor'
         ? await this.generateUniqueUsername(dto.first_name, dto.last_name)
-        : null;
+        : undefined;
 
     // ---------------------------
-    // 1️⃣ Create user
+    // 1️⃣ Create USER
     // ---------------------------
     const user = await this.users.create({
       first_name: dto.first_name,
@@ -132,8 +118,7 @@ export class AuthService {
       email: dto.email,
       phone_number: dto.phone_number ?? null,
       account_type: dto.account_type,
-      store_name: dto.store_name ?? null,
-      username: username || undefined,
+      username,
       referral_code: dto.referral_code ?? null,
       current_sales_channel: salesChannel,
       agree_to_terms: dto.agree_to_terms,
@@ -145,33 +130,25 @@ export class AuthService {
     });
 
     // ---------------------------
-    // 2️⃣ If vendor → CREATE STORE using StoreService
+    // 2️⃣ If vendor → CREATE STORE
     // ---------------------------
     if (dto.account_type === 'vendor') {
       try {
-        const store = await this.storeService.createStore({
+        await this.storeService.createStore({
           user_id: user.id,
-          email: dto.email,
           store_name: dto.store_name!,
           description: dto.description,
+          email: dto.email,
         });
-
-        // Link user to new store
-        await this.users.update(user.id, {
-          store_id: store.id,
-          store_name: store.store_name,
-        });
-
-        user.store_id = store.id;
-      } catch (e) {
-        // rollback user on failure
+      } catch (error) {
+        // rollback user if store creation fails
         await this.users.deleteUser(user.id);
-        throw e;
+        throw error;
       }
     }
 
     // ---------------------------
-    // 3️⃣ Send Email Verification
+    // 3️⃣ Send verification email
     // ---------------------------
     await this.emailVerification.sendVerificationEmail({
       name: dto.first_name,
@@ -180,14 +157,12 @@ export class AuthService {
     });
 
     // ---------------------------
-    // 4️⃣ Auto-login (Generate JWT)
+    // 4️⃣ Auto login
     // ---------------------------
     const { access_token } = this.generateJwt(user);
-    // ---------------------------
-    // 4️⃣ Return Safe Response
-    // ---------------------------
+
     return {
-      user: this.sanitizeUser(user),
+      user: sanitizeUser(user),
       access: access_token,
       message: 'Signup Successful',
     };
@@ -211,7 +186,7 @@ export class AuthService {
 
     return {
       message: 'Login Successful',
-      user: this.sanitizeUser(user),
+      user: sanitizeUser(user),
       access: access_token,
     };
   }
@@ -242,26 +217,36 @@ export class AuthService {
     const payload = ticket.getPayload() as
       | (TokenPayload & { picture?: string })
       | null;
-    if (!payload) throw new BadRequestException('Invalid Google token');
+
+    if (!payload) {
+      throw new BadRequestException('Invalid Google token');
+    }
 
     const email = payload.email;
     const name = payload.name;
-    if (!email) throw new BadRequestException('Google account has no email');
-    if (!name)
-      throw new BadRequestException('Google account has no display name');
-
     const picture = payload.picture ?? null;
     const email_verified = payload.email_verified ?? false;
+
+    if (!email) {
+      throw new BadRequestException('Google account has no email');
+    }
+
+    if (!name) {
+      throw new BadRequestException('Google account has no display name');
+    }
 
     let user = await this.users.findByEmail(email);
 
     if (!user) {
       const [first, last = ''] = name.trim().split(' ');
 
+      const username = await this.generateUniqueUsername(first, last);
+
       user = await this.users.create({
         first_name: first,
         last_name: last,
         email,
+        username, // ✅ REQUIRED
         email_verified,
         avatar: picture,
         signup_medium: 'google',
@@ -271,7 +256,7 @@ export class AuthService {
     const { access_token } = this.generateJwt(user);
 
     return {
-      user: this.sanitizeUser(user),
+      user: sanitizeUser(user),
       access: access_token,
       message: 'Login Successful',
     };

@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CartModule } from './cart/cart.module';
@@ -23,56 +27,74 @@ import { StoreAnalyticsModule } from './store-analytics/store-analytics.module';
 
 @Module({
   imports: [
+    // 🌍 ENV CONFIG
     ConfigModule.forRoot({
       isGlobal: true,
     }),
 
+    // 🗄️ DATABASE
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
-      synchronize: false, // turn off in production
+      synchronize: false, // ❌ never true in production
       ssl: {
-        rejectUnauthorized: false, // required for Neon
+        rejectUnauthorized: false, // required for Neon / managed PG
       },
     }),
 
-    AuthModule,
+    // 🚦 RATE LIMITING
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'default',
+          ttl: 60, // seconds
+          limit: 100, // requests per minute
+        },
+        {
+          name: 'auth',
+          ttl: 60,
+          limit: 5, // login / register protection
+        },
+      ],
+    }),
 
+    // 🔐 CORE MODULES
+    AuthModule,
     UsersModule,
 
+    // 🛒 COMMERCE
     CartModule,
-
-    ColorsModule,
-
-    DeliveryModule,
-
-    EscrowModule,
-
     OrderModule,
-
+    DeliveryModule,
+    EscrowModule,
     PayoutModule,
-
-    ProductCategoryModule,
-
-    ProductModule,
-
-    ReviewModule,
-
-    StoreModule,
-
     TransactionsModule,
 
+    // 🏪 STORE / PRODUCT
+    StoreModule,
+    StoreAnalyticsModule,
+    ProductModule,
+    ProductCategoryModule,
+    ColorsModule,
+    ReviewModule,
     WishlistModule,
 
+    // 📧 / ⚡ INFRA
     EmailModule,
-
     CacheModule,
-
-    StoreAnalyticsModule,
   ],
 
   controllers: [AppController],
-  providers: [AppService],
+
+  providers: [
+    AppService,
+
+    // ✅ GLOBAL RATE-LIMIT GUARD (REQUIRED)
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
