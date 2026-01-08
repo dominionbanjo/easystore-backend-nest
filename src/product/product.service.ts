@@ -21,6 +21,8 @@ import { buildPagination } from 'src/common/utils/response/pagination.util';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { UploadService } from 'src/common/services/upload.service';
 import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from './queries/products-grouped-by-category.sql';
+import { normalizeJson } from 'src/utils/normalizeJson';
+import { WishlistService } from 'src/wishlist/wishlist.service';
 
 @Injectable()
 export class ProductService {
@@ -32,6 +34,7 @@ export class ProductService {
     private readonly categoryRepo: Repository<ProductCategory>,
 
     private readonly upload: UploadService,
+    private readonly wishlistService: WishlistService,
   ) {}
 
   private async ensureCategoryExists(categoryId: string) {
@@ -49,39 +52,36 @@ export class ProductService {
   ──────────────────────────────────────────────── */
   async getProductsGroupedByCategory(
     pagination: PaginationQueryDto = { limit: 10 },
+    userId?: string,
   ) {
     const perCategoryLimit = pagination.limit ?? 10;
-
     const rows = await this.productRepo.query(
       PRODUCTS_GROUPED_BY_CATEGORY_SQL,
       [perCategoryLimit],
     );
 
-    // 2️⃣ Fetch parent categories
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set<string>();
+
     const parents = await this.categoryRepo.find({
       where: { parent_id: IsNull() },
       select: ['id', 'name', 'slug'],
       order: { created_at: 'ASC' },
     });
 
-    // 🔒 Normalize JSONB → return ONLY image URL
     const extractImageUrl = (image: any): string | null => {
       if (!image) return null;
-
-      // JSONB sometimes comes as string
       if (typeof image === 'string') {
         try {
-          const parsed = JSON.parse(image);
-          return parsed?.url ?? null;
+          return JSON.parse(image)?.url ?? null;
         } catch {
           return null;
         }
       }
-
       return image?.url ?? null;
     };
 
-    // 3️⃣ Group results
     const grouped = new Map<string, any[]>();
 
     for (const row of rows) {
@@ -98,13 +98,13 @@ export class ProductService {
         stock: row.stock,
         rating_average: Number(row.rating_average),
         store_name: row.store_name,
-
-        // ✅ FINAL: image URL only
         image: extractImageUrl(row.image),
+
+        // ❤️ wishlist overlay
+        is_in_wishlist: wishlistSet.has(row.id),
       });
     }
 
-    // 4️⃣ Attach to categories
     const data = parents.map((parent) => ({
       id: parent.id,
       name: parent.name,
@@ -121,8 +121,15 @@ export class ProductService {
   /* ────────────────────────────────────────────────
    FEATURED PRODUCTS
 ─────────────────────────────────────────────── */
-  async getFeaturedProducts(pagination: PaginationQueryDto = { limit: 20 }) {
+  async getFeaturedProducts(
+    pagination: PaginationQueryDto = { limit: 20 },
+    userId?: string,
+  ) {
     const limit = pagination.limit ?? 20;
+
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set<string>();
 
     const products = await this.productRepo
       .createQueryBuilder('product')
@@ -154,8 +161,11 @@ export class ProductService {
         discount_price: p.product_discount_price,
         stock: p.product_stock,
         rating_average: p.product_rating_average,
-        image: p.product_image?.url ?? null, // ✅ URL only
+        image: p.product_image?.url ?? null,
         store_name: p.store_store_name,
+
+        // ❤️ ADD THIS (only addition)
+        is_in_wishlist: wishlistSet.has(p.product_id),
       })),
     };
   }
@@ -163,13 +173,72 @@ export class ProductService {
   /* ────────────────────────────────────────────────
      2️⃣ ALL PRODUCTS (FLAT LIST)
   ──────────────────────────────────────────────── */
+  // async getAllProducts(
+  //   pagination: PaginationQueryDto = { page: 1, limit: 20 },
+  // ) {
+  //   const page = pagination.page ?? 1;
+  //   const limit = pagination.limit ?? 20;
+
+  //   const qb = this.productRepo
+  //     .createQueryBuilder('product')
+  //     .leftJoin('product.category_ref', 'category')
+  //     .select([
+  //       'product.id',
+  //       'product.name',
+  //       'product.slug',
+  //       'product.price',
+  //       'product.discount_price',
+  //       'product.stock',
+  //       'product.rating_average',
+  //       'product.image',
+  //       'product.created_at',
+
+  //       'category.id',
+  //       'category.name',
+  //       'category.slug',
+  //     ])
+  //     .orderBy('product.created_at', 'DESC')
+  //     .skip((page - 1) * limit)
+  //     .take(limit);
+
+  //   const [products, total] = await qb.getManyAndCount();
+
+  //   const data = products.map((p) => ({
+  //     id: p.id,
+  //     name: p.name,
+  //     slug: p.slug,
+  //     price: Number(p.price),
+  //     discount_price: p.discount_price ? Number(p.discount_price) : null,
+  //     stock: p.stock,
+  //     rating_average: Number(p.rating_average),
+  //     image: p.image?.url ?? null, // ✅ URL only
+  //     category: p.category_ref
+  //       ? {
+  //           id: p.category_ref.id,
+  //           name: p.category_ref.name,
+  //           slug: p.category_ref.slug,
+  //         }
+  //       : null,
+  //   }));
+
+  //   return {
+  //     message: 'Products retrieved successfully',
+  //     data: buildPagination(data, total, page, limit),
+  //   };
+  // }
+
   async getAllProducts(
     pagination: PaginationQueryDto = { page: 1, limit: 20 },
+    userId?: string,
   ) {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
 
-    const qb = this.productRepo
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set();
+
+    const [products, total] = await this.productRepo
       .createQueryBuilder('product')
       .leftJoin('product.category_ref', 'category')
       .select([
@@ -177,11 +246,10 @@ export class ProductService {
         'product.name',
         'product.slug',
         'product.price',
-        'product.discount_price',
-        'product.stock',
-        'product.rating_average',
         'product.image',
-        'product.created_at',
+        'product.rating_average',
+        'product.stock', // ✅ ADD THIS
+        'product.created_at', // ✅ REQUIRED for orderBy
 
         'category.id',
         'category.name',
@@ -189,26 +257,18 @@ export class ProductService {
       ])
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
-      .take(limit);
-
-    const [products, total] = await qb.getManyAndCount();
+      .take(limit)
+      .getManyAndCount();
 
     const data = products.map((p) => ({
       id: p.id,
       name: p.name,
       slug: p.slug,
       price: Number(p.price),
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
-      stock: p.stock,
+      image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
-      image: p.image?.url ?? null, // ✅ URL only
-      category: p.category_ref
-        ? {
-            id: p.category_ref.id,
-            name: p.category_ref.name,
-            slug: p.category_ref.slug,
-          }
-        : null,
+      stock: p.stock, // ✅ EXPOSE IT
+      is_in_wishlist: wishlistSet.has(p.id),
     }));
 
     return {
@@ -223,6 +283,7 @@ export class ProductService {
   async getProductsByCategory(
     identifier: string,
     pagination: PaginationQueryDto = { page: 1, limit: 20 },
+    userId?: string,
   ) {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
@@ -238,6 +299,11 @@ export class ProductService {
       throw new NotFoundException('Category not found');
     }
 
+    // ❤️ Fetch wishlist IDs once
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set<string>();
+
     const [products, total] = await this.productRepo.findAndCount({
       where: { category_id: category.id },
       skip: (page - 1) * limit,
@@ -245,31 +311,128 @@ export class ProductService {
       order: { created_at: 'DESC' },
     });
 
+    // ❤️ Overlay wishlist flag
+    const data = products.map((p) => ({
+      ...p,
+      is_in_wishlist: wishlistSet.has(p.id),
+    }));
+
     return {
       message: 'Category products retrieved successfully',
       category,
-      data: buildPagination(products, total, page, limit),
+      data: buildPagination(data, total, page, limit),
     };
   }
 
-  /* ────────────────────────────────────────────────
-     GET SINGLE PRODUCT (ID OR SLUG)
-  ──────────────────────────────────────────────── */
-  async getSingle(identifier: string) {
+  async getSingle(identifier: string, userId?: string) {
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
     const product = await this.productRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
-      relations: ['category_ref', 'store'],
+      relations: ['category_ref', 'store', 'reviews', 'reviews.user'],
+      order: {
+        reviews: {
+          created_at: 'DESC',
+        },
+      },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
+    // ❤️ Fetch wishlist IDs once
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set<string>();
+
+    // STORE SUMMARY
+    const store = product.store
+      ? {
+          id: product.store.id,
+          store_name: product.store.store_name,
+          slug: product.store.slug,
+          rating_average: product.store.rating_average,
+          rating_count: product.store.rating_count,
+          logo: product.store.logo,
+        }
+      : null;
+
+    // REVIEWS SUMMARY
+    const reviews = product.reviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      comment: review.comment,
+      created_at: review.created_at,
+      user: review.user
+        ? {
+            id: review.user.id,
+            first_name: review.user.first_name,
+            last_name: review.user.last_name,
+            avatar: review.user.avatar,
+          }
+        : null,
+    }));
+
+    // RELATED PRODUCTS
+    const related = await this.productRepo
+      .createQueryBuilder('p')
+      .leftJoin('p.store', 'store')
+      .select([
+        'p.id',
+        'p.name',
+        'p.slug',
+        'p.price',
+        'p.discount_price',
+        'p.rating_average',
+        'p.stock',
+        'p.image',
+        'store.store_name',
+      ])
+      .where('p.category_id = :categoryId', {
+        categoryId: product.category_id,
+      })
+      .andWhere('p.id != :currentId', {
+        currentId: product.id,
+      })
+      .orderBy('p.total_sold', 'DESC')
+      .addOrderBy('p.created_at', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    const related_products = related.map((p) => ({
+      id: p.p_id,
+      name: p.p_name,
+      slug: p.p_slug,
+      price: Number(p.p_price),
+      discount_price: p.p_discount_price ? Number(p.p_discount_price) : null,
+      stock: p.p_stock,
+      rating_average: Number(p.p_rating_average),
+      image: p.p_image?.url ?? null,
+      store_name: p.store_store_name,
+
+      // ❤️ wishlist flag
+      is_in_wishlist: wishlistSet.has(p.p_id),
+    }));
+
+    const { store: _s, reviews: _r, ...productOnly } = product;
+
+    // ✅ FIX specs ONLY
+    productOnly.specs = normalizeJson(productOnly.specs);
+
     return {
       message: 'Product retrieved successfully',
       product,
+      data: {
+        product: {
+          ...productOnly,
+          // ❤️ wishlist flag for main product
+          is_in_wishlist: wishlistSet.has(product.id),
+        },
+        store,
+        reviews,
+        related_products,
+      },
     };
   }
 

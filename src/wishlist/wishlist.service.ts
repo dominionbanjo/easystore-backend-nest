@@ -22,6 +22,24 @@ export class WishlistService {
     private readonly cache: CacheService,
   ) {}
 
+  async getWishlistProductIds(userId: string): Promise<Set<string>> {
+    if (!userId) return new Set();
+
+    const cacheKey = `wishlist:ids:${userId}`;
+    const cached = await this.cache.get<string[]>(cacheKey);
+    if (cached) return new Set(cached);
+
+    const rows = await this.wishlistRepo.find({
+      where: { user_id: userId },
+      select: ['product_id'],
+    });
+
+    const ids = rows.map((r) => r.product_id);
+    await this.cache.set(cacheKey, ids);
+
+    return new Set(ids);
+  }
+
   /* ────────────────────────────────────────────────
      📄 GET WISHLIST (CACHED)
   ──────────────────────────────────────────────── */

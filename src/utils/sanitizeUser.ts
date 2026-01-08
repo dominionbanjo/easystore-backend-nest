@@ -20,3 +20,11 @@ export function sanitizeUser(user: User) {
     updated_at: user.updated_at,
   };
 }
+
+export function sanitizeReviewUser(user: User) {
+  return {
+    id: user.id,
+    full_name: `${user.first_name} ${user.last_name}`,
+    avatar: user.avatar,
+  };
+}

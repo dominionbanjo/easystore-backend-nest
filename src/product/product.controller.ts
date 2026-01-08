@@ -21,8 +21,10 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { StoreOwnerGuard } from 'src/store/guards/store-owner.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/auth/strategies/jwt.strategy';
+import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
 
 @Controller('product')
+@UseGuards(OptionalJwtAuthGuard)
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
@@ -33,9 +35,16 @@ export class ProductController {
   /**
    * 1️⃣ Homepage: Categories with limited products (20 max per category)
    */
+
   @Get('by-category')
-  getProductsGroupedByCategory(@Query() pagination: PaginationQueryDto) {
-    return this.productService.getProductsGroupedByCategory(pagination);
+  getProductsGroupedByCategory(
+    @Query() pagination: PaginationQueryDto,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productService.getProductsGroupedByCategory(
+      pagination,
+      user?.sub,
+    );
   }
 
   /**
@@ -53,10 +62,14 @@ export class ProductController {
   getProductsByCategory(
     @Param('identifier') identifier: string,
     @Query() pagination: PaginationQueryDto,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
   ) {
-    return this.productService.getProductsByCategory(identifier, pagination);
+    return this.productService.getProductsByCategory(
+      identifier,
+      pagination,
+      user?.sub,
+    );
   }
-
   /**
    * 4️⃣ Products by store
    */
@@ -79,9 +92,16 @@ export class ProductController {
   /**
    * ⭐ Featured products (homepage)
    */
+
   @Get('featured')
-  getFeaturedProducts(@Query() pagination: PaginationQueryDto) {
-    return this.productService.getFeaturedProducts(pagination);
+  getFeaturedProducts(
+    @Query() pagination: PaginationQueryDto,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productService.getFeaturedProducts(
+      pagination,
+      user?.sub, // ✅ pass userId if exists
+    );
   }
 
   /* ────────────────────────────────────────────────
@@ -91,9 +111,13 @@ export class ProductController {
   /**
    * 6️⃣ Get single product (id or slug)
    */
+
   @Get(':identifier')
-  getSingle(@Param('identifier') identifier: string) {
-    return this.productService.getSingle(identifier);
+  getSingle(
+    @Param('identifier') identifier: string,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productService.getSingle(identifier, user?.sub);
   }
 
   /* ────────────────────────────────────────────────
