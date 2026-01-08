@@ -11,6 +11,7 @@ import { Store } from 'src/store/entities/store.entity';
 import { CommonModule } from 'src/common/common.module';
 import { StoreModule } from 'src/store/store.module';
 import { ReviewModule } from 'src/review/review.module';
+import { WishlistModule } from 'src/wishlist/wishlist.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ReviewModule } from 'src/review/review.module';
     ReviewModule,
     CommonModule,
     StoreModule,
+    WishlistModule,
   ],
   controllers: [ProductController],
   providers: [ProductService],

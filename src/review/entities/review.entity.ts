@@ -10,6 +10,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Product } from 'src/product/entities/product.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity({ name: 'product_reviews' })
 @Check(`"rating" >= 1 AND "rating" <= 5`)
@@ -17,6 +18,9 @@ export class ProductReview {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  /* ────────────────────────────────────────────────
+     PRODUCT (FK → products.id)
+  ───────────────────────────────────────────────── */
   @Index('IDX_REVIEW_PRODUCT_ID')
   @Column({ type: 'uuid' })
   product_id: string;
@@ -28,10 +32,23 @@ export class ProductReview {
   @JoinColumn({ name: 'product_id' })
   product: Product;
 
+  /* ────────────────────────────────────────────────
+     USER (FK → users.id)  ✅ FIXED
+  ──────────────────────────────────────────────── */
   @Index('IDX_REVIEW_USER_ID')
   @Column({ type: 'uuid' })
   user_id: string;
 
+  @ManyToOne(() => User, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  /* ────────────────────────────────────────────────
+     REVIEW DATA
+  ──────────────────────────────────────────────── */
   @Column({ type: 'int' })
   rating: number;
 
