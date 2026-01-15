@@ -478,7 +478,7 @@ export class ProductService {
       city,
 
       rating,
-      inStock,
+      inStock = true,
       colors,
       sizes,
     } = params;
@@ -486,8 +486,6 @@ export class ProductService {
     if (!q?.trim()) {
       throw new BadRequestException('Search query is required');
     }
-
-    console.log(sizes);
 
     const wishlistSet = userId
       ? await this.wishlistService.getWishlistProductIds(userId)
