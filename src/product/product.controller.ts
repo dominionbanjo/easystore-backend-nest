@@ -22,6 +22,7 @@ import { StoreOwnerGuard } from 'src/store/guards/store-owner.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/auth/strategies/jwt.strategy';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
+import { ProductSearchDto } from './dto/product-search.dto';
 
 @Controller('product')
 @UseGuards(OptionalJwtAuthGuard)
@@ -51,8 +52,14 @@ export class ProductController {
    * 2️⃣ Search products
    */
   @Get('search')
-  search(@Query('q') query: string, @Query() pagination: PaginationQueryDto) {
-    return this.productService.search(query, pagination);
+  // @UsePipes(
+  //   new ValidationPipe({
+  //     transform: true,
+  //     whitelist: true,
+  //   }),
+  // )
+  search(@Query() query: ProductSearchDto) {
+    return this.productService.search(query);
   }
 
   /**
