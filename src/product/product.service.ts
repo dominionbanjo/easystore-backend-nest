@@ -23,6 +23,7 @@ import { UploadService } from 'src/common/services/upload.service';
 import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from './queries/products-grouped-by-category.sql';
 import { normalizeJson } from 'src/utils/normalizeJson';
 import { WishlistService } from 'src/wishlist/wishlist.service';
+import { ProductSearchDto } from './dto/product-search.dto';
 
 @Injectable()
 export class ProductService {
@@ -463,31 +464,112 @@ export class ProductService {
   /* ────────────────────────────────────────────────
      SEARCH PRODUCTS
   ──────────────────────────────────────────────── */
-  async search(
-    query: string,
-    pagination: PaginationQueryDto = { page: 1, limit: 20 },
-  ) {
-    if (!query) {
+  async search(params: ProductSearchDto, userId?: string) {
+    const {
+      q,
+      page = 1,
+      limit = 20,
+
+      minPrice,
+      maxPrice,
+
+      country,
+      state,
+      city,
+
+      rating,
+      inStock = true,
+      colors,
+      sizes,
+    } = params;
+
+    if (!q?.trim()) {
       throw new BadRequestException('Search query is required');
     }
 
-    const page = pagination.page ?? 1;
-    const limit = pagination.limit ?? 20;
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set();
 
-    const qb = this.productRepo
-      .createQueryBuilder('product')
-      .where('product.name ILIKE :q', { q: `%${query}%` })
-      .orWhere('product.description ILIKE :q', { q: `%${query}%` });
+    const qb = this.productRepo.createQueryBuilder('product');
 
+    /* -------- TEXT SEARCH -------- */
+    qb.where(`(product.name ILIKE :q OR product.description ILIKE :q)`, {
+      q: `%${q}%`,
+    });
+
+    /* -------- PRICE -------- */
+    if (minPrice !== undefined) {
+      qb.andWhere('product.price >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    /* -------- LOCATION -------- */
+    if (country) {
+      qb.andWhere('product.country = :country', { country });
+    }
+
+    if (state) {
+      qb.andWhere('product.state = :state', { state });
+    }
+
+    if (city) {
+      qb.andWhere('product.city ILIKE :city', { city: `%${city}%` });
+    }
+
+    /* -------- RATING -------- */
+    if (rating !== undefined) {
+      qb.andWhere('product.rating_average >= :rating', { rating });
+    }
+
+    /* -------- STOCK -------- */
+    if (inStock === true) {
+      qb.andWhere('product.stock > 0');
+    }
+
+    /* -------- COLORS -------- */
+    if (colors?.length) {
+      qb.andWhere('product.colors && ARRAY[:...colors]', { colors });
+    }
+
+    /* -------- SIZES -------- */
+    if (sizes?.length) {
+      qb.andWhere('product.sizes && ARRAY[:...sizes]', { sizes });
+    }
+
+    /* -------- EXECUTION -------- */
     const [products, total] = await qb
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
 
+    /* -------- SANITIZE -------- */
+    const items = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      image: p.image?.url ?? null,
+      rating_average: Number(p.rating_average ?? 0),
+      stock: p.stock,
+
+      location: {
+        country: p.country,
+        state: p.state,
+        city: p.city,
+      },
+
+      is_featured: Boolean(p.featured),
+      is_in_wishlist: wishlistSet.has(p.id),
+    }));
+
     return {
       message: 'Search results',
-      data: buildPagination(products, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
 

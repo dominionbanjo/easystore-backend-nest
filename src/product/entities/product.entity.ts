@@ -130,8 +130,21 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   returns_note: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  location: string | null;
+//   @Column({ type: 'varchar', length: 255, nullable: true })
+//   location: string | null;
+
+  @Index('IDX_PRODUCT_COUNTRY')
+@Column({ type: 'varchar', length: 100 })
+country: string;
+
+@Index('IDX_PRODUCT_STATE')
+@Column({ type: 'varchar', length: 100 })
+state: string;
+
+@Index('IDX_PRODUCT_CITY')
+@Column({ type: 'varchar', length: 100 })
+city: string;
+
 
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
   shipping_cost: number | null;

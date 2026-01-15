@@ -190,7 +190,6 @@ export class UsersService {
     // ---------------------------
     // Address (merge, don't overwrite)
     // ---------------------------
-    console.log(data.address);
     if (data.address && typeof data.address === 'object') {
       user.address = {
         ...(user.address ?? {}),

@@ -13,4 +13,8 @@ export class PaginationQueryDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @IsOptional()
+  @Type(() => String)
+  q?: string;
 }
