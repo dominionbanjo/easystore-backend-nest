@@ -291,6 +291,7 @@ export class ProductService {
 
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
+    // 1️⃣ Resolve category (by id or slug)
     const category = await this.categoryRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
       select: ['id', 'name', 'slug'],
@@ -305,16 +306,36 @@ export class ProductService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
 
-    const [products, total] = await this.productRepo.findAndCount({
-      where: { category_id: category.id },
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { created_at: 'DESC' },
-    });
+    // 2️⃣ Fetch products (same shape as getAllProducts)
+    const [products, total] = await this.productRepo
+      .createQueryBuilder('product')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.image',
+        'product.rating_average',
+        'product.stock',
+        'product.created_at',
+      ])
+      .where('product.category_id = :categoryId', {
+        categoryId: category.id,
+      })
+      .orderBy('product.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
-    // ❤️ Overlay wishlist flag
+    // 3️⃣ Shape response (MATCH getAllProducts)
     const data = products.map((p) => ({
-      ...p,
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      image: p.image?.url ?? null,
+      rating_average: Number(p.rating_average),
+      stock: p.stock,
       is_in_wishlist: wishlistSet.has(p.id),
     }));
 
@@ -491,63 +512,79 @@ export class ProductService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set();
 
-    const qb = this.productRepo.createQueryBuilder('product');
+    /* ---------- FULL TEXT QUERY ---------- */
+    const tsQuery = q
+      .trim()
+      .split(/\s+/)
+      .map((w) => `${w}:*`)
+      .join(' & ');
 
-    /* -------- TEXT SEARCH -------- */
-    qb.where(`(product.name ILIKE :q OR product.description ILIKE :q)`, {
-      q: `%${q}%`,
-    });
+    const qb = this.productRepo
+      .createQueryBuilder('product')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.image',
+        'product.rating_average',
+        'product.stock',
+        'product.country',
+        'product.state',
+        'product.city',
+        'product.featured',
+        'product.created_at',
+      ])
+      .addSelect(
+        `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
+        'rank',
+      )
+      .where(`product.search_vector @@ to_tsquery('english', :tsQuery)`, {
+        tsQuery,
+      });
 
-    /* -------- PRICE -------- */
+    /* ---------- PRICE ---------- */
     if (minPrice !== undefined) {
       qb.andWhere('product.price >= :minPrice', { minPrice });
     }
-
     if (maxPrice !== undefined) {
       qb.andWhere('product.price <= :maxPrice', { maxPrice });
     }
 
-    /* -------- LOCATION -------- */
-    if (country) {
-      qb.andWhere('product.country = :country', { country });
-    }
+    /* ---------- LOCATION ---------- */
+    if (country) qb.andWhere('product.country = :country', { country });
+    if (state) qb.andWhere('product.state = :state', { state });
+    if (city) qb.andWhere('product.city = :city', { city });
 
-    if (state) {
-      qb.andWhere('product.state = :state', { state });
-    }
-
-    if (city) {
-      qb.andWhere('product.city ILIKE :city', { city: `%${city}%` });
-    }
-
-    /* -------- RATING -------- */
+    /* ---------- RATING ---------- */
     if (rating !== undefined) {
       qb.andWhere('product.rating_average >= :rating', { rating });
     }
 
-    /* -------- STOCK -------- */
+    /* ---------- STOCK ---------- */
     if (inStock === true) {
       qb.andWhere('product.stock > 0');
     }
 
-    /* -------- COLORS -------- */
+    /* ---------- COLORS ---------- */
     if (colors?.length) {
-      qb.andWhere('product.colors && ARRAY[:...colors]', { colors });
+      qb.andWhere('product.colors && :colors', { colors });
     }
 
-    /* -------- SIZES -------- */
+    /* ---------- SIZES ---------- */
     if (sizes?.length) {
-      qb.andWhere('product.sizes && ARRAY[:...sizes]', { sizes });
+      qb.andWhere('product.sizes && :sizes', { sizes });
     }
 
-    /* -------- EXECUTION -------- */
+    /* ---------- EXECUTION ---------- */
     const [products, total] = await qb
-      .orderBy('product.created_at', 'DESC')
+      .orderBy('rank', 'DESC')
+      .addOrderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
 
-    /* -------- SANITIZE -------- */
+    /* ---------- SANITIZE ---------- */
     const items = products.map((p) => ({
       id: p.id,
       name: p.name,
@@ -556,14 +593,12 @@ export class ProductService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
-
       location: {
         country: p.country,
         state: p.state,
         city: p.city,
       },
-
-      is_featured: Boolean(p.featured),
+      is_featured: p.featured,
       is_in_wishlist: wishlistSet.has(p.id),
     }));
 

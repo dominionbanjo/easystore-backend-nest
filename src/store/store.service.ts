@@ -59,6 +59,72 @@ export class StoreService {
     return slug;
   }
 
+  async searchStores(
+    q: string,
+    pagination: PaginationDto = { page: 1, limit: 20 },
+  ) {
+    if (!q || !q.trim()) {
+      throw new BadRequestException('Search query is required');
+    }
+
+    const page = pagination.page ?? 1;
+    const limit = pagination.limit ?? 20;
+
+    const cacheKey = `svc:store:search:${q}:${page}:${limit}`;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    const qb = this.storeRepo
+      .createQueryBuilder('store')
+      .select([
+        'store.id',
+        'store.store_name',
+        'store.category',
+        'store.description',
+        'store.address',
+        'store.logo',
+        'store.rating_average',
+        'store.slug',
+        'store.created_at',
+        'store.user_id',
+      ])
+      // 🔢 Dynamic product count (vendor-based)
+      .addSelect((subQ) => {
+        return subQ
+          .select('COUNT(product.id)')
+          .from(Product, 'product')
+          .where('product.vendor_id = store.user_id');
+      }, 'total_products')
+      .where('store.store_name ILIKE :q', { q: `%${q}%` })
+      .orderBy('store.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const { raw, entities } = await qb.getRawAndEntities();
+
+    const items = entities.map((store, index) => ({
+      id: store.id,
+      store_name: store.store_name,
+      category: store.category,
+      description: store.description,
+      address: store.address,
+      logo: store.logo,
+      rating_average: store.rating_average,
+      slug: store.slug,
+      total_products: Number(raw[index].total_products),
+    }));
+
+    const result = buildPagination(items, items.length, page, limit);
+
+    const response = {
+      message: 'Store search results',
+      data: result,
+    };
+
+    await this.cache.set(cacheKey, response);
+    return response;
+  }
+
   /* ────────────────────────────────────────────────
    VALIDATE VENDOR FOR ONLINE PAYMENTS
    (USED BY ORDER SERVICE)
@@ -212,14 +278,40 @@ export class StoreService {
     let productsResult: ReturnType<typeof buildPagination> | null = null;
 
     if (includeProducts) {
-      const [products, total] = await this.productRepo.findAndCount({
-        where: { store: { id: store.id } },
-        skip: (page - 1) * limit,
-        take: limit,
-        order: { created_at: 'DESC' },
-      });
+      const [products, total] = await this.productRepo
+        .createQueryBuilder('product')
+        .leftJoin('product.category_ref', 'category')
+        .select([
+          'product.id',
+          'product.name',
+          'product.slug',
+          'product.price',
+          'product.image',
+          'product.rating_average',
+          'product.stock',
+          'product.created_at',
 
-      productsResult = buildPagination(products, total, page, limit);
+          'category.id',
+          'category.name',
+          'category.slug',
+        ])
+        .where('product.store_id = :storeId', { storeId: store.id })
+        .orderBy('product.created_at', 'DESC')
+        .skip((page - 1) * limit)
+        .take(limit)
+        .getManyAndCount();
+
+      const items = products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: Number(p.price),
+        image: p.image?.url ?? null,
+        rating_average: Number(p.rating_average),
+        stock: p.stock,
+      }));
+
+      productsResult = buildPagination(items, total, page, limit);
     }
 
     /* ───────────── CATEGORIES (DERIVED) ───────────── */
@@ -278,31 +370,58 @@ export class StoreService {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
 
-    const key = `svc:store:list:${page}-${limit}`;
-    const cached = await this.cache.get(key);
+    const cacheKey = `svc:store:list:${page}-${limit}`;
+    const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
-    const [rows, total] = await this.storeRepo.findAndCount({
-      select: [
-        'id',
-        'store_name',
-        'category',
-        'description',
-        'address',
-        'total_products',
-        'logo',
-        'rating_average',
-        'slug',
-      ],
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { created_at: 'DESC' },
-    });
+    const qb = this.storeRepo
+      .createQueryBuilder('store')
+      .select([
+        'store.id',
+        'store.store_name',
+        'store.category',
+        'store.description',
+        'store.address',
+        'store.logo',
+        'store.rating_average',
+        'store.slug',
+        'store.created_at',
+        'store.user_id',
+      ])
+      /* 🔢 DYNAMIC TOTAL PRODUCTS (SOURCE OF TRUTH) */
+      .addSelect((subQ) => {
+        return subQ
+          .select('COUNT(product.id)')
+          .from(Product, 'product')
+          .where('product.vendor_id = store.user_id');
+      }, 'total_products')
+      .orderBy('store.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
-    const result = buildPagination(rows, total, page, limit);
+    const { raw, entities } = await qb.getRawAndEntities();
 
-    await this.cache.set(key, result);
-    return { message: 'Stores retrieved successfully', data: result };
+    const items = entities.map((store, index) => ({
+      id: store.id,
+      store_name: store.store_name,
+      category: store.category,
+      description: store.description,
+      address: store.address,
+      logo: store.logo,
+      rating_average: store.rating_average,
+      slug: store.slug,
+      total_products: Number(raw[index].total_products),
+    }));
+
+    const result = buildPagination(items, items.length, page, limit);
+
+    const response = {
+      message: 'Stores retrieved successfully',
+      data: result,
+    };
+
+    await this.cache.set(cacheKey, response);
+    return response;
   }
 
   /* ────────────────────────────────────────────────
@@ -312,20 +431,38 @@ export class StoreService {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
 
-    const key = `svc:store:admin-list:${page}-${limit}`;
-    const cached = await this.cache.get(key);
+    const cacheKey = `svc:store:admin-list:${page}-${limit}`;
+    const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
-    const [rows, total] = await this.storeRepo.findAndCount({
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { created_at: 'DESC' },
-    });
+    const qb = this.storeRepo
+      .createQueryBuilder('store')
+      .addSelect((subQ) => {
+        return subQ
+          .select('COUNT(product.id)')
+          .from(Product, 'product')
+          .where('product.vendor_id = store.user_id');
+      }, 'total_products')
+      .orderBy('store.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
-    const result = buildPagination(rows, total, page, limit);
+    const { raw, entities } = await qb.getRawAndEntities();
 
-    await this.cache.set(key, result);
-    return { message: 'Stores retrieved successfully', data: result };
+    const items = entities.map((store, index) => ({
+      ...store,
+      total_products: Number(raw[index].total_products),
+    }));
+
+    const result = buildPagination(items, items.length, page, limit);
+
+    const response = {
+      message: 'Stores retrieved successfully',
+      data: result,
+    };
+
+    await this.cache.set(cacheKey, response);
+    return response;
   }
 
   /* ────────────────────────────────────────────────
@@ -348,7 +485,6 @@ export class StoreService {
 
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
-    // Resolve store id without loading full store
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
       select: ['id'],
@@ -358,17 +494,135 @@ export class StoreService {
       throw new NotFoundException('Store not found');
     }
 
-    const [products, total] = await this.productRepo.findAndCount({
-      where: { store: { id: store.id } }, // relation-safe
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { created_at: 'DESC' },
-    });
+    const [products, total] = await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoin('product.category_ref', 'category')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.image',
+        'product.rating_average',
+        'product.stock',
+        'product.created_at',
 
-    const data = buildPagination(products, total, page, limit);
+        'category.id',
+        'category.name',
+        'category.slug',
+      ])
+      .where('product.store_id = :storeId', { storeId: store.id })
+      .orderBy('product.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const items = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      image: p.image?.url ?? null,
+      rating_average: Number(p.rating_average),
+      stock: p.stock,
+    }));
+
+    const data = buildPagination(items, total, page, limit);
 
     const response = {
       message: 'Store products retrieved successfully',
+      data,
+    };
+
+    await this.cache.set(cacheKey, response);
+    return response;
+  }
+
+  async getStoreProductsByCategory(
+    identifier: string,
+    categoryId: string,
+    pagination: PaginationDto = { page: 1, limit: 20 },
+  ) {
+    if (!identifier) {
+      throw new BadRequestException('Store identifier required');
+    }
+
+    if (!categoryId) {
+      throw new BadRequestException('Category ID is required');
+    }
+
+    const page = pagination.page ?? 1;
+    const limit = pagination.limit ?? 20;
+
+    const cacheKey = `svc:store:category-products:${identifier}:${categoryId}:p:${page}:l:${limit}`;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    const isUUID = /^[0-9a-f]{8}-/.test(identifier);
+
+    /* ───────────── RESOLVE STORE ───────────── */
+    const store = await this.storeRepo.findOne({
+      where: isUUID ? { id: identifier } : { slug: identifier },
+      select: ['id', 'store_name'],
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    /* ───────────── VERIFY CATEGORY ───────────── */
+    const categoryExists = await this.categoryRepo.exist({
+      where: { id: categoryId },
+    });
+
+    if (!categoryExists) {
+      throw new NotFoundException('Category not found');
+    }
+
+    /* ───────────── FETCH PRODUCTS ───────────── */
+    const [products, total] = await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoin('product.category_ref', 'category')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.image',
+        'product.rating_average',
+        'product.stock',
+        'product.created_at',
+
+        'category.id',
+        'category.name',
+        'category.slug',
+      ])
+      .where('product.store_id = :storeId', { storeId: store.id })
+      .andWhere('product.category_id = :categoryId', { categoryId })
+      .orderBy('product.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const items = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      image: p.image?.url ?? null,
+      rating_average: Number(p.rating_average),
+      stock: p.stock,
+    }));
+
+    const data = buildPagination(items, total, page, limit);
+
+    const response = {
+      message: 'Store category products retrieved successfully',
+      store: {
+        id: store.id,
+        store_name: store.store_name,
+      },
+      category_id: categoryId,
       data,
     };
 

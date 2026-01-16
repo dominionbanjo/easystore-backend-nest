@@ -1,4 +1,3 @@
-// src/product-category/product-category.service.ts
 import {
   Injectable,
   BadRequestException,
@@ -60,29 +59,91 @@ export class ProductCategoryService {
      GET ALL CATEGORIES (NESTED)
      Parents → children[]
   ──────────────────────────────────────────────── */
-  async findAll(pagination: PaginationQueryDto = { page: 1, limit: 20 }) {
-    const page = pagination.page ?? 1;
-    const limit = pagination.limit ?? 20;
+  // async findAll(pagination: PaginationQueryDto = { page: 1, limit: 20 }) {
+  //   const page = pagination.page ?? 1;
+  //   const limit = pagination.limit ?? 20;
 
-    // 1️⃣ Get paginated parent categories
-    const [parents, total] = await this.categoryRepo.findAndCount({
-      where: { parent_id: IsNull() },
-      relations: ['children'],
-      order: {
-        created_at: 'ASC',
-        children: {
-          created_at: 'ASC',
-        },
-      },
-      skip: (page - 1) * limit,
-      take: limit,
+  //   // 1️⃣ Get paginated parent categories
+  //   const [parents, total] = await this.categoryRepo.findAndCount({
+  //     where: { parent_id: IsNull() },
+  //     relations: ['children'],
+  //     order: {
+  //       created_at: 'ASC',
+  //       children: {
+  //         created_at: 'ASC',
+  //       },
+  //     },
+  //     skip: (page - 1) * limit,
+  //     take: limit,
+  //   });
+
+  //   const result = buildPagination(parents, total, page, limit);
+
+  //   return {
+  //     message: 'Categories retrieved successfully',
+  //     data: result,
+  //   };
+  // }
+
+  async findAll() {
+    /**
+     * Get all parent categories with their children
+     * Count products per child category
+     */
+    const qb = this.categoryRepo
+      .createQueryBuilder('parent')
+      .leftJoinAndSelect('parent.children', 'child')
+      .leftJoin('products', 'product', 'product.category_id = child.id')
+      .where('parent.parent_id IS NULL')
+      .select([
+        'parent.id',
+        'parent.name',
+        'parent.slug',
+        'parent.created_at',
+        'child.id',
+        'child.name',
+        'child.slug',
+        'child.created_at',
+      ])
+      .addSelect('COUNT(product.id)', 'child_products_count')
+      .groupBy('parent.id')
+      .addGroupBy('child.id')
+      .orderBy('parent.created_at', 'ASC')
+      .addOrderBy('child.created_at', 'ASC');
+
+    // ✅ Correct destructuring
+    const { raw, entities } = await qb.getRawAndEntities();
+
+    /**
+     * Map product counts into response
+     */
+    const parents = entities.map((parent) => {
+      let parentTotal = 0;
+
+      const children = parent.children.map((child) => {
+        const row = raw.find(
+          (r) => r.parent_id === parent.id && r.child_id === child.id,
+        );
+
+        const count = Number(row?.child_products_count ?? 0);
+        parentTotal += count;
+
+        return {
+          ...child,
+          products_count: count,
+        };
+      });
+
+      return {
+        ...parent,
+        products_count: parentTotal,
+        children,
+      };
     });
-
-    const result = buildPagination(parents, total, page, limit);
 
     return {
       message: 'Categories retrieved successfully',
-      data: result,
+      data: parents,
     };
   }
 
