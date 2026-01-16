@@ -39,6 +39,26 @@ export class StoreController {
     return this.storeService.getAllStores(pagination);
   }
 
+  // GET /store/search?q=tech&page=1&limit=20
+  @Get('search')
+  searchStores(@Query('q') q: string, @Query() pagination: PaginationQueryDto) {
+    return this.storeService.searchStores(q, pagination);
+  }
+
+  // GET /store/:identifier/category/:categoryId/products
+  @Get(':identifier/category/:categoryId/products')
+  getStoreProductsByCategory(
+    @Param('identifier') identifier: string,
+    @Param('categoryId') categoryId: string,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.storeService.getStoreProductsByCategory(
+      identifier,
+      categoryId,
+      pagination,
+    );
+  }
+
   // GET /store/:identifier/products
   @Get(':identifier/products')
   getStoreProducts(

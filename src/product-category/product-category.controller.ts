@@ -41,8 +41,8 @@ export class ProductCategoryController {
      GET /product-categories
   ──────────────────────────────────────────────── */
   @Get()
-  findAll(@Query() pagination: PaginationQueryDto) {
-    return this.productCategoryService.findAll(pagination);
+  findAll() {
+    return this.productCategoryService.findAll();
   }
 
   /* ────────────────────────────────────────────────
