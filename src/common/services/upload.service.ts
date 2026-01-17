@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import cloudinary from 'cloudinary';
-import { formatImage } from '../utils/images/multer';
-
+import { formatImage } from 'src/utils/images/multer';
 export interface UploadedFileResult {
   url: string;
   public_id: string;
