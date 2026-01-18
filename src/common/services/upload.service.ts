@@ -11,22 +11,22 @@ export class UploadService {
   /**
    * Generate Cloudinary signature for direct browser upload
    */
-  generateCloudinarySignature(folder = 'easystore') {
+  generateCloudinarySignature(folder: string) {
     const timestamp = Math.floor(Date.now() / 1000);
 
     const signature = cloudinary.v2.utils.api_sign_request(
       {
+        folder, // MUST MATCH FRONTEND
         timestamp,
-        folder,
       },
-      process.env.CLOUDINARY_API_SECRET!,
+      process.env.CLOUD_API_SECRET!,
     );
 
     return {
       signature,
       timestamp,
-      cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
-      apiKey: process.env.CLOUDINARY_API_KEY!,
+      cloudName: process.env.CLOUD_NAME!,
+      apiKey: process.env.CLOUD_API_KEY!,
       folder,
     };
   }

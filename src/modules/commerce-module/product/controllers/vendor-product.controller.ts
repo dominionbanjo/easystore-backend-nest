@@ -72,7 +72,7 @@ export class VendorProductController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
   @Roles('vendor', 'admin')
-  createProductWithCloudinary(
+  createWithCloudinary(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() dto: CreateProductCloudinaryDto,
   ) {

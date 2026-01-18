@@ -24,6 +24,7 @@ import { WishlistService } from '../wishlist/wishlist.service';
 import { normalizeJson } from 'src/utils/response/normalizeJson';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { CreateProductCloudinaryDto } from './dto/create-product-cloudinary.dto';
+import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 
 @Injectable()
 export class ProductService {
@@ -33,6 +34,9 @@ export class ProductService {
 
     @InjectRepository(ProductCategory)
     private readonly categoryRepo: Repository<ProductCategory>,
+
+    @InjectRepository(ProductColor)
+    private readonly colorRepo: Repository<ProductColor>,
 
     private readonly upload: UploadService,
     private readonly wishlistService: WishlistService,
@@ -311,7 +315,23 @@ export class ProductService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
 
-    // STORE SUMMARY
+    /* ─────────────────────────────────────────────
+     RESOLVE COLORS (DO NOT MUTATE product)
+  ───────────────────────────────────────────── */
+    const resolvedColors =
+      product.colors && product.colors.length
+        ? await this.colorRepo
+            .createQueryBuilder('c')
+            .select(['c.id', 'c.name', 'c.hex'])
+            .where('c.id = ANY(:colorIds)', {
+              colorIds: product.colors,
+            })
+            .getMany()
+        : [];
+
+    /* ─────────────────────────────────────────────
+     STORE SUMMARY
+  ───────────────────────────────────────────── */
     const store = product.store
       ? {
           id: product.store.id,
@@ -323,7 +343,9 @@ export class ProductService {
         }
       : null;
 
-    // REVIEWS SUMMARY
+    /* ─────────────────────────────────────────────
+     REVIEWS SUMMARY
+  ───────────────────────────────────────────── */
     const reviews = product.reviews.map((review) => ({
       id: review.id,
       rating: review.rating,
@@ -339,7 +361,9 @@ export class ProductService {
         : null,
     }));
 
-    // RELATED PRODUCTS
+    /* ─────────────────────────────────────────────
+     RELATED PRODUCTS
+  ───────────────────────────────────────────── */
     const related = await this.productRepo
       .createQueryBuilder('p')
       .leftJoin('p.store', 'store')
@@ -375,23 +399,27 @@ export class ProductService {
       rating_average: Number(p.p_rating_average),
       image: p.p_image?.url ?? null,
       store_name: p.store_store_name,
-
-      // ❤️ wishlist flag
       is_in_wishlist: wishlistSet.has(p.p_id),
     }));
 
+    /* ─────────────────────────────────────────────
+     RESPONSE PRODUCT (SAFE COPY)
+  ───────────────────────────────────────────── */
     const { store: _s, reviews: _r, ...productOnly } = product;
 
-    // ✅ FIX specs ONLY
     productOnly.specs = normalizeJson(productOnly.specs);
 
     return {
       message: 'Product retrieved successfully',
+
+      // 🔒 INTERNAL USAGE — UNTOUCHED ENTITY
       product,
+
+      // 🌐 API RESPONSE — ENRICHED
       data: {
         product: {
           ...productOnly,
-          // ❤️ wishlist flag for main product
+          colors: resolvedColors, // ✅ hydrated colors here ONLY
           is_in_wishlist: wishlistSet.has(product.id),
         },
         store,
@@ -790,15 +818,11 @@ export class ProductService {
       throw new BadRequestException('Vendor does not have a store');
     }
 
-    if (!dto.name || typeof dto.name !== 'string') {
-      throw new BadRequestException('Product name is required');
-    }
-
     await this.ensureCategoryExists(dto.category_id);
 
     const slug = slugify(dto.name, { lower: true, strict: true });
 
-    const exists = await this.productRepo.exists({ where: { slug } });
+    const exists = await this.productRepo.exist({ where: { slug } });
     if (exists) {
       throw new BadRequestException('Product with same name exists');
     }
@@ -808,14 +832,11 @@ export class ProductService {
 
       vendor_id: user.sub,
       store_id: user.store_id,
-
       slug,
 
-      // ✅ DIRECT FROM FRONTEND CLOUDINARY RESPONSE
       image: dto.image ?? null,
       gallery: dto.gallery ?? null,
 
-      // Optional: default safety
       status: ProductStatus.ACTIVE,
     });
 
