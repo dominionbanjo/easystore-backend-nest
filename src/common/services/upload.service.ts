@@ -8,6 +8,29 @@ export interface UploadedFileResult {
 
 @Injectable()
 export class UploadService {
+  /**
+   * Generate Cloudinary signature for direct browser upload
+   */
+  generateCloudinarySignature(folder = 'easystore') {
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const signature = cloudinary.v2.utils.api_sign_request(
+      {
+        timestamp,
+        folder,
+      },
+      process.env.CLOUDINARY_API_SECRET!,
+    );
+
+    return {
+      signature,
+      timestamp,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME!,
+      apiKey: process.env.CLOUDINARY_API_KEY!,
+      folder,
+    };
+  }
+
   async uploadSingle(
     file: Express.Multer.File,
     folder = 'easystore',

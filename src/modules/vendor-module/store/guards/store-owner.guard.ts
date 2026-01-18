@@ -3,9 +3,10 @@ import {
   ExecutionContext,
   Injectable,
   ForbiddenException,
-  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { StoreService } from '../store.service';
+import { JwtAuthUser } from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 
 @Injectable()
 export class StoreOwnerGuard implements CanActivate {
@@ -13,11 +14,24 @@ export class StoreOwnerGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
-    const user = req.user as { sub: string; role: string };
-    const storeId = req.params.id;
 
-    // Admin can access anything
-    if (user.role === 'admin') return true;
+    const user = req.user as JwtAuthUser;
+
+    if (!user || !user.sub) {
+      throw new BadRequestException('Invalid authentication context');
+    }
+
+    // ✅ Resolve storeId from route OR JWT
+    const storeId: string | null = req.params?.storeId ?? user.store_id ?? null;
+
+    // ✅ Admin bypass
+    if (user.role === 'admin') {
+      return true;
+    }
+
+    if (!storeId) {
+      throw new BadRequestException('Store ID is required');
+    }
 
     const isOwner = await this.storeService.isStoreOwner(storeId, user.sub);
 

@@ -51,19 +51,19 @@ export class CreateProductDto {
 
   /* ───────────────── MEDIA ───────────────── */
 
-  @IsObject()
-  @IsOptional()
-  image?: {
-    url: string;
-    public_id: string;
-  };
+  // @IsObject()
+  // @IsOptional()
+  // image?: {
+  //   url: string;
+  //   public_id: string;
+  // };
 
-  @IsArray()
-  @IsOptional()
-  gallery?: {
-    url: string;
-    public_id: string;
-  }[];
+  // @IsArray()
+  // @IsOptional()
+  // gallery?: {
+  //   url: string;
+  //   public_id: string;
+  // }[];
 
   /* ───────────────── DETAILS ───────────────── */
 

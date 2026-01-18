@@ -11,6 +11,7 @@ import {
   Product,
   ProductGalleryItem,
   ProductImage,
+  ProductStatus,
 } from './entities/product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -22,6 +23,7 @@ import { ProductCategory } from '../product-category/entities/product-category.e
 import { WishlistService } from '../wishlist/wishlist.service';
 import { normalizeJson } from 'src/utils/response/normalizeJson';
 import { buildPagination } from 'src/utils/response/pagination.util';
+import { CreateProductCloudinaryDto } from './dto/create-product-cloudinary.dto';
 
 @Injectable()
 export class ProductService {
@@ -168,63 +170,6 @@ export class ProductService {
       })),
     };
   }
-
-  /* ────────────────────────────────────────────────
-     2️⃣ ALL PRODUCTS (FLAT LIST)
-  ──────────────────────────────────────────────── */
-  // async getAllProducts(
-  //   pagination: PaginationQueryDto = { page: 1, limit: 20 },
-  // ) {
-  //   const page = pagination.page ?? 1;
-  //   const limit = pagination.limit ?? 20;
-
-  //   const qb = this.productRepo
-  //     .createQueryBuilder('product')
-  //     .leftJoin('product.category_ref', 'category')
-  //     .select([
-  //       'product.id',
-  //       'product.name',
-  //       'product.slug',
-  //       'product.price',
-  //       'product.discount_price',
-  //       'product.stock',
-  //       'product.rating_average',
-  //       'product.image',
-  //       'product.created_at',
-
-  //       'category.id',
-  //       'category.name',
-  //       'category.slug',
-  //     ])
-  //     .orderBy('product.created_at', 'DESC')
-  //     .skip((page - 1) * limit)
-  //     .take(limit);
-
-  //   const [products, total] = await qb.getManyAndCount();
-
-  //   const data = products.map((p) => ({
-  //     id: p.id,
-  //     name: p.name,
-  //     slug: p.slug,
-  //     price: Number(p.price),
-  //     discount_price: p.discount_price ? Number(p.discount_price) : null,
-  //     stock: p.stock,
-  //     rating_average: Number(p.rating_average),
-  //     image: p.image?.url ?? null, // ✅ URL only
-  //     category: p.category_ref
-  //       ? {
-  //           id: p.category_ref.id,
-  //           name: p.category_ref.name,
-  //           slug: p.category_ref.slug,
-  //         }
-  //       : null,
-  //   }));
-
-  //   return {
-  //     message: 'Products retrieved successfully',
-  //     data: buildPagination(data, total, page, limit),
-  //   };
-  // }
 
   async getAllProducts(
     pagination: PaginationQueryDto = { page: 1, limit: 20 },
@@ -479,6 +424,42 @@ export class ProductService {
       data: buildPagination(products, total, page, limit),
     };
   }
+  /* ────────────────────────────────────────────────
+   UPDATE PRODUCT STATUS (ACTIVE / INACTIVE)
+──────────────────────────────────────────────── */
+  async updateStatus(productId: string, status: ProductStatus) {
+    if (!Object.values(ProductStatus).includes(status)) {
+      throw new BadRequestException('Invalid product status');
+    }
+
+    const product = await this.productRepo.findOne({
+      where: { id: productId },
+      select: ['id', 'status'],
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (product.status === status) {
+      return {
+        message: `Product already ${status}`,
+        status,
+      };
+    }
+
+    product.status = status;
+
+    await this.productRepo.save(product);
+
+    return {
+      message:
+        status === ProductStatus.ACTIVE
+          ? 'Product activated successfully'
+          : 'Product deactivated successfully',
+      status,
+    };
+  }
 
   /* ────────────────────────────────────────────────
      SEARCH PRODUCTS
@@ -605,6 +586,122 @@ export class ProductService {
       data: buildPagination(items, total, page, limit),
     };
   }
+  /* ────────────────────────────────────────────────
+   SEARCH PRODUCTS FOR A SPECIFIC STORE
+─────────────────────────────────────────────── */
+  async searchStoreProducts(
+    storeId: string,
+    params: ProductSearchDto,
+    userId?: string,
+  ) {
+    const {
+      q,
+      page = 1,
+      limit = 20,
+
+      minPrice,
+      maxPrice,
+
+      rating,
+      inStock = true,
+      colors,
+      sizes,
+    } = params;
+
+    if (!q?.trim()) {
+      throw new BadRequestException('Search query is required');
+    }
+
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set<string>();
+
+    /* ---------- FULL TEXT QUERY ---------- */
+    const tsQuery = q
+      .trim()
+      .split(/\s+/)
+      .map((w) => `${w}:*`)
+      .join(' & ');
+
+    const qb = this.productRepo
+      .createQueryBuilder('product')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.image',
+        'product.rating_average',
+        'product.stock',
+        'product.created_at',
+      ])
+      .addSelect(
+        `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
+        'rank',
+      )
+      .where(`product.search_vector @@ to_tsquery('english', :tsQuery)`, {
+        tsQuery,
+      })
+      // 🔒 STORE SCOPE
+      .andWhere('product.store_id = :storeId', { storeId })
+      // 🔒 ONLY ACTIVE PRODUCTS
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      });
+
+    /* ---------- PRICE ---------- */
+    if (minPrice !== undefined) {
+      qb.andWhere('product.price >= :minPrice', { minPrice });
+    }
+    if (maxPrice !== undefined) {
+      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    /* ---------- RATING ---------- */
+    if (rating !== undefined) {
+      qb.andWhere('product.rating_average >= :rating', { rating });
+    }
+
+    /* ---------- STOCK ---------- */
+    if (inStock === true) {
+      qb.andWhere('product.stock > 0');
+    }
+
+    /* ---------- COLORS ---------- */
+    if (colors?.length) {
+      qb.andWhere('product.colors && :colors', { colors });
+    }
+
+    /* ---------- SIZES ---------- */
+    if (sizes?.length) {
+      qb.andWhere('product.sizes && :sizes', { sizes });
+    }
+
+    /* ---------- EXECUTION ---------- */
+    const [products, total] = await qb
+      .orderBy('rank', 'DESC')
+      .addOrderBy('product.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    /* ---------- SHAPE RESPONSE ---------- */
+    const items = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      image: p.image?.url ?? null,
+      rating_average: Number(p.rating_average ?? 0),
+      stock: p.stock,
+      is_in_wishlist: wishlistSet.has(p.id),
+    }));
+
+    return {
+      message: 'Store search results',
+      data: buildPagination(items, total, page, limit),
+    };
+  }
 
   /* ────────────────────────────────────────────────
      CREATE PRODUCT
@@ -671,6 +768,55 @@ export class ProductService {
       slug,
       image,
       gallery,
+    });
+
+    const saved = await this.productRepo.save(product);
+
+    return {
+      message: 'Product created successfully',
+      product: saved,
+    };
+  }
+
+  /* ────────────────────────────────────────────────
+   CREATE PRODUCT (CLOUDINARY DIRECT UPLOAD)
+   No files handled by backend
+─────────────────────────────────────────────── */
+  async createWithCloudinary(
+    user: { sub: string; store_id: string | null },
+    dto: CreateProductCloudinaryDto,
+  ) {
+    if (!user.store_id) {
+      throw new BadRequestException('Vendor does not have a store');
+    }
+
+    if (!dto.name || typeof dto.name !== 'string') {
+      throw new BadRequestException('Product name is required');
+    }
+
+    await this.ensureCategoryExists(dto.category_id);
+
+    const slug = slugify(dto.name, { lower: true, strict: true });
+
+    const exists = await this.productRepo.exists({ where: { slug } });
+    if (exists) {
+      throw new BadRequestException('Product with same name exists');
+    }
+
+    const product = this.productRepo.create({
+      ...dto,
+
+      vendor_id: user.sub,
+      store_id: user.store_id,
+
+      slug,
+
+      // ✅ DIRECT FROM FRONTEND CLOUDINARY RESPONSE
+      image: dto.image ?? null,
+      gallery: dto.gallery ?? null,
+
+      // Optional: default safety
+      status: ProductStatus.ACTIVE,
     });
 
     const saved = await this.productRepo.save(product);

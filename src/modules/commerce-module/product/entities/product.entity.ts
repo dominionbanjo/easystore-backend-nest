@@ -24,6 +24,15 @@ export interface ProductGalleryItem {
   public_id: string;
 }
 
+/* ────────────────────────────────────────────────
+   PRODUCT STATUS
+──────────────────────────────────────────────── */
+
+export enum ProductStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
 @Entity({ name: 'products' })
 export class Product {
   /* ────────────────────────────────────────────────
@@ -130,6 +139,14 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   returns_note: string | null;
 
+  @Index('IDX_PRODUCT_STATUS')
+  @Column({
+    type: 'enum',
+    enum: ProductStatus,
+    default: ProductStatus.ACTIVE,
+  })
+  status: ProductStatus;
+
   //   @Column({ type: 'varchar', length: 255, nullable: true })
   //   location: string | null;
 
@@ -163,6 +180,7 @@ export class Product {
   /* ────────────────────────────────────────────────
      SALES METRIC
   ───────────────────────────────────────────────── */
+  @Index('IDX_PRODUCT_TOTAL_SOLD')
   @Column({ type: 'int', default: 0 })
   total_sold: number;
 

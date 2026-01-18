@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StoreService } from './store.service';
 import { StoreController } from './controllers/store.controller';
@@ -11,12 +11,14 @@ import { CacheModule } from 'src/modules/shared-module/cache/cache.module';
 import { StoreAdminController } from './controllers/store-admin.controller';
 import { StoreLookupController } from './controllers/store-lookup.controller';
 import { StoreOwnerGuard } from './guards/store-owner.guard';
+import { StoreAnalyticsModule } from '../store-analytics/store-analytics.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Store, Product, User, ProductCategory]),
     CacheModule,
     CommonModule,
+    forwardRef(() => StoreAnalyticsModule), // ✅ ADD THIS
   ],
   controllers: [StoreController, StoreLookupController, StoreAdminController],
   providers: [StoreService, StoreOwnerGuard],

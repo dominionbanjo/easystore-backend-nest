@@ -1,14 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  StoreAnalytics,
-  StoreAnalyticsData,
-  StoreCustomerSnapshot,
-} from './entities/store-analytics.entity';
+import { StoreAnalytics } from './entities/store-analytics.entity';
 import { ICartItem } from 'src/modules/commerce-module/cart/types/types';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
+import { Store } from '../store/entities/store.entity';
+import { StoreService } from '../store/store.service';
+import { StoreMonthlyAnalytics } from './entities/store_monthly_analytics.entity';
+import { StoreCustomer } from './entities/store_customers.entity';
 
 @Injectable()
 export class StoreAnalyticsService {
@@ -18,23 +23,16 @@ export class StoreAnalyticsService {
     @InjectRepository(StoreAnalytics)
     private readonly analyticsRepo: Repository<StoreAnalytics>,
 
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    @Inject(forwardRef(() => StoreService))
+    private readonly storeService: StoreService,
+
+    // @InjectRepository(User)
+    // private readonly userRepo: Repository<User>,
   ) {}
 
   /* ────────────────────────────────────────────────
      INTERNAL: NORMALIZE ANALYTICS JSON
   ──────────────────────────────────────────────── */
-  private normalizeAnalytics(
-    analytics?: Partial<StoreAnalyticsData>,
-  ): StoreAnalyticsData {
-    return {
-      sales: analytics?.sales ?? [],
-      orders: analytics?.orders ?? [],
-      customers: analytics?.customers ?? [],
-      top_products: analytics?.top_products ?? [],
-    };
-  }
 
   /* ────────────────────────────────────────────────
      CREATE EMPTY ANALYTICS (ON STORE CREATE)
@@ -46,8 +44,6 @@ export class StoreAnalyticsService {
       total_orders: 0,
       total_customers: 0,
       conversion_rate: 0,
-      analytics: this.normalizeAnalytics(),
-      customers: [],
       last_order_at: null,
     });
 
@@ -59,132 +55,206 @@ export class StoreAnalyticsService {
   ──────────────────────────────────────────────── */
   async updateFromOrder(
     storeId: string,
-    amount: number,
+    amount: number, // kept for backward compatibility, but NOT trusted
     customerId: string,
     items: ICartItem[],
   ) {
-    const row = await this.analyticsRepo.findOne({
-      where: { store_id: storeId },
-    });
-
-    if (!row) throw new NotFoundException('Store analytics not found');
-
     const now = new Date();
-    const month = now.toLocaleString('en', { month: 'short' });
     const year = now.getFullYear();
-    const today = now.toISOString();
+    const month = now.getMonth() + 1; // 1–12
 
-    const analytics = this.normalizeAnalytics(row.analytics);
-    const customers: StoreCustomerSnapshot[] = row.customers ?? [];
-
-    /* ───────── SALES ───────── */
-    let sale = analytics.sales.find(
-      (s) => s.month === month && s.year === year,
+    // ✅ SOURCE OF TRUTH: compute order total
+    const orderTotal = items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
     );
-    if (!sale) {
-      sale = { month, year, amount: 0 };
-      analytics.sales.push(sale);
-    }
-    sale.amount += amount;
 
-    /* ───────── ORDERS ───────── */
-    let order = analytics.orders.find(
-      (o) => o.month === month && o.year === year,
-    );
-    if (!order) {
-      order = { month, year, count: 0 };
-      analytics.orders.push(order);
-    }
-    order.count += 1;
-
-    /* ───────── MONTHLY UNIQUE CUSTOMERS ───────── */
-    let custMonth = analytics.customers.find(
-      (c) => c.month === month && c.year === year,
-    );
-    if (!custMonth) {
-      custMonth = { month, year, count: 0, customer_ids: [] };
-      analytics.customers.push(custMonth);
-    }
-    if (!custMonth.customer_ids.includes(customerId)) {
-      custMonth.customer_ids.push(customerId);
-      custMonth.count += 1;
-    }
-
-    /* ───────── CUSTOMER SNAPSHOT ───────── */
-    let customer = customers.find((c) => c.id === customerId);
-    if (!customer) {
-      const user = await this.userRepo.findOne({
-        where: { id: customerId },
+    await this.analyticsRepo.manager.transaction(async (manager) => {
+      /* ────────────────────────────────────────────────
+       1️⃣ LOCK LIFETIME ANALYTICS
+    ──────────────────────────────────────────────── */
+      const analyticsRow = await manager.findOne(StoreAnalytics, {
+        where: { store_id: storeId },
+        lock: { mode: 'pessimistic_write' },
       });
 
-      customer = {
-        id: customerId,
-        name: `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim(),
-        email: user?.email ?? '',
-        phone_number: user?.phone_number ?? null,
-        location:
-          user?.address?.city ||
-          user?.address?.state ||
-          user?.address?.country ||
-          null,
-        orders: 0,
-        spent: 0,
-        rating: 0,
-        last_order_date: null,
-      };
-
-      customers.push(customer);
-    }
-
-    customer.orders += 1;
-    customer.spent += amount;
-    customer.last_order_date = today;
-
-    /* ───────── TOP PRODUCTS (MAX 110) ───────── */
-    for (const item of items) {
-      let prod = analytics.top_products.find(
-        (p) => p.product_id === item.product_id,
-      );
-
-      const revenue = item.price * item.quantity;
-
-      if (!prod) {
-        prod = {
-          product_id: item.product_id,
-          name: item.name,
-          slug: item.slug,
-          image: item.image,
-          total_sold: 0,
-          total_revenue: 0,
-        };
-        analytics.top_products.push(prod);
+      if (!analyticsRow) {
+        throw new NotFoundException('Store analytics not found');
       }
 
-      prod.total_sold += item.quantity;
-      prod.total_revenue += revenue;
+      /* ────────────────────────────────────────────────
+       2️⃣ ENSURE MONTHLY ROW EXISTS
+    ──────────────────────────────────────────────── */
+      await manager.getRepository(StoreMonthlyAnalytics).upsert(
+        {
+          store_id: storeId,
+          year,
+          month,
+          revenue: 0,
+          orders: 0,
+          unique_customers: 0,
+        },
+        ['store_id', 'year', 'month'],
+      );
+
+      /* ────────────────────────────────────────────────
+       3️⃣ FETCH CUSTOMER
+    ──────────────────────────────────────────────── */
+      const user = await manager.findOne(User, {
+        where: { id: customerId },
+        select: ['id', 'first_name', 'last_name', 'email', 'address'],
+      });
+
+      if (!user) {
+        throw new NotFoundException('Customer not found');
+      }
+
+      const location =
+        user.address?.city ||
+        user.address?.state ||
+        user.address?.country ||
+        null;
+
+      /* ────────────────────────────────────────────────
+       4️⃣ UPSERT STORE CUSTOMER
+    ──────────────────────────────────────────────── */
+      const storeCustomerRepo = manager.getRepository(StoreCustomer);
+
+      const existingCustomer = await storeCustomerRepo.findOne({
+        where: { store_id: storeId, user_id: customerId },
+      });
+
+      const isFirstOrderForStore = !existingCustomer;
+
+      if (existingCustomer) {
+        await storeCustomerRepo.update(
+          { id: existingCustomer.id },
+          {
+            orders_count: () => `"orders_count" + 1`,
+            total_spent: () => `"total_spent" + ${orderTotal}`,
+            last_order_at: now,
+          },
+        );
+      } else {
+        await storeCustomerRepo.insert({
+          store_id: storeId,
+          user_id: customerId,
+          name: `${user.first_name} ${user.last_name}`.trim(),
+          email: user.email,
+          location,
+          orders_count: 1,
+          total_spent: orderTotal,
+          rating: 0,
+          last_order_at: now,
+        });
+      }
+
+      /* ────────────────────────────────────────────────
+       5️⃣ UPDATE MONTHLY ANALYTICS
+    ──────────────────────────────────────────────── */
+      await manager.query(
+        `
+      UPDATE store_monthly_analytics
+      SET
+        revenue = revenue + $1,
+        orders = orders + 1,
+        unique_customers = unique_customers + $2
+      WHERE store_id = $3
+        AND year = $4
+        AND month = $5
+      `,
+        [orderTotal, isFirstOrderForStore ? 1 : 0, storeId, year, month],
+      );
+
+      /* ────────────────────────────────────────────────
+       6️⃣ UPDATE LIFETIME ANALYTICS
+    ──────────────────────────────────────────────── */
+      analyticsRow.total_revenue += orderTotal;
+      analyticsRow.total_orders += 1;
+
+      if (isFirstOrderForStore) {
+        analyticsRow.total_customers += 1;
+      }
+
+      analyticsRow.conversion_rate =
+        analyticsRow.total_customers > 0
+          ? Number(
+              (
+                (analyticsRow.total_orders / analyticsRow.total_customers) *
+                100
+              ).toFixed(2),
+            )
+          : 0;
+
+      analyticsRow.last_order_at = now;
+
+      await manager.save(analyticsRow);
+    });
+
+    /* ────────────────────────────────────────────────
+     7️⃣ CACHE INVALIDATION
+  ──────────────────────────────────────────────── */
+    await this.cache.clearPrefix(`svc:store:analytics:${storeId}`);
+    await this.cache.clearPrefix(`svc:store:customers:${storeId}`);
+
+    return { success: true };
+  }
+
+  async initializeAnalyticsForStore(storeId: string) {
+    const storeExists = await this.analyticsRepo.manager
+      .getRepository(Store)
+      .exist({ where: { id: storeId } });
+
+    if (!storeExists) {
+      throw new NotFoundException('Store not found');
     }
 
-    analytics.top_products = analytics.top_products
-      .sort((a, b) => b.total_sold - a.total_sold)
-      .slice(0, 110);
+    const existing = await this.analyticsRepo.findOne({
+      where: { store_id: storeId },
+      select: ['id'],
+    });
 
-    /* ───────── TOTALS ───────── */
-    row.total_revenue += amount;
-    row.total_orders += 1;
-    row.total_customers = customers.length;
-    row.conversion_rate =
-      row.total_customers > 0
-        ? Number(((row.total_orders / row.total_customers) * 100).toFixed(2))
-        : 0;
+    if (existing) {
+      return { created: false };
+    }
 
-    row.last_order_at = now;
-    row.analytics = analytics;
-    row.customers = customers;
+    const now = new Date();
 
-    await this.analyticsRepo.save(row);
-    await this.cache.clearPrefix('svc:store:analytics');
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // 1–12
 
-    return analytics;
+    await this.analyticsRepo.manager.transaction(async (manager) => {
+      /* 1️⃣ Create lifetime analytics */
+      await manager.save(
+        manager.create(StoreAnalytics, {
+          store_id: storeId,
+          total_revenue: 0,
+          total_orders: 0,
+          total_customers: 0,
+          conversion_rate: 0,
+          last_order_at: null,
+        }),
+      );
+
+      /* 2️⃣ Create FIRST monthly trend row */
+      await manager.save(
+        manager.create(StoreMonthlyAnalytics, {
+          store_id: storeId,
+          year,
+          month,
+          revenue: 0,
+          orders: 0,
+          unique_customers: 0,
+        }),
+      );
+    });
+
+    await this.cache.clearPrefix(`svc:store:analytics:${storeId}`);
+
+    return {
+      message: 'Store analytics & trends initialized',
+      created: true,
+    };
   }
 
   /* ────────────────────────────────────────────────
@@ -195,24 +265,99 @@ export class StoreAnalyticsService {
     const cached = await this.cache.get(key);
     if (cached) return cached;
 
-    const row = await this.analyticsRepo.findOne({
+    /* ────────────────────────────────────────────────
+     1️⃣ LIFETIME STORE ANALYTICS
+  ──────────────────────────────────────────────── */
+    const analyticsRow = await this.analyticsRepo.findOne({
       where: { store_id: storeId },
     });
 
-    if (!row) throw new NotFoundException('Store analytics not found');
+    if (!analyticsRow) {
+      throw new NotFoundException('Store analytics not found');
+    }
 
-    const analytics = this.normalizeAnalytics(row.analytics);
+    /* ────────────────────────────────────────────────
+     2️⃣ TOTAL PRODUCTS (SOURCE OF TRUTH)
+  ──────────────────────────────────────────────── */
+    const totalProducts =
+      await this.storeService.getTotalProductsForStore(storeId);
 
+    /* ────────────────────────────────────────────────
+     3️⃣ MONTHLY TRENDS (FROM TABLE)
+  ──────────────────────────────────────────────── */
+    const monthlyTrends = await this.analyticsRepo.manager.query(
+      `
+    SELECT
+      year,
+      month,
+      revenue,
+      orders,
+      unique_customers
+    FROM store_monthly_analytics
+    WHERE store_id = $1
+    ORDER BY year ASC, month ASC
+    `,
+      [storeId],
+    );
+
+    /* ────────────────────────────────────────────────
+     4️⃣ CUSTOMER LIST (TABLE, UI-READY)
+  ──────────────────────────────────────────────── */
+    const customers = await this.analyticsRepo.manager.query(
+      `
+    SELECT
+      id,
+      user_id,
+      name,
+      email,
+      location,
+      orders_count AS orders,
+      total_spent AS spent,
+      rating,
+      last_order_at
+    FROM store_customers
+    WHERE store_id = $1
+    ORDER BY total_spent DESC
+    `,
+      [storeId],
+    );
+
+    /* ────────────────────────────────────────────────
+     5️⃣ TOP PRODUCTS (REAL DATA)
+  ──────────────────────────────────────────────── */
+    const topProducts = await this.analyticsRepo.manager.query(
+      `
+    SELECT
+      p.id            AS product_id,
+      p.name,
+      p.slug,
+      p.image,
+      p.total_sold,
+      (p.total_sold * p.price) AS total_revenue
+    FROM products p
+    WHERE p.store_id = $1
+    ORDER BY p.total_sold DESC
+    LIMIT 10
+    `,
+      [storeId],
+    );
+
+    /* ────────────────────────────────────────────────
+     6️⃣ FINAL RESPONSE SHAPE
+  ──────────────────────────────────────────────── */
     const result = {
       summary: {
-        total_sales: row.total_revenue,
-        orders: row.total_orders,
-        customers: row.total_customers,
-        conversion_rate: row.conversion_rate,
+        total_sales: analyticsRow.total_revenue,
+        orders: analyticsRow.total_orders,
+        customers: analyticsRow.total_customers,
+        conversion_rate: analyticsRow.conversion_rate,
+        total_products: totalProducts,
       },
-      analytics,
-      customers: row.customers ?? [],
-      top_products: analytics.top_products,
+      trends: {
+        monthly: monthlyTrends,
+      },
+      customers,
+      top_products: topProducts,
     };
 
     await this.cache.set(key, result);

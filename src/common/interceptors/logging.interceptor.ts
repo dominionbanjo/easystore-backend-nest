@@ -5,8 +5,7 @@ import {
   CallHandler,
   Logger,
 } from '@nestjs/common';
-import { Observable, throwError } from 'rxjs';
-import { catchError, finalize } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -19,29 +18,26 @@ export class LoggingInterceptor implements NestInterceptor {
     const { method, originalUrl } = req;
     const start = Date.now();
 
-    let statusCode = null; // track correct status
+    // ✅ LISTEN TO REAL RESPONSE END
+    res.on('finish', () => {
+      const statusCode = res.statusCode;
+      const duration = Date.now() - start;
 
-    return next.handle().pipe(
-      catchError((err) => {
-        // extract correct HTTP status
-        statusCode = err.getStatus ? err.getStatus() : 500;
-
+      if (statusCode >= 500) {
         this.logger.error(
-          `${method} ${originalUrl} ${statusCode} - ${Date.now() - start}ms`,
+          `${method} ${originalUrl} ${statusCode} - ${duration}ms`,
         );
+      } else if (statusCode >= 400) {
+        this.logger.warn(
+          `${method} ${originalUrl} ${statusCode} - ${duration}ms`,
+        );
+      } else {
+        this.logger.log(
+          `${method} ${originalUrl} ${statusCode} - ${duration}ms`,
+        );
+      }
+    });
 
-        return throwError(() => err);
-      }),
-
-      finalize(() => {
-        // only log success here
-        if (!statusCode) {
-          statusCode = res.statusCode;
-          this.logger.log(
-            `${method} ${originalUrl} ${statusCode} - ${Date.now() - start}ms`,
-          );
-        }
-      }),
-    );
+    return next.handle();
   }
 }

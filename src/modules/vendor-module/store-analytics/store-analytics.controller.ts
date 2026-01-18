@@ -1,15 +1,35 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { StoreAnalyticsService } from './store-analytics.service';
 import { ICartItem } from 'src/modules/commerce-module/cart/types/types';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { StoreOwnerGuard } from '../store/guards/store-owner.guard';
+import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
+import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 
 @Controller('store-analytics')
 @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
 export class StoreAnalyticsController {
   constructor(private readonly analytics: StoreAnalyticsService) {}
+
+  @Get('me')
+  @Roles('vendor', 'admin')
+  async getMyStoreAnalytics(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    if (!user.store_id) {
+      throw new NotFoundException('No store associated with this account');
+    }
+
+    return this.analytics.getAnalytics(user.store_id);
+  }
 
   /* ────────────────────────────────────────────────
      GET FULL ANALYTICS SNAPSHOT
@@ -50,5 +70,12 @@ export class StoreAnalyticsController {
   async getTopProducts(@Param('storeId') storeId: string) {
     const data = await this.analytics.getAnalytics(storeId);
     return data;
+  }
+
+  /* 🔐 ADMIN ONLY */
+  @Post(':storeId/initialize')
+  @Roles('admin')
+  initializeStoreAnalytics(@Param('storeId') storeId: string) {
+    return this.analytics.initializeAnalyticsForStore(storeId);
   }
 }

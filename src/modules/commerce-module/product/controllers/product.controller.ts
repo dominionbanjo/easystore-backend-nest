@@ -10,15 +10,16 @@ import {
   UseInterceptors,
   UploadedFiles,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
-import { ProductService } from './product.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductService } from '../product.service';
+import { CreateProductDto } from '../dto/create-product.dto';
+import { UpdateProductDto } from '../dto/update-product.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
-import { CreateManyProductsDto } from './dto/create-many-products.dto';
+import { CreateManyProductsDto } from '../dto/create-many-products.dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
-import { ProductSearchDto } from './dto/product-search.dto';
+import { ProductSearchDto } from '../dto/product-search.dto';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
@@ -76,6 +77,22 @@ export class ProductController {
       pagination,
       user?.sub,
     );
+  }
+
+  /**
+   * 🏪 Products for current vendor's store
+   * GET /product/store/me
+   */
+  @Get('store/me')
+  @UseGuards(JwtAuthGuard)
+  getMyStoreProducts(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    if (!user.store_id) {
+      throw new NotFoundException('User does not own a store');
+    }
+    return this.productService.getByStore(user.store_id, pagination);
   }
   /**
    * 4️⃣ Products by store

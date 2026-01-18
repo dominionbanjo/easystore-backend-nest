@@ -2,6 +2,8 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -20,6 +22,7 @@ import { CreateStorePublicDto } from './dto/create-pstore.dto';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { VerifiedBankInfo } from './types/store-analytics.interface';
 import { buildPagination } from 'src/utils/response/pagination.util';
+import { StoreAnalyticsService } from '../store-analytics/store-analytics.service';
 
 @Injectable()
 export class StoreService {
@@ -39,6 +42,9 @@ export class StoreService {
 
     @InjectRepository(ProductCategory)
     private readonly categoryRepo: Repository<ProductCategory>,
+
+    @Inject(forwardRef(() => StoreAnalyticsService))
+    private readonly analyticsService: StoreAnalyticsService,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -207,6 +213,7 @@ export class StoreService {
     });
 
     const saved = await this.storeRepo.save(store);
+    await this.analyticsService.initializeAnalyticsForStore(saved.id);
 
     // 7️⃣ Clear caches
     await this.cache.clearPrefix('svc:store');
@@ -464,6 +471,22 @@ export class StoreService {
   /* ────────────────────────────────────────────────
      GET STORE PRODUCTS
   ──────────────────────────────────────────────── */
+
+  async getTotalProductsForStore(storeId: string): Promise<number> {
+    const store = await this.storeRepo.findOne({
+      where: { id: storeId },
+      select: ['user_id'],
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    return this.productRepo.count({
+      where: { vendor_id: store.user_id },
+    });
+  }
+
   async getStoreProducts(
     identifier: string,
     pagination: PaginationDto = { page: 1, limit: 20 },
