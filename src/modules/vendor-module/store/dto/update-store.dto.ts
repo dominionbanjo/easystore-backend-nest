@@ -1,7 +1,5 @@
-// src/store/dto/update-store.dto.ts
 import { PartialType } from '@nestjs/mapped-types';
 import { IsOptional, IsString, IsArray, IsEmail } from 'class-validator';
-import * as storeEntity from '../entities/store.entity';
 
 class UpdateStoreBaseDto {
   @IsOptional()
@@ -32,8 +30,26 @@ class UpdateStoreBaseDto {
   @IsString()
   website?: string;
 
+  /* ADDRESS (COLUMN-BASED) */
   @IsOptional()
-  address?: storeEntity.IStoreAddress;
+  @IsString()
+  address_street?: string | null;
+
+  @IsOptional()
+  @IsString()
+  address_city?: string | null;
+
+  @IsOptional()
+  @IsString()
+  address_state?: string | null;
+
+  @IsOptional()
+  @IsString()
+  address_country?: string | null;
+
+  @IsOptional()
+  @IsString()
+  address_postal_code?: string | null;
 }
 
 export class UpdateStoreDto extends PartialType(UpdateStoreBaseDto) {}

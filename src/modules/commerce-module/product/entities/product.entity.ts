@@ -150,17 +150,17 @@ export class Product {
   //   @Column({ type: 'varchar', length: 255, nullable: true })
   //   location: string | null;
 
-  @Index('IDX_PRODUCT_COUNTRY')
-  @Column({ type: 'varchar', length: 100 })
-  country: string;
+  //   @Index('IDX_PRODUCT_COUNTRY')
+  //   @Column({ type: 'varchar', length: 100 })
+  //   country: string;
 
-  @Index('IDX_PRODUCT_STATE')
-  @Column({ type: 'varchar', length: 100 })
-  state: string;
+  //   @Index('IDX_PRODUCT_STATE')
+  //   @Column({ type: 'varchar', length: 100 })
+  //   state: string;
 
-  @Index('IDX_PRODUCT_CITY')
-  @Column({ type: 'varchar', length: 100 })
-  city: string;
+  //   @Index('IDX_PRODUCT_CITY')
+  //   @Column({ type: 'varchar', length: 100 })
+  //   city: string;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
   shipping_cost: number | null;
@@ -186,6 +186,11 @@ export class Product {
 
   @Column({ type: 'boolean', default: false })
   featured: boolean;
+
+  @Index('IDX_PRODUCT_ON_SALE')
+  @Column({ type: 'boolean', default: false })
+  on_sale: boolean;
+
   /* ────────────────────────────────────────────────
      TIMESTAMPS
   ───────────────────────────────────────────────── */

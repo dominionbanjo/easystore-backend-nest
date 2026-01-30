@@ -1,9 +1,9 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { StoreService } from '../store.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
+import { StoreService } from '../services/store.service';
 
 @Controller('store-admin')
 @UseGuards(JwtAuthGuard, RolesGuard)

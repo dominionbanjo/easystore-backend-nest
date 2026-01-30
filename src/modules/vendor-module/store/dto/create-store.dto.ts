@@ -1,5 +1,3 @@
-import { IStoreAddress } from '../entities/store.entity';
-
 export class CreateStoreDto {
   user_id: string;
   store_name: string;
@@ -10,5 +8,11 @@ export class CreateStoreDto {
 
   phone_number?: string | null;
   website?: string | null;
-  address?: IStoreAddress;
+
+  /* ADDRESS */
+  address_street?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  address_country?: string | null;
+  address_postal_code?: string | null;
 }

@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { StoreService } from './store.service';
 import { StoreController } from './controllers/store.controller';
 import { Store } from './entities/store.entity';
 import { CommonModule } from 'src/common/common.module';
@@ -12,16 +11,31 @@ import { StoreAdminController } from './controllers/store-admin.controller';
 import { StoreLookupController } from './controllers/store-lookup.controller';
 import { StoreOwnerGuard } from './guards/store-owner.guard';
 import { StoreAnalyticsModule } from '../store-analytics/store-analytics.module';
+import { StoreDeliveryRate } from './entities/store-delivery-rate.entity';
+import { StoreDeliveryRateController } from './controllers/store-delivery-rate.controller';
+import { StoreDeliveryRateService } from 'src/modules/vendor-module/store/services/store-delivery-rate.service';
+import { StoreService } from './services/store.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Store, Product, User, ProductCategory]),
+    TypeOrmModule.forFeature([
+      Store,
+      Product,
+      StoreDeliveryRate,
+      User,
+      ProductCategory,
+    ]),
     CacheModule,
     CommonModule,
     forwardRef(() => StoreAnalyticsModule), // ✅ ADD THIS
   ],
-  controllers: [StoreController, StoreLookupController, StoreAdminController],
-  providers: [StoreService, StoreOwnerGuard],
+  controllers: [
+    StoreController,
+    StoreLookupController,
+    StoreAdminController,
+    StoreDeliveryRateController,
+  ],
+  providers: [StoreService, StoreOwnerGuard, StoreDeliveryRateService],
   exports: [StoreService, StoreOwnerGuard],
 })
 export class StoreModule {}

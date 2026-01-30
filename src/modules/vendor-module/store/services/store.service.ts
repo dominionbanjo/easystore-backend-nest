@@ -12,17 +12,19 @@ import slugify from 'slugify';
 import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
-import { Store } from './entities/store.entity';
 import { ProductCategory } from 'src/modules/commerce-module/product-category/entities/product-category.entity';
-import { Product } from 'src/modules/commerce-module/product/entities/product.entity';
+import {
+  Product,
+  ProductStatus,
+} from 'src/modules/commerce-module/product/entities/product.entity';
 import { STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL } from 'src/modules/commerce-module/product/queries/products-grouped-by-category.store.sql';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
-import { CreateStorePublicDto } from './dto/create-pstore.dto';
-import { CreateStoreDto } from './dto/create-store.dto';
-import { VerifiedBankInfo } from './types/store-analytics.interface';
 import { buildPagination } from 'src/utils/response/pagination.util';
-import { StoreAnalyticsService } from '../store-analytics/store-analytics.service';
+import { StoreAnalyticsService } from '../../store-analytics/store-analytics.service';
+import { Store } from '../entities/store.entity';
+import { VerifiedBankInfo } from '../types/store-analytics.interface';
+import { CreateStoreDto } from '../dto/create-store.dto';
 
 @Injectable()
 export class StoreService {
@@ -83,7 +85,14 @@ export class StoreService {
         'store.store_name',
         'store.category',
         'store.description',
-        'store.address',
+
+        /* ADDRESS COLUMNS */
+        'store.address_street',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
+
         'store.logo',
         'store.rating_average',
         'store.slug',
@@ -109,7 +118,16 @@ export class StoreService {
       store_name: store.store_name,
       category: store.category,
       description: store.description,
-      address: store.address,
+
+      /* 🔁 RECONSTRUCT ADDRESS OBJECT */
+      address: {
+        street: store.address_street ?? null,
+        city: store.address_city ?? null,
+        state: store.address_state ?? null,
+        country: store.address_country ?? null,
+        postal_code: store.address_postal_code ?? null,
+      },
+
       logo: store.logo,
       rating_average: store.rating_average,
       slug: store.slug,
@@ -220,24 +238,6 @@ export class StoreService {
     await this.cache.clearPrefix('svc:store:list');
 
     return saved;
-  }
-
-  async createStorePublic(userId: string, dto: CreateStorePublicDto) {
-    // 1️⃣ Ensure user exists
-    const user = await this.userRepo.findOne({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new BadRequestException('Invalid user');
-    }
-
-    // 2️⃣ Call internal creator
-    return this.createStore({
-      ...dto,
-      user_id: userId,
-      email: user.email, // 🔐 enforce email from auth user
-    });
   }
 
   /* ────────────────────────────────────────────────
@@ -384,7 +384,14 @@ export class StoreService {
         'store.store_name',
         'store.category',
         'store.description',
-        'store.address',
+
+        /* ADDRESS COLUMNS */
+        'store.address_street',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
+
         'store.logo',
         'store.rating_average',
         'store.slug',
@@ -409,7 +416,16 @@ export class StoreService {
       store_name: store.store_name,
       category: store.category,
       description: store.description,
-      address: store.address,
+
+      /* 🔁 RECONSTRUCT ADDRESS OBJECT */
+      address: {
+        street: store.address_street ?? null,
+        city: store.address_city ?? null,
+        state: store.address_state ?? null,
+        country: store.address_country ?? null,
+        postal_code: store.address_postal_code ?? null,
+      },
+
       logo: store.logo,
       rating_average: store.rating_average,
       slug: store.slug,
@@ -531,6 +547,9 @@ export class StoreService {
         'category.slug',
       ])
       .where('product.store_id = :storeId', { storeId: store.id })
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      })
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
@@ -618,6 +637,9 @@ export class StoreService {
       ])
       .where('product.store_id = :storeId', { storeId: store.id })
       .andWhere('product.category_id = :categoryId', { categoryId })
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      })
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)

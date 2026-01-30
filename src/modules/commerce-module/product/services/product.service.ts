@@ -12,19 +12,23 @@ import {
   ProductGalleryItem,
   ProductImage,
   ProductStatus,
-} from './entities/product.entity';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
+} from '../entities/product.entity';
+import { CreateProductDto } from '../dto/create-product.dto';
+import { UpdateProductDto } from '../dto/update-product.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { UploadService } from 'src/common/services/upload.service';
-import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from './queries/products-grouped-by-category.sql';
-import { ProductSearchDto } from './dto/product-search.dto';
-import { ProductCategory } from '../product-category/entities/product-category.entity';
-import { WishlistService } from '../wishlist/wishlist.service';
+import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from '../queries/products-grouped-by-category.sql';
+import { ProductSearchDto } from '../dto/product-search.dto';
+import { ProductCategory } from '../../product-category/entities/product-category.entity';
+import { WishlistService } from '../../wishlist/wishlist.service';
 import { normalizeJson } from 'src/utils/response/normalizeJson';
 import { buildPagination } from 'src/utils/response/pagination.util';
-import { CreateProductCloudinaryDto } from './dto/create-product-cloudinary.dto';
+import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
+import { UpdateProductCloudinaryDto } from '../dto/update-product=coudinary.dto';
+import { CartService } from '../../cart/cart.service';
+// import { SetProductDeliveryRateDto } from '../dto/delivery-rate.dto';
+// import { ProductDeliveryRate } from '../entities/product-delivery-rate.entity';
 
 @Injectable()
 export class ProductService {
@@ -38,8 +42,12 @@ export class ProductService {
     @InjectRepository(ProductColor)
     private readonly colorRepo: Repository<ProductColor>,
 
+    // @InjectRepository(ProductDeliveryRate)
+    // private readonly deliveryRateRepo: Repository<ProductDeliveryRate>,
+
     private readonly upload: UploadService,
     private readonly wishlistService: WishlistService,
+    private readonly cartService: CartService,
   ) {}
 
   private async ensureCategoryExists(categoryId: string) {
@@ -51,6 +59,26 @@ export class ProductService {
       throw new BadRequestException('Invalid category_id');
     }
   }
+
+  // private async createDeliveryRates(
+  //   productId: string,
+  //   rates?: SetProductDeliveryRateDto[],
+  // ) {
+  //   if (!rates?.length) return;
+
+  //   const entities = rates.map((rate) =>
+  //     this.deliveryRateRepo.create({
+  //       product_id: productId,
+  //       country: rate.country,
+  //       state: rate.state ?? null,
+  //       city: rate.city ?? null,
+  //       price: rate.price,
+  //       estimated_days: rate.estimated_days ?? null,
+  //     }),
+  //   );
+
+  //   await this.deliveryRateRepo.save(entities);
+  // }
 
   /* ────────────────────────────────────────────────
      1️⃣ CATEGORIES WITH LIMITED PRODUCTS (20 MAX)
@@ -152,6 +180,10 @@ export class ProductService {
         'store.store_name',
       ])
       .where('product.featured = :featured', { featured: true })
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      })
+
       .orderBy('product.created_at', 'DESC')
       .limit(limit)
       .getRawMany();
@@ -189,6 +221,9 @@ export class ProductService {
     const [products, total] = await this.productRepo
       .createQueryBuilder('product')
       .leftJoin('product.category_ref', 'category')
+      .where('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      })
       .select([
         'product.id',
         'product.name',
@@ -266,9 +301,11 @@ export class ProductService {
         'product.stock',
         'product.created_at',
       ])
-      .where('product.category_id = :categoryId', {
-        categoryId: category.id,
+      .where('product.category_id = :categoryId', { categoryId: category.id })
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
       })
+
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
@@ -488,6 +525,45 @@ export class ProductService {
       status,
     };
   }
+  async updateOnSale(productId: string, onSale: boolean) {
+    if (typeof onSale !== 'boolean') {
+      throw new BadRequestException('Invalid on_sale value');
+    }
+
+    const product = await this.productRepo.findOne({
+      where: { id: productId },
+      select: ['id', 'on_sale', 'discount_price'],
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // ❌ Prevent on_sale without discount
+    if (onSale === true && product.discount_price == null) {
+      throw new BadRequestException(
+        'Cannot mark product as on sale without a discount price',
+      );
+    }
+
+    if (product.on_sale === onSale) {
+      return {
+        message: `Product already ${onSale ? 'on sale' : 'not on sale'}`,
+        on_sale: onSale,
+      };
+    }
+
+    product.on_sale = onSale;
+
+    await this.productRepo.save(product);
+
+    return {
+      message: onSale
+        ? 'Product marked as on sale successfully'
+        : 'Product removed from sale successfully',
+      on_sale: onSale,
+    };
+  }
 
   /* ────────────────────────────────────────────────
      SEARCH PRODUCTS
@@ -600,11 +676,6 @@ export class ProductService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
-      location: {
-        country: p.country,
-        state: p.state,
-        city: p.city,
-      },
       is_featured: p.featured,
       is_in_wishlist: wishlistSet.has(p.id),
     }));
@@ -731,6 +802,99 @@ export class ProductService {
     };
   }
 
+  async searchStoreProductsEntity(
+    storeId: string,
+    params: ProductSearchDto,
+    pagination: PaginationQueryDto = { page: 1, limit: 20 },
+  ) {
+    const {
+      q,
+      minPrice,
+      maxPrice,
+      rating,
+      inStock = true,
+      colors,
+      sizes,
+    } = params;
+
+    const page = pagination.page ?? 1;
+    const limit = pagination.limit ?? 20;
+
+    if (!q?.trim()) {
+      throw new BadRequestException('Search query is required');
+    }
+
+    /* ---------- FULL TEXT QUERY ---------- */
+    const tsQuery = q
+      .trim()
+      .split(/\s+/)
+      .map((w) => `${w}:*`)
+      .join(' & ');
+
+    const qb = this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category_ref', 'category')
+      .where(`product.search_vector @@ to_tsquery('english', :tsQuery)`, {
+        tsQuery,
+      })
+      // 🔒 STORE SCOPE
+      .andWhere('product.store_id = :storeId', { storeId })
+      // 🔒 ONLY ACTIVE PRODUCTS
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      });
+
+    /* ---------- PRICE ---------- */
+    if (minPrice !== undefined) {
+      qb.andWhere('product.price >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    /* ---------- RATING ---------- */
+    if (rating !== undefined) {
+      qb.andWhere('product.rating_average >= :rating', { rating });
+    }
+
+    /* ---------- STOCK ---------- */
+    if (inStock === true) {
+      qb.andWhere('product.stock > 0');
+    }
+
+    /* ---------- COLORS ---------- */
+    if (colors?.length) {
+      qb.andWhere('product.colors && :colors', { colors });
+    }
+
+    /* ---------- SIZES ---------- */
+    if (sizes?.length) {
+      qb.andWhere('product.sizes && :sizes', { sizes });
+    }
+
+    /* ---------- EXECUTION ---------- */
+    const [products, total] = await qb
+      .orderBy('product.created_at', 'DESC') // ✅ SIMPLE & SAFE
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    /* ---------- SHAPE RESPONSE ---------- */
+    const items = products.map((product) => {
+      const { category_ref, ...rest } = product;
+      return {
+        ...rest,
+        category_ref,
+      };
+    });
+
+    return {
+      message: 'Store products search retrieved successfully',
+      data: buildPagination(items, total, page, limit),
+    };
+  }
+
   /* ────────────────────────────────────────────────
      CREATE PRODUCT
   ──────────────────────────────────────────────── */
@@ -799,7 +963,6 @@ export class ProductService {
     });
 
     const saved = await this.productRepo.save(product);
-
     return {
       message: 'Product created successfully',
       product: saved,
@@ -841,6 +1004,7 @@ export class ProductService {
     });
 
     const saved = await this.productRepo.save(product);
+    // await this.createDeliveryRates(saved.id, dto.delivery_rates);
 
     return {
       message: 'Product created successfully',
@@ -945,19 +1109,101 @@ export class ProductService {
     };
   }
 
+  async updateWithCloudinary(id: string, dto: UpdateProductCloudinaryDto) {
+    const product = await this.productRepo.findOne({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    /* ─────────────────────────────────────────────
+     CATEGORY CHECK (IF PROVIDED)
+  ───────────────────────────────────────────── */
+    if (dto.category_id && dto.category_id !== product.category_id) {
+      await this.ensureCategoryExists(dto.category_id);
+    }
+
+    /* ─────────────────────────────────────────────
+     SLUG UPDATE (ONLY IF NAME CHANGES)
+  ───────────────────────────────────────────── */
+    if (dto.name && dto.name !== product.name) {
+      product.slug = slugify(dto.name, { lower: true, strict: true });
+    }
+
+    /* ─────────────────────────────────────────────
+     CLOUDINARY MEDIA (SAFE OVERRIDES)
+  ───────────────────────────────────────────── */
+    if (dto.image !== undefined) {
+      product.image = dto.image; // allow null to remove image
+    }
+
+    if (dto.gallery !== undefined) {
+      product.gallery = dto.gallery; // allow null / empty array
+    }
+
+    /* ─────────────────────────────────────────────
+     APPLY REMAINING FIELDS
+  ───────────────────────────────────────────── */
+    Object.assign(product, {
+      ...dto,
+      image: product.image,
+      gallery: product.gallery,
+    });
+
+    const updated = await this.productRepo.save(product);
+
+    return {
+      message: 'Product updated successfully',
+      product: updated,
+    };
+  }
+
   /* ────────────────────────────────────────────────
      DELETE PRODUCT
   ──────────────────────────────────────────────── */
   async remove(id: string) {
-    const exists = await this.productRepo.exist({ where: { id } });
-    if (!exists) {
+    const product = await this.productRepo.findOne({
+      where: { id },
+      select: ['id', 'image', 'gallery'],
+    });
+
+    if (!product) {
       throw new NotFoundException('Product not found');
     }
 
+    /* ─────────────────────────────────────────────
+     REMOVE FROM CARTS (JSONB)
+  ───────────────────────────────────────────── */
+    await this.cartService.removeProductFromAllCarts(id);
+
+    /* ─────────────────────────────────────────────
+     REMOVE FROM WISHLIST (EXPLICIT)
+  ───────────────────────────────────────────── */
+    await this.wishlistService.removeProductFromAllWishlists(id);
+
+    /* ─────────────────────────────────────────────
+     DELETE CLOUDINARY ASSETS FIRST
+  ───────────────────────────────────────────── */
+
+    // 🖼️ delete main image
+    if (product.image?.public_id) {
+      await this.upload.deleteSingle(product.image.public_id);
+    }
+
+    // 🖼️ delete gallery images
+    if (product.gallery?.length) {
+      await this.upload.deleteMultiple(product.gallery);
+    }
+
+    /* ─────────────────────────────────────────────
+     DELETE PRODUCT FROM DB
+  ───────────────────────────────────────────── */
     await this.productRepo.delete(id);
 
     return {
-      message: 'Product deleted successfully',
+      message: 'Product and images deleted successfully',
     };
   }
 }

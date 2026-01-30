@@ -1,5 +1,5 @@
 import { Controller, Post, Body, HttpCode } from '@nestjs/common';
-import { OrderPaymentService } from '../services/order-payment.service';
+import { OrderPaymentService } from '../services/order-payment-webhook.service';
 
 @Controller('orders/webhook')
 export class OrderPaymentController {

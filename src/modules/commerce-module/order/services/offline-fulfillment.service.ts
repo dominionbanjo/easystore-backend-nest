@@ -6,8 +6,8 @@ import {
 import { OrderService } from './order.service';
 import { TransactionsService } from 'src/modules/finance-module/transactions/transactions.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
-import { StoreService } from 'src/modules/vendor-module/store/store.service';
 import { DeliveryService } from '../../delivery/delivery.service';
+import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
 
 @Injectable()
 export class OfflineFulfillmentService {

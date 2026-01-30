@@ -11,9 +11,7 @@ import {
   UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
-import { StoreService } from '../store.service';
 import { UpdateStoreDto } from '../dto/update-store.dto';
-import { CreateStorePublicDto } from '../dto/create-pstore.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
@@ -22,6 +20,7 @@ import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.g
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { StoreOwnerGuard } from '../guards/store-owner.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { StoreService } from '../services/store.service';
 
 @Controller('store')
 export class StoreController {
@@ -92,21 +91,6 @@ export class StoreController {
       identifier,
       pagination,
     );
-  }
-
-  /* ────────────────────────────────────────────────
-     CREATE STORE
-  ──────────────────────────────────────────────── */
-
-  // POST /store
-  @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  create(
-    @CurrentUser() user: jwtStrategy.JwtAuthUser,
-    @Body() dto: CreateStorePublicDto,
-  ) {
-    return this.storeService.createStorePublic(user.sub, dto);
   }
 
   /* ────────────────────────────────────────────────

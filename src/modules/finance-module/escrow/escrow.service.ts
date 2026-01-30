@@ -9,11 +9,11 @@ import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
 import { UsersService } from 'src/modules/identity-module/users/users.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { EscrowMailService } from 'src/modules/shared-module/email/services/escrow-mail.service';
-import { StoreService } from 'src/modules/vendor-module/store/store.service';
 import { Repository } from 'typeorm';
 import { PayoutService } from '../payout/payout.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Escrow } from './entities/escrow.entity';
+import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
 
 @Injectable()
 export class EscrowService {

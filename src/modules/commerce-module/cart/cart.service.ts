@@ -21,6 +21,29 @@ export class CartService {
   ) {}
 
   /* ────────────────────────────────────────────────
+     REMOVE PRODUCT FROM ALL CARTS (GLOBAL CLEANUP)
+     Called when a product is deleted
+  ──────────────────────────────────────────────── */
+  async removeProductFromAllCarts(productId: string) {
+    const carts = await this.cartRepo
+      .createQueryBuilder('cart')
+      .where(`cart.cart_items @> :item`, {
+        item: JSON.stringify([{ product_id: productId }]),
+      })
+      .getMany();
+
+    if (!carts.length) return;
+
+    for (const cart of carts) {
+      cart.cart_items = cart.cart_items.filter(
+        (item) => item.product_id !== productId,
+      );
+    }
+
+    await this.cartRepo.save(carts);
+  }
+
+  /* ────────────────────────────────────────────────
      INTERNAL HELPERS
   ──────────────────────────────────────────────── */
 

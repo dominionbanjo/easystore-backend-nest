@@ -52,6 +52,30 @@ export class PaystackService {
 
     throw new BadRequestException(`${context} failed: ${message}`);
   }
+  /* ────────────────────────────────────────────────
+   GET NIGERIAN BANKS
+──────────────────────────────────────────────── */
+  async getBanksNigeria() {
+    try {
+      const res = await axios.get(`${this.baseUrl}/bank`, {
+        headers: this.headers,
+        params: {
+          country: 'nigeria',
+          currency: 'NGN',
+          enabled_for_verification: true,
+        },
+      });
+
+      return res.data?.data?.map((bank: any) => ({
+        name: bank.name,
+        code: bank.code,
+        slug: bank.slug,
+        type: bank.type,
+      }));
+    } catch (error) {
+      this.handleError(error, 'Fetching Nigerian banks');
+    }
+  }
 
   /* ────────────────────────────────────────────────
      PAYMENTS

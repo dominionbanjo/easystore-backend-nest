@@ -21,6 +21,10 @@ export class WishlistService {
     private readonly cache: CacheService,
   ) {}
 
+  async removeProductFromAllWishlists(productId: string) {
+    await this.wishlistRepo.delete({ product_id: productId });
+  }
+
   async getWishlistProductIds(userId: string): Promise<Set<string>> {
     if (!userId) return new Set();
 

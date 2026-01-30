@@ -14,21 +14,14 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
-// import {
-//   hashPassword,
-//   comparePassword,
-// } from 'src/common/utils/auth/passwordUtil';
-// import { toUTCDate } from 'src/common/utils/time/toUTCDate';
-// import createHash from 'src/common/utils/auth/createHash';
-// import { sanitizeUser } from 'src/common/utils/response/sanitizeUser';
 import { EmailVerificationService } from 'src/modules/shared-module/email/services/email-verification.service';
 import { ResetPasswordMailService } from 'src/modules/shared-module/email/services/reset-password-mail.service';
-import { StoreService } from 'src/modules/vendor-module/store/store.service';
 import { SalesChannel, User } from '../users/entities/user.entity';
 import { toUTCDate } from 'src/utils/time/toUTCDate';
 import { comparePassword, hashPassword } from 'src/utils/auth/passwordUtil';
 import { sanitizeUser } from 'src/utils/response/sanitizeUser';
 import createHash from 'src/utils/auth/createHash';
+import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
 
 @Injectable()
 export class AuthService {

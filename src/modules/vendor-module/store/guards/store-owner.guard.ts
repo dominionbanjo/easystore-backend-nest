@@ -5,8 +5,8 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { StoreService } from '../store.service';
 import { JwtAuthUser } from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { StoreService } from '../services/store.service';
 
 @Injectable()
 export class StoreOwnerGuard implements CanActivate {

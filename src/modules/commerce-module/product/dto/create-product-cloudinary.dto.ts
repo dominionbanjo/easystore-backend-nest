@@ -11,6 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { SetProductDeliveryRateDto } from '../../../vendor-module/store/dto/store-delivery-rate.dto';
 
 export class CloudinaryAssetDto {
   @IsString()
@@ -49,15 +50,15 @@ export class CreateProductCloudinaryDto {
   stock: number;
 
   /* ───────────── LOCATION (FIXED) ───────────── */
-  @IsString()
-  country: string;
+  // @IsString()
+  // country: string;
 
-  @IsString()
-  @IsOptional()
-  state?: string;
+  // @IsString()
+  // @IsOptional()
+  // state?: string;
 
-  @IsString()
-  city: string;
+  // @IsString()
+  // city: string;
 
   /* ───────────── SHIPPING ───────────── */
   @IsNumber()
@@ -110,4 +111,6 @@ export class CreateProductCloudinaryDto {
   @IsString({ each: true })
   @IsOptional()
   sizes?: string[];
+
+  // delivery_rates?: SetProductDeliveryRateDto[];
 }

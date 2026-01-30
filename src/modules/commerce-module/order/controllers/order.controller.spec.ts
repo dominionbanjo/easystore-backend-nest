@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrderController } from './order.controller';
 import { OrderService } from '../services/order.service';
+import { OrderController } from './pandaOrder.controller';
 
 describe('OrderController', () => {
   let controller: OrderController;

@@ -23,7 +23,7 @@ import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.st
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
-export class OrderController {
+export class PandaOrderController {
   constructor(private readonly orderService: OrderService) {}
 
   /* ────────────────────────────────────────────────

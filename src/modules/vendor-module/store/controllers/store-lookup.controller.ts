@@ -1,6 +1,5 @@
 import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
-
-import { StoreService } from '../store.service';
+import { StoreService } from '../services/store.service';
 
 @Controller('store/lookup')
 export class StoreLookupController {

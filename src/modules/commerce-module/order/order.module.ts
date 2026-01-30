@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Order } from './entities/order.entity';
 import { OrderService } from './services/order.service';
-import { OrderController } from './controllers/order.controller';
 import { CommonModule } from 'src/common/common.module';
 import { EscrowModule } from 'src/modules/finance-module/escrow/escrow.module';
 import { TransactionsModule } from 'src/modules/finance-module/transactions/transactions.module';
@@ -12,10 +11,18 @@ import { EmailModule } from 'src/modules/shared-module/email/email.module';
 import { StoreModule } from 'src/modules/vendor-module/store/store.module';
 import { DeliveryModule } from '../delivery/delivery.module';
 import { ProductModule } from '../product/product.module';
+import { PandascrowEscrowService } from './services/pandascrow-escrow.service';
+import { HttpModule } from '@nestjs/axios';
+import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { OrderPaymentController } from './controllers/order-payment.controller';
+import { OrderController } from './controllers/pandaOrder.controller';
+import { PandaOrderController } from './controllers/order.controller';
+import { OrderPaymentService } from './services/order-payment-webhook.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order]),
+    TypeOrmModule.forFeature([Order, User]),
+    HttpModule,
     ProductModule,
     CacheModule,
     EmailModule,
@@ -25,8 +32,8 @@ import { ProductModule } from '../product/product.module';
     CommonModule,
     StoreModule,
   ],
-  controllers: [OrderController],
-  providers: [OrderService],
+  controllers: [OrderController, PandaOrderController, OrderPaymentController],
+  providers: [OrderService, PandascrowEscrowService, OrderPaymentService],
   exports: [OrderService],
 })
 export class OrderModule {}

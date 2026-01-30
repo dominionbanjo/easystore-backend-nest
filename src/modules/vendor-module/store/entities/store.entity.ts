@@ -1,3 +1,4 @@
+import { StoreDeliveryRate } from 'src/modules/vendor-module/store/entities/store-delivery-rate.entity';
 import { Product } from 'src/modules/commerce-module/product/entities/product.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import {
@@ -7,7 +8,6 @@ import {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
   JoinColumn,
   OneToMany,
   OneToOne,
@@ -17,13 +17,13 @@ import {
    JSON / INTERFACES
 ──────────────────────────────────────────────── */
 
-export interface IStoreAddress {
-  street?: string | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-  postal_code?: string | null;
-}
+// export interface IStoreAddress {
+//   street?: string | null;
+//   city?: string | null;
+//   state?: string | null;
+//   country?: string | null;
+//   postal_code?: string | null;
+// }
 
 export interface IStoreCustomer {
   id: string;
@@ -179,9 +179,27 @@ export class Store {
   // })
   // customers: IStoreCustomer[] | null;
 
+  // /* ADDRESS */
+  // @Column({ type: 'jsonb', nullable: true })
+  // address: IStoreAddress | null;
+
   /* ADDRESS */
-  @Column({ type: 'jsonb', nullable: true })
-  address: IStoreAddress | null;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  address_street: string | null;
+  @Index('IDX_STORE_CITY')
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  address_city: string | null;
+
+  @Index('IDX_STORE_STATE')
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  address_state: string | null;
+
+  @Index('IDX_STORE_COUNTRY')
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  address_country: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  address_postal_code: string | null;
 
   /* TIMESTAMPS */
   @CreateDateColumn({ type: 'timestamptz' })
@@ -192,4 +210,7 @@ export class Store {
 
   @OneToMany(() => Product, (product) => product.store)
   products: Product[];
+
+  @OneToMany(() => StoreDeliveryRate, (rate) => rate.store)
+  delivery_rates: StoreDeliveryRate[];
 }

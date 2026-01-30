@@ -25,7 +25,15 @@ export function buildProductResponse(product: Product) {
           cover_image: store.cover_image,
           rating_average: store.rating_average,
           rating_count: store.rating_count,
-          location: store.address,
+
+          /* 🔁 RECONSTRUCT LOCATION FROM COLUMNS */
+          location: {
+            street: store.address_street ?? null,
+            city: store.address_city ?? null,
+            state: store.address_state ?? null,
+            country: store.address_country ?? null,
+            postal_code: store.address_postal_code ?? null,
+          },
         }
       : null,
 

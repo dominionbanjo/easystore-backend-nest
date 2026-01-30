@@ -33,7 +33,7 @@ export type PaymentStatus =
   | 'refunded'
   | 'unpaid';
 
-export type PaymentMethod = 'online' | 'offline';
+export type PaymentMethod = 'online' | 'offline' | 'panda';
 
 @Entity({ name: 'orders' })
 export class Order {
