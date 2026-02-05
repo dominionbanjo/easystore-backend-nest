@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
+import { DataSource } from 'typeorm';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly storeService: StoreService,
     private readonly emailVerification: EmailVerificationService,
     private readonly resetPasswordVerification: ResetPasswordMailService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private async generateUniqueUsername(
@@ -105,59 +107,66 @@ export class AuthService {
         : undefined;
 
     // ---------------------------
-    // 1️⃣ Create USER
+    // 🔒 TRANSACTIONAL CREATION
     // ---------------------------
-    const user = await this.users.create({
-      first_name: dto.first_name,
-      last_name: dto.last_name,
-      email: dto.email,
-      phone_number: dto.phone_number ?? null,
-      account_type: dto.account_type,
-      username,
-      referral_code: dto.referral_code ?? null,
-      current_sales_channel: salesChannel,
-      agree_to_terms: dto.agree_to_terms,
-      password: hashed,
-      otp,
-      otp_expiration,
-      email_verified: false,
-      signup_medium: 'signed',
-    });
-
-    // ---------------------------
-    // 2️⃣ If vendor → CREATE STORE
-    // ---------------------------
-    if (dto.account_type === 'vendor') {
-      try {
-        await this.storeService.createStore({
-          user_id: user.id,
-          store_name: dto.store_name!,
-          description: dto.description,
+    const result = await this.dataSource.transaction(async (manager) => {
+      // 1️⃣ Create USER
+      const user = await this.users.create(
+        {
+          first_name: dto.first_name,
+          last_name: dto.last_name,
           email: dto.email,
-        });
-      } catch (error) {
-        // rollback user if store creation fails
-        await this.users.deleteUser(user.id);
-        throw error;
+          phone_number: dto.phone_number ?? null,
+          account_type: dto.account_type,
+          username,
+          referral_code: dto.referral_code ?? null,
+          current_sales_channel: salesChannel,
+          agree_to_terms: dto.agree_to_terms,
+          password: hashed,
+          otp,
+          otp_expiration,
+          email_verified: false,
+          signup_medium: 'signed',
+        },
+        manager,
+      );
+
+      // 2️⃣ If vendor → CREATE STORE
+      if (dto.account_type === 'vendor') {
+        await this.storeService.createStore(
+          {
+            user_id: user.id,
+            store_name: dto.store_name!,
+            description: dto.description,
+            email: dto.email,
+          },
+          manager,
+        );
       }
-    }
+
+      return user;
+    });
 
     // ---------------------------
-    // 3️⃣ Send verification email
+    // 3️⃣ Send verification email (Graceful failure)
     // ---------------------------
-    await this.emailVerification.sendVerificationEmail({
-      name: dto.first_name,
-      email: dto.email,
-      otp,
-    });
+    try {
+      await this.emailVerification.sendVerificationEmail({
+        name: dto.first_name,
+        email: dto.email,
+        otp,
+      });
+    } catch (error) {
+      console.error('Failed to send verification email cleanup:', error);
+    }
 
     // ---------------------------
     // 4️⃣ Auto login
     // ---------------------------
-    const { access_token } = this.generateJwt(user);
+    const { access_token } = this.generateJwt(result);
 
     return {
-      user: sanitizeUser(user),
+      user: sanitizeUser(result),
       access: access_token,
       message: 'Signup Successful',
     };

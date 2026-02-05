@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
   Index,
   JoinColumn,
+  OneToOne,
 } from 'typeorm';
 import { ICartItem } from '../../cart/types/types';
 import { Order } from '../../order/entities/order.entity';

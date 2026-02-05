@@ -11,6 +11,7 @@ import { PaystackService } from 'src/common/services/paystack.service';
 import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { sanitizeUser } from 'src/utils/response/sanitizeUser';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class UsersService {
@@ -53,9 +54,10 @@ export class UsersService {
   /* ────────────────────────────────────────────────
      CREATE USER
   ──────────────────────────────────────────────── */
-  create(data: Partial<User>) {
-    const entity = this.userRepo.create(data);
-    return this.userRepo.save(entity);
+  create(data: Partial<User>, manager?: EntityManager) {
+    const repo = manager ? manager.getRepository(User) : this.userRepo;
+    const entity = repo.create(data);
+    return repo.save(entity);
   }
 
   /* ────────────────────────────────────────────────

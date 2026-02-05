@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { StoreAnalytics } from './entities/store-analytics.entity';
 import { ICartItem } from 'src/modules/commerce-module/cart/types/types';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
@@ -200,16 +200,21 @@ export class StoreAnalyticsService {
     return { success: true };
   }
 
-  async initializeAnalyticsForStore(storeId: string) {
-    const storeExists = await this.analyticsRepo.manager
-      .getRepository(Store)
-      .exist({ where: { id: storeId } });
+  async initializeAnalyticsForStore(storeId: string, manager?: EntityManager) {
+    const storeRepo = manager
+      ? manager.getRepository(Store)
+      : this.analyticsRepo.manager.getRepository(Store);
+    const analyticsRepo = manager
+      ? manager.getRepository(StoreAnalytics)
+      : this.analyticsRepo;
+
+    const storeExists = await storeRepo.exist({ where: { id: storeId } });
 
     if (!storeExists) {
       throw new NotFoundException('Store not found');
     }
 
-    const existing = await this.analyticsRepo.findOne({
+    const existing = await analyticsRepo.findOne({
       where: { store_id: storeId },
       select: ['id'],
     });
@@ -223,10 +228,12 @@ export class StoreAnalyticsService {
     const year = now.getFullYear();
     const month = now.getMonth() + 1; // 1–12
 
-    await this.analyticsRepo.manager.transaction(async (manager) => {
+    const runWith = manager || this.analyticsRepo.manager;
+
+    await runWith.transaction(async (txnManager) => {
       /* 1️⃣ Create lifetime analytics */
-      await manager.save(
-        manager.create(StoreAnalytics, {
+      await txnManager.save(
+        txnManager.create(StoreAnalytics, {
           store_id: storeId,
           total_revenue: 0,
           total_orders: 0,
@@ -237,8 +244,8 @@ export class StoreAnalyticsService {
       );
 
       /* 2️⃣ Create FIRST monthly trend row */
-      await manager.save(
-        manager.create(StoreMonthlyAnalytics, {
+      await txnManager.save(
+        txnManager.create(StoreMonthlyAnalytics, {
           store_id: storeId,
           year,
           month,
