@@ -5,12 +5,28 @@ import {
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { v4 as uuidv4 } from 'uuid';
+
+/* ────────────────────────────────────────────────
+   RESPONSE TYPES
+──────────────────────────────────────────────── */
+interface PandascrowInitializeResponse {
+  status: boolean;
+  data: {
+    escrow_id: number;
+    status: string;
+    type: string;
+    payment_url: string;
+    transaction_ref: string;
+    provider: string;
+  };
+}
 
 @Injectable()
 export class PandascrowEscrowService {
   private readonly baseUrl = process.env.PANDASCROW_BASE_URL!;
-  private readonly token = process.env.PANDASCROW_API_KEY!; // internal key
+  private readonly token = process.env.PANDASCROW_API_KEY!;
+  private readonly publicKey = process.env.PANDASCROW_PUBLIC_KEY!;
+  private readonly userId = process.env.PANDASCROW_USER_ID!;
 
   constructor(private readonly http: HttpService) {}
 
@@ -19,10 +35,6 @@ export class PandascrowEscrowService {
      POST /escrow/initialize
   ──────────────────────────────────────────────── */
   async initializeEscrow(params: {
-    initiator_role: 'buyer' | 'seller' | 'broker';
-    initiator_id: string;
-    receiver_id?: string;
-
     title: string;
     description: string;
     acceptance_criteria?: string;
@@ -30,11 +42,11 @@ export class PandascrowEscrowService {
     amount: number;
     currency: string;
 
-    inspection_period: string; // e.g. "3 days"
+    inspection_period: string; // e.g. "1" (days)
     delivery_date: string; // YYYY-MM-DD
     who_pay_fees: 'buyer' | 'seller' | 'both';
 
-    dispute_window?: string;
+    dispute_window?: string; // e.g. "2" (days)
     how_dispute_is_handled?: 'platform' | 'arbitration';
 
     buyer_details: {
@@ -42,60 +54,48 @@ export class PandascrowEscrowService {
       email: string;
       phone: string;
     };
-
-    seller_details: {
-      name: string;
-      email: string;
-      phone: string;
-    };
-
-    callback_url?: string;
-  }) {
+  }): Promise<PandascrowInitializeResponse> {
     try {
       const payload = {
-        uuid: uuidv4(),
+        uuid: this.userId,
         escrow_type: 'onetime',
-        initiator_role: params.initiator_role,
-        initiator_id: params.initiator_id,
-        receiver_id: params.receiver_id ?? null,
+        initiator_role: 'seller',
+        initiator_id: this.userId,
+        receiver_id: '',
 
         title: params.title,
-        description: params.description,
-        acceptance_criteria: params.acceptance_criteria ?? null,
-
         currency: params.currency,
-        amount: params.amount,
-
+        description: params.description,
+        acceptance_criteria: params.acceptance_criteria || '',
         inspection_period: params.inspection_period,
         delivery_date: params.delivery_date,
+        how_dispute_is_handled: params.how_dispute_is_handled || 'platform',
         who_pay_fees: params.who_pay_fees,
-
-        dispute_window: params.dispute_window ?? null,
-        how_dispute_is_handled: params.how_dispute_is_handled ?? 'platform',
+        amount: params.amount,
+        dispute_window: params.dispute_window || '2',
 
         buyer_details: params.buyer_details,
-        seller_details: params.seller_details,
-
-        payout: {
-          payout_type: 'bank',
-        },
-
-        callback_url: params.callback_url ?? null,
       };
 
       const response = await firstValueFrom(
-        this.http.post(`${this.baseUrl}/escrow/initialize`, payload, {
-          headers: {
-            Token: this.token,
-            'Content-Type': 'application/json',
+        this.http.post<PandascrowInitializeResponse>(
+          `${this.baseUrl}/escrow/initialize`,
+          payload,
+          {
+            headers: {
+              Token: this.token,
+              'Content-Type': 'application/json',
+            },
           },
-        }),
+        ),
       );
 
       return response.data;
     } catch (err: any) {
+      console.error('Pandascrow initialization error:', err?.response?.data);
       throw new InternalServerErrorException(
-        err?.response?.data ?? 'Pandascrow escrow initialization failed',
+        err?.response?.data?.message ??
+          'Pandascrow escrow initialization failed',
       );
     }
   }
@@ -104,15 +104,11 @@ export class PandascrowEscrowService {
      MARK ESCROW AS COMPLETE (OTP CONFIRMATION)
      POST /escrow/complete
   ──────────────────────────────────────────────── */
-  async completeEscrow(params: {
-    escrow_id: number;
-    uuid: string; // user UUID confirming
-    otp: string;
-  }) {
+  async completeEscrow(params: { escrow_id: number; otp: string }) {
     try {
       const payload = {
+        uuid: this.userId,
         escrow_id: params.escrow_id,
-        uuid: params.uuid,
         otp: params.otp,
       };
 
@@ -127,8 +123,9 @@ export class PandascrowEscrowService {
 
       return response.data;
     } catch (err: any) {
+      console.error('Pandascrow completion error:', err?.response?.data);
       throw new BadRequestException(
-        err?.response?.data ?? 'Pandascrow escrow completion failed',
+        err?.response?.data?.message ?? 'Pandascrow escrow completion failed',
       );
     }
   }
