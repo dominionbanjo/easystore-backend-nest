@@ -66,9 +66,26 @@ export class ProductSearchDto {
   rating?: number;
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
   @IsBoolean()
   inStock?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
+  onSale?: boolean;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
 
   /* ───────────────── ARRAYS (CSV → ARRAY) ───────────────── */
 

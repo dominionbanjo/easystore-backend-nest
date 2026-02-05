@@ -106,8 +106,13 @@ export class StoreService {
           .from(Product, 'product')
           .where('product.vendor_id = store.user_id');
       }, 'total_products')
-      .where('store.store_name ILIKE :q', { q: `%${q}%` })
-      .orderBy('store.created_at', 'DESC')
+      .where('store.store_name ILIKE :q', { q: `%${q}%` });
+
+    if (pagination.state) {
+      qb.andWhere('store.address_state = :state', { state: pagination.state });
+    }
+
+    qb.orderBy('store.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -404,8 +409,13 @@ export class StoreService {
           .select('COUNT(product.id)')
           .from(Product, 'product')
           .where('product.vendor_id = store.user_id');
-      }, 'total_products')
-      .orderBy('store.created_at', 'DESC')
+      }, 'total_products');
+
+    if (pagination.state) {
+      qb.andWhere('store.address_state = :state', { state: pagination.state });
+    }
+
+    qb.orderBy('store.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -522,7 +532,14 @@ export class StoreService {
 
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
-      select: ['id'],
+      select: [
+        'id',
+        'store_name',
+        'address_city',
+        'address_state',
+        'address_country',
+        'address_postal_code',
+      ],
     });
 
     if (!store) {
@@ -563,6 +580,11 @@ export class StoreService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
+      store_name: store.store_name,
+      address_city: store.address_city,
+      address_state: store.address_state,
+      address_country: store.address_country,
+      address_postal_code: store.address_postal_code,
     }));
 
     const data = buildPagination(items, total, page, limit);
@@ -601,7 +623,14 @@ export class StoreService {
     /* ───────────── RESOLVE STORE ───────────── */
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
-      select: ['id', 'store_name'],
+      select: [
+        'id',
+        'store_name',
+        'address_city',
+        'address_state',
+        'address_country',
+        'address_postal_code',
+      ],
     });
 
     if (!store) {
@@ -653,6 +682,11 @@ export class StoreService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
+      store_name: store.store_name,
+      address_city: store.address_city,
+      address_state: store.address_state,
+      address_country: store.address_country,
+      address_postal_code: store.address_postal_code,
     }));
 
     const data = buildPagination(items, total, page, limit);

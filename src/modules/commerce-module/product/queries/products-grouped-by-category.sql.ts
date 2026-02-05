@@ -14,6 +14,10 @@ WITH ranked_products AS (
     p.image,
 
     s.store_name,
+    s.address_city,
+    s.address_state,
+    s.address_country,
+    s.address_postal_code,
 
     -- Resolve MAIN category
     COALESCE(pc.id, c.id) AS parent_category_id,
