@@ -12,6 +12,7 @@ import { StoreLookupController } from './controllers/store-lookup.controller';
 import { StoreOwnerGuard } from './guards/store-owner.guard';
 import { StoreAnalyticsModule } from '../store-analytics/store-analytics.module';
 import { StoreDeliveryRate } from './entities/store-delivery-rate.entity';
+import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 import { StoreDeliveryRateController } from './controllers/store-delivery-rate.controller';
 import { StoreDeliveryRateService } from 'src/modules/vendor-module/store/services/store-delivery-rate.service';
 import { StoreService } from './services/store.service';
@@ -24,6 +25,7 @@ import { StoreService } from './services/store.service';
       StoreDeliveryRate,
       User,
       ProductCategory,
+      ProductColor,
     ]),
     CacheModule,
     CommonModule,

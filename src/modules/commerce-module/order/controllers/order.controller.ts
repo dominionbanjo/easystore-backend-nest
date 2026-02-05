@@ -58,6 +58,23 @@ export class PandaOrderController {
   }
 
   /* ────────────────────────────────────────────────
+     CREATE ONLINE ORDER WITHOUT ESCROW (DIRECT PAYSTACK)
+     NOTE: This endpoint is for direct payment with 2% platform fee
+     No escrow protection - immediate payment to vendor
+  ──────────────────────────────────────────────── */
+  @Post('online/direct')
+  async createOnlineOrderNoEscrow(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body() dto: CreateOnlineOrderDto,
+  ) {
+    return this.orderService.createOnlineOrderNoEscrow({
+      buyer_id: user.sub,
+      email: dto.email,
+      order_items: dto.order_items as ICartItem[],
+    });
+  }
+
+  /* ────────────────────────────────────────────────
      VERIFY PAYMENT (PAYSTACK CALLBACK)
   ──────────────────────────────────────────────── */
   @Post('verify/:reference')
@@ -81,8 +98,19 @@ export class PandaOrderController {
      GET ORDERS — CURRENT USER (BUYER)
   ──────────────────────────────────────────────── */
   @Get()
-  async getMyOrders(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
-    return this.orderService.getOrdersByUser(user.sub);
+  async getMyOrders(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.orderService.getOrdersByUser(user.sub, {
+      search,
+      status,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+    });
   }
 
   /* ────────────────────────────────────────────────

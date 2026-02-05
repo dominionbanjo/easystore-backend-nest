@@ -81,16 +81,79 @@ export class PaystackService {
      PAYMENTS
   ──────────────────────────────────────────────── */
 
-  async initializePayment(email: string, amount: number) {
+  /* ────────────────────────────────────────────────
+     SUBACCOUNTS (SPLIT PAYMENTS)
+  ──────────────────────────────────────────────── */
+  async createSubaccount({
+    business_name,
+    bank_code,
+    account_number,
+    percentage_charge = 2.5,
+  }: {
+    business_name: string;
+    bank_code: string;
+    account_number: string;
+    percentage_charge?: number;
+  }) {
     try {
       const res = await axios.post(
-        `${this.baseUrl}/transaction/initialize`,
+        `${this.baseUrl}/subaccount`,
         {
-          email,
-          amount: Math.round(amount * 100),
-          currency: 'NGN',
-          callback_url: `${process.env.BASE_URL}/verify`,
+          business_name,
+          settlement_bank: bank_code,
+          account_number,
+          percentage_charge,
         },
+        { headers: this.headers },
+      );
+
+      return res.data?.data?.subaccount_code;
+    } catch (error) {
+      this.handleError(error, 'Subaccount creation');
+    }
+  }
+
+  /* ────────────────────────────────────────────────
+     PAYMENTS
+  ──────────────────────────────────────────────── */
+
+  async initializePayment(
+    email: string,
+    amount: number,
+    options?: {
+      subaccount?: string;
+      transaction_charge?: number;
+      bearer?: 'account' | 'subaccount';
+      callback_url?: string;
+      metadata?: any;
+    },
+  ) {
+    try {
+      const payload: any = {
+        email,
+        amount: Math.round(amount * 100),
+        currency: 'NGN',
+        callback_url:
+          options?.callback_url ||
+          `${process.env.BASE_URL}/account/verify-payment`,
+        metadata: options?.metadata,
+      };
+
+      if (options?.subaccount) {
+        payload.subaccount = options.subaccount;
+        // If subaccount is present, we usually want the subaccount to bear the fees
+        // unless specified otherwise.
+        // But per prompt: "bearer: 'subaccount' Means: Store pays Paystack transaction fees"
+        payload.bearer = options.bearer || 'subaccount';
+      }
+
+      if (options?.transaction_charge) {
+        payload.transaction_charge = options.transaction_charge;
+      }
+
+      const res = await axios.post(
+        `${this.baseUrl}/transaction/initialize`,
+        payload,
         { headers: this.headers },
       );
 

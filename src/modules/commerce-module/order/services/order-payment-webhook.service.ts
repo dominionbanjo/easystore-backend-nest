@@ -74,33 +74,44 @@ export class OrderPaymentService {
     }
 
     /* ────────────────────────────────────────────────
-     EMAILS
+     EMAILS (NON-BLOCKING)
   ──────────────────────────────────────────────── */
 
     // 1️⃣ Buyer email (send once)
     const firstOrder = orders[0];
 
-    await this.mail.sendPaymentVerified({
-      email: firstOrder.buyer.email,
-      name: firstOrder.buyer.first_name,
-      order: {
-        id: firstOrder.id,
-        status: 'paid',
-        total: expectedTotal,
-      },
-    });
+    try {
+      await this.mail.sendPaymentVerified({
+        email: firstOrder.buyer.email,
+        name: firstOrder.buyer.first_name,
+        order: {
+          id: firstOrder.id,
+          status: 'paid',
+          total: expectedTotal,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send payment verified email to buyer:', error);
+    }
 
     // 2️⃣ Vendor emails (per order)
     for (const order of orders) {
-      await this.mail.sendVendorPaymentVerified({
-        email: order.vendor.email,
-        name: order.vendor.first_name,
-        order: {
-          id: order.id,
-          status: 'paid',
-          total: order.total,
-        },
-      });
+      try {
+        await this.mail.sendVendorPaymentVerified({
+          email: order.vendor.email,
+          name: order.vendor.first_name,
+          order: {
+            id: order.id,
+            status: 'paid',
+            total: order.total,
+          },
+        });
+      } catch (error) {
+        console.error(
+          'Failed to send payment verified email to vendor:',
+          error,
+        );
+      }
     }
 
     await this.cache.clearPrefix('svc:order');

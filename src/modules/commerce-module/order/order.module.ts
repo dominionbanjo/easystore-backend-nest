@@ -18,6 +18,7 @@ import { OrderPaymentController } from './controllers/order-payment.controller';
 import { OrderController } from './controllers/pandaOrder.controller';
 import { PandaOrderController } from './controllers/order.controller';
 import { OrderPaymentService } from './services/order-payment-webhook.service';
+import { CartModule } from '../cart/cart.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { OrderPaymentService } from './services/order-payment-webhook.service';
     TransactionsModule,
     CommonModule,
     StoreModule,
+    CartModule,
   ],
   controllers: [OrderController, PandaOrderController, OrderPaymentController],
   providers: [OrderService, PandascrowEscrowService, OrderPaymentService],

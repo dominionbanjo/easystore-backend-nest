@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Wishlist } from './entities/wishlist.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { Product } from '../product/entities/product.entity';
+import { CartService } from '../cart/cart.service';
 
 @Injectable()
 export class WishlistService {
@@ -19,6 +20,7 @@ export class WishlistService {
     private readonly productRepo: Repository<Product>,
 
     private readonly cache: CacheService,
+    private readonly cartService: CartService,
   ) {}
 
   async removeProductFromAllWishlists(productId: string) {
@@ -61,6 +63,7 @@ export class WishlistService {
 
     const wishlist = await this.wishlistRepo.find({
       where: { user_id: userId },
+      relations: ['product'],
       order: { created_at: 'DESC' },
     });
 
@@ -185,6 +188,40 @@ export class WishlistService {
       message: `Wishlist cleared (${result.affected ?? 0} item${
         result.affected === 1 ? '' : 's'
       } removed)`,
+    };
+  }
+
+  /* ────────────────────────────────────────────────
+     🛒 MOVE TO CART
+  ──────────────────────────────────────────────── */
+  async moveToCart(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+
+    const items = await this.wishlistRepo.find({
+      where: { user_id: userId },
+    });
+
+    if (!items.length) {
+      return { message: 'Wishlist is empty' };
+    }
+
+    // Add each to cart
+    for (const item of items) {
+      await this.cartService.addItem(userId, {
+        product_id: item.product_id,
+        quantity: 1,
+      });
+    }
+
+    // Clear wishlist
+    await this.clearWishlist(userId);
+
+    return {
+      message: `${items.length} item${
+        items.length === 1 ? '' : 's'
+      } moved to cart`,
     };
   }
 }

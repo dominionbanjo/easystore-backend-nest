@@ -6,13 +6,14 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Repository, In } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
 import { ProductCategory } from 'src/modules/commerce-module/product-category/entities/product-category.entity';
+import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 import {
   Product,
   ProductStatus,
@@ -47,7 +48,42 @@ export class StoreService {
 
     @Inject(forwardRef(() => StoreAnalyticsService))
     private readonly analyticsService: StoreAnalyticsService,
+
+    @InjectRepository(ProductColor)
+    private readonly colorRepo: Repository<ProductColor>,
   ) {}
+
+  /* ────────────────────────────────────────────────
+     HELPER: RESOLVE COLORS
+  ──────────────────────────────────────────────── */
+  private async resolveColorsForList(items: any[]) {
+    const allColorIds = new Set<string>();
+    items.forEach((item) => {
+      if (Array.isArray(item.colors)) {
+        item.colors.forEach((c: any) => {
+          if (typeof c === 'string') allColorIds.add(c);
+        });
+      }
+    });
+
+    if (allColorIds.size === 0) return items;
+
+    const colors = await this.colorRepo.find({
+      where: { id: In([...allColorIds]) },
+      select: ['id', 'name', 'hex'],
+    });
+
+    const colorMap = new Map(colors.map((c) => [c.id, c]));
+
+    return items.map((item) => ({
+      ...item,
+      colors: Array.isArray(item.colors)
+        ? item.colors
+            .map((id: any) => (typeof id === 'string' ? colorMap.get(id) : id))
+            .filter(Boolean)
+        : [],
+    }));
+  }
 
   /* ────────────────────────────────────────────────
      UTIL: UNIQUE SLUG
@@ -281,6 +317,11 @@ export class StoreService {
       throw new NotFoundException('Store not found');
     }
 
+    /* ───────────── DYNAMIC TOTAL PRODUCTS COUNT ───────────── */
+    const totalProductsCount = await this.productRepo.count({
+      where: { vendor_id: store.user_id },
+    });
+
     /* ───────────── PRODUCTS (PAGINATED) ───────────── */
 
     let productsResult: ReturnType<typeof buildPagination> | null = null;
@@ -338,7 +379,10 @@ export class StoreService {
 
     const response = {
       message: 'Store retrieved successfully',
-      store,
+      store: {
+        ...store,
+        total_products: totalProductsCount, // 👈 Override with dynamic count
+      },
       products: productsResult, // 👈 paginated
       categories,
     };
@@ -558,6 +602,9 @@ export class StoreService {
         'product.rating_average',
         'product.stock',
         'product.created_at',
+        'product.colors',
+        'product.sizes',
+        'product.discount_price',
 
         'category.id',
         'category.name',
@@ -585,9 +632,16 @@ export class StoreService {
       address_state: store.address_state,
       address_country: store.address_country,
       address_postal_code: store.address_postal_code,
+      created_at: p.created_at,
+      category: p.category_ref?.name,
+      colors: p.colors || [],
+      sizes: p.sizes || [],
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
     }));
 
-    const data = buildPagination(items, total, page, limit);
+    const enriched = await this.resolveColorsForList(items);
+
+    const data = buildPagination(enriched, total, page, limit);
 
     const response = {
       message: 'Store products retrieved successfully',
@@ -659,6 +713,9 @@ export class StoreService {
         'product.rating_average',
         'product.stock',
         'product.created_at',
+        'product.colors',
+        'product.sizes',
+        'product.discount_price',
 
         'category.id',
         'category.name',
@@ -687,9 +744,16 @@ export class StoreService {
       address_state: store.address_state,
       address_country: store.address_country,
       address_postal_code: store.address_postal_code,
+      created_at: p.created_at,
+      category: p.category_ref?.name,
+      colors: p.colors || [],
+      sizes: p.sizes || [],
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
     }));
 
-    const data = buildPagination(items, total, page, limit);
+    const enriched = await this.resolveColorsForList(items);
+
+    const data = buildPagination(enriched, total, page, limit);
 
     const response = {
       message: 'Store category products retrieved successfully',
@@ -740,10 +804,25 @@ export class StoreService {
       order: { created_at: 'ASC' },
     });
 
-    // 4️⃣ Group products by parent category
+    // 4️⃣ Resolve colors for all rows first
+    const enrichedRows = await this.resolveColorsForList(rows);
+
+    // 5️⃣ Group products by parent category
     const grouped = new Map<string, any[]>();
 
-    for (const row of rows) {
+    const extractImageUrl = (image: any): string | null => {
+      if (!image) return null;
+      if (typeof image === 'string') {
+        try {
+          return JSON.parse(image)?.url ?? null;
+        } catch {
+          return null;
+        }
+      }
+      return image?.url ?? null;
+    };
+
+    for (const row of enrichedRows) {
       if (!grouped.has(row.parent_category_id)) {
         grouped.set(row.parent_category_id, []);
       }
@@ -752,14 +831,17 @@ export class StoreService {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        price: row.price,
-        discount_price: row.discount_price,
+        price: Number(row.price),
+        discount_price: row.discount_price ? Number(row.discount_price) : null,
         stock: row.stock,
-        rating_average: row.rating_average,
+        rating_average: Number(row.rating_average),
+        image: extractImageUrl(row.image),
+        colors: row.colors || [],
+        sizes: row.sizes || [],
       });
     }
 
-    // 5️⃣ Attach to categories (same format as global)
+    // 6️⃣ Attach to categories (same format as global)
     const data = parents.map((parent) => ({
       id: parent.id,
       name: parent.name,
@@ -943,12 +1025,21 @@ export class StoreService {
       bank_code,
     });
 
+    // Create Paystack Subaccount for Split Payments
+    const subaccount_code = await this.paystack.createSubaccount({
+      business_name: store.store_name,
+      bank_code,
+      account_number,
+      percentage_charge: 2.5, // Platform fee
+    });
+
     const updated = await this.storeRepo.save({
       ...store,
       account_number,
       bank_code,
       bank_name: verified.bank_name || verified.account_name,
       recipient_code,
+      paystack_subaccount_code: subaccount_code,
       settlement_email: settlement_email || store.settlement_email,
       payout_verified: true,
       updated_at: new Date(),
@@ -1004,7 +1095,18 @@ export class StoreService {
         bank_code: code,
       });
 
+      // Update Subaccount (Create new one for simplicity to ensure correct bank details)
+      const subaccount_code = await this.paystack.createSubaccount({
+        business_name: store.store_name,
+        bank_code: code,
+        account_number: acct,
+        percentage_charge: 2.5,
+      });
+
       bank_name = verified.bank_name || verified.account_name;
+
+      // Update the code in the update object
+      (updates as any).paystack_subaccount_code = subaccount_code;
     }
 
     const updated = await this.storeRepo.save({
@@ -1013,6 +1115,9 @@ export class StoreService {
       bank_code: bank_code ?? store.bank_code,
       bank_name,
       recipient_code,
+      paystack_subaccount_code:
+        (updates as any).paystack_subaccount_code ??
+        store.paystack_subaccount_code,
       payout_verified: true,
       settlement_email: settlement_email ?? store.settlement_email,
       updated_at: new Date(),

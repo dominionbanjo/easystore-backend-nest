@@ -112,20 +112,29 @@ export class DeliveryService {
     const vendorName =
       vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
+    // 📧 Send notifications (non-blocking)
     if (buyerEmail) {
-      await this.mail.sendDeliveryCreatedBuyer({
-        email: buyerEmail,
-        name: buyerName,
-        order_id,
-      });
+      try {
+        await this.mail.sendDeliveryCreatedBuyer({
+          email: buyerEmail,
+          name: buyerName,
+          order_id,
+        });
+      } catch (error) {
+        console.error('Failed to send delivery email to buyer:', error);
+      }
     }
 
     if (vendorEmail) {
-      await this.mail.sendDeliveryCreatedVendor({
-        email: vendorEmail,
-        name: vendorName,
-        order_id,
-      });
+      try {
+        await this.mail.sendDeliveryCreatedVendor({
+          email: vendorEmail,
+          name: vendorName,
+          order_id,
+        });
+      } catch (error) {
+        console.error('Failed to send delivery email to vendor:', error);
+      }
     }
 
     return saved;
@@ -185,20 +194,29 @@ export class DeliveryService {
       vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Notifications
+    // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
-      await this.mail.sendDeliveryConfirmedBuyer({
-        email: buyer.email,
-        name: buyer.first_name ?? 'Customer',
-        order_id,
-      });
+      try {
+        await this.mail.sendDeliveryConfirmedBuyer({
+          email: buyer.email,
+          name: buyer.first_name ?? 'Customer',
+          order_id,
+        });
+      } catch (error) {
+        console.error('Failed to send confirmation email to buyer:', error);
+      }
     }
 
     if (vendor?.email) {
-      await this.mail.sendDeliveryConfirmedVendor({
-        email: vendor.email,
-        name: vendorName,
-        order_id,
-      });
+      try {
+        await this.mail.sendDeliveryConfirmedVendor({
+          email: vendor.email,
+          name: vendorName,
+          order_id,
+        });
+      } catch (error) {
+        console.error('Failed to send confirmation email to vendor:', error);
+      }
     }
 
     return {
@@ -234,22 +252,37 @@ export class DeliveryService {
     const vendorName =
       vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
+    // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
-      await this.mail.sendCourierAssignedBuyer({
-        email: buyer.email,
-        name: buyer.first_name ?? 'Customer',
-        order_id: delivery.order_id!,
-        courier_id,
-      });
+      try {
+        await this.mail.sendCourierAssignedBuyer({
+          email: buyer.email,
+          name: buyer.first_name ?? 'Customer',
+          order_id: delivery.order_id!,
+          courier_id,
+        });
+      } catch (error) {
+        console.error(
+          'Failed to send courier assignment email to buyer:',
+          error,
+        );
+      }
     }
 
     if (vendor?.email) {
-      await this.mail.sendCourierAssignedVendor({
-        email: vendor.email,
-        name: vendorName,
-        order_id: delivery.order_id!,
-        courier_id,
-      });
+      try {
+        await this.mail.sendCourierAssignedVendor({
+          email: vendor.email,
+          name: vendorName,
+          order_id: delivery.order_id!,
+          courier_id,
+        });
+      } catch (error) {
+        console.error(
+          'Failed to send courier assignment email to vendor:',
+          error,
+        );
+      }
     }
 
     return updated;
@@ -330,22 +363,31 @@ export class DeliveryService {
     const vendorName =
       vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
+    // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
-      await this.mail.sendDeliveryStatusUpdateBuyer({
-        email: buyer.email,
-        name: buyer.first_name ?? 'Customer',
-        order_id: delivery.order_id!,
-        status,
-      });
+      try {
+        await this.mail.sendDeliveryStatusUpdateBuyer({
+          email: buyer.email,
+          name: buyer.first_name ?? 'Customer',
+          order_id: delivery.order_id!,
+          status,
+        });
+      } catch (error) {
+        console.error('Failed to send status update email to buyer:', error);
+      }
     }
 
     if (vendor?.email) {
-      await this.mail.sendDeliveryStatusUpdateVendor({
-        email: vendor.email,
-        name: vendorName,
-        order_id: delivery.order_id!,
-        status,
-      });
+      try {
+        await this.mail.sendDeliveryStatusUpdateVendor({
+          email: vendor.email,
+          name: vendorName,
+          order_id: delivery.order_id!,
+          status,
+        });
+      } catch (error) {
+        console.error('Failed to send status update email to vendor:', error);
+      }
     }
 
     // 🔐 Escrow logic (online orders only)
@@ -353,12 +395,16 @@ export class DeliveryService {
       await this.escrowService.markDelivered(delivery.order_id!);
 
       if (buyer?.email && order.escrow?.release_code) {
-        await this.mail.sendReleaseCodeToBuyer({
-          email: buyer.email,
-          name: buyer.first_name ?? 'Customer',
-          order_id: delivery.order_id!,
-          release_code: order.escrow.release_code,
-        });
+        try {
+          await this.mail.sendReleaseCodeToBuyer({
+            email: buyer.email,
+            name: buyer.first_name ?? 'Customer',
+            order_id: delivery.order_id!,
+            release_code: order.escrow.release_code,
+          });
+        } catch (error) {
+          console.error('Failed to send release code email to buyer:', error);
+        }
       }
     }
 
@@ -404,20 +450,35 @@ export class DeliveryService {
     const vendorName =
       vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
+    // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
-      await this.mail.sendDeliveryConfirmedBuyer({
-        email: buyer.email,
-        name: buyer.first_name ?? 'Customer',
-        order_id,
-      });
+      try {
+        await this.mail.sendDeliveryConfirmedBuyer({
+          email: buyer.email,
+          name: buyer.first_name ?? 'Customer',
+          order_id,
+        });
+      } catch (error) {
+        console.error(
+          'Failed to send delivery confirmed email to buyer:',
+          error,
+        );
+      }
     }
 
     if (vendor?.email) {
-      await this.mail.sendDeliveryConfirmedVendor({
-        email: vendor.email,
-        name: vendorName,
-        order_id,
-      });
+      try {
+        await this.mail.sendDeliveryConfirmedVendor({
+          email: vendor.email,
+          name: vendorName,
+          order_id,
+        });
+      } catch (error) {
+        console.error(
+          'Failed to send delivery confirmed email to vendor:',
+          error,
+        );
+      }
     }
 
     return this.escrowService.releaseEscrow(order_id, code);
@@ -458,12 +519,17 @@ export class DeliveryService {
       where: { id: delivery.buyer_id },
     });
 
+    // 📧 Send notification (non-blocking)
     if (buyer?.email) {
-      await this.mail.sendProofUploadedBuyer({
-        email: buyer.email,
-        name: buyer.first_name ?? 'Customer',
-        order_id: delivery.order_id!,
-      });
+      try {
+        await this.mail.sendProofUploadedBuyer({
+          email: buyer.email,
+          name: buyer.first_name ?? 'Customer',
+          order_id: delivery.order_id!,
+        });
+      } catch (error) {
+        console.error('Failed to send proof uploaded email to buyer:', error);
+      }
     }
 
     return {

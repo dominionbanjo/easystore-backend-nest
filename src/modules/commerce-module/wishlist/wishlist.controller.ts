@@ -74,4 +74,12 @@ export class WishlistController {
   async clearWishlist(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.wishlistService.clearWishlist(user.sub);
   }
+
+  /* ────────────────────────────────────────────────
+     🛒 MOVE TO CART
+  ──────────────────────────────────────────────── */
+  @Post('move-to-cart')
+  async moveToCart(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.wishlistService.moveToCart(user.sub);
+  }
 }

@@ -164,6 +164,9 @@ export class Store {
   @Column({ type: 'boolean', default: false })
   payout_verified: boolean;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  paystack_subaccount_code: string | null;
+
   // /* ANALYTICS (PRE-COMPUTED, NOT CALCULATED ON READ) */
   // @Column({
   //   type: 'jsonb',

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Order, OrderStatus, PaymentStatus } from '../entities/order.entity';
 import { DeliveryService } from '../../delivery/delivery.service';
@@ -18,12 +18,15 @@ import { ProductService } from '../../product/services/product.service';
 import { PandascrowEscrowService } from './pandascrow-escrow.service';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
+import { CartService } from '../../cart/cart.service';
+import { buildPagination } from 'src/utils/response/pagination.util';
 
 @Injectable()
 export class OrderService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    private readonly dataSource: DataSource,
 
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
@@ -37,6 +40,7 @@ export class OrderService {
     private readonly mail: OrderMailService,
     private readonly cache: CacheService,
     private readonly productService: ProductService,
+    private readonly cartService: CartService,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -61,7 +65,11 @@ export class OrderService {
         throw new BadRequestException(`Invalid quantity for ${product.name}`);
       }
 
-      const price = product.discount_price ?? product.price;
+      // Only use discount_price if product is on_sale
+      const price =
+        product.on_sale && product.discount_price
+          ? product.discount_price
+          : product.price;
       subtotal += price * item.quantity;
 
       validated.push({
@@ -69,7 +77,7 @@ export class OrderService {
         name: product.name,
         slug: product.slug,
         price: product.price,
-        discount_price: product.discount_price,
+        discount_price: product.on_sale ? product.discount_price : null,
         image: product.image?.url ?? null,
         quantity: item.quantity,
         size: item.size ?? null,
@@ -145,12 +153,8 @@ export class OrderService {
         subtotal += (item.discount_price ?? item.price) * item.quantity;
       }
 
-      /* INIT PANDASCROW ESCROW (DOC-CORRECT) */
+      /* INIT PANDASCROW ESCROW */
       const escrowResponse = await this.pandascrowEscrow.initializeEscrow({
-        initiator_role: 'buyer',
-        initiator_id: buyer.id,
-        receiver_id: vendor.id,
-
         title: 'Marketplace Order',
         description: 'Purchase of items via marketplace',
         acceptance_criteria: 'Items delivered as listed',
@@ -158,23 +162,19 @@ export class OrderService {
         currency: 'NGN',
         amount: subtotal,
 
-        inspection_period: '3 days',
+        inspection_period: '3',
         delivery_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
           .toISOString()
           .split('T')[0],
 
         who_pay_fees: 'buyer',
+        dispute_window: '2',
+        how_dispute_is_handled: 'platform',
 
         buyer_details: {
           name: `${buyer.first_name} ${buyer.last_name}`,
           email: buyer.email,
           phone: buyer.phone_number ?? 'N/A',
-        },
-
-        seller_details: {
-          name: `${vendor.first_name} ${vendor.last_name}`,
-          email: vendor.email,
-          phone: vendor.phone_number ?? 'N/A',
         },
       });
 
@@ -183,17 +183,22 @@ export class OrderService {
         id: uuidv4(),
         buyer_id: buyer.id,
         vendor_id: vendor.id,
-        escrow_id: String(escrowResponse.data.escrow_id),
+        escrow_id: null, // Pandascrow uses numeric ID, not UUID
         subtotal,
         shipping_fee: 0,
         tax: null,
         total: subtotal,
         payment_method: 'panda',
-        payment_reference: escrowResponse.data.uuid,
+        payment_reference: escrowResponse.data.transaction_ref,
+        payment_url: escrowResponse.data.payment_url,
         payment_status: 'pending',
         status: 'pending',
         order_items: items,
-        notes: null,
+        notes: JSON.stringify({
+          pandascrow_escrow_id: escrowResponse.data.escrow_id,
+          escrow_type: escrowResponse.data.type,
+          escrow_status: escrowResponse.data.status,
+        }),
       });
 
       const savedOrder = await this.orderRepo.save(order);
@@ -202,22 +207,25 @@ export class OrderService {
       /* TRANSACTION: ESCROW HOLD */
       await this.transactions.create({
         order_id: savedOrder.id,
-        escrow_id: savedOrder.escrow_id ?? undefined,
+        escrow_id: undefined, // No internal escrow for Panda orders
         user_id: buyer.id,
         vendor_id: vendor.id,
         type: 'escrow_hold',
         amount: subtotal,
         currency: 'NGN',
-        reference: escrowResponse.data.uuid,
+        reference: escrowResponse.data.transaction_ref,
         status: 'pending',
         description: 'Funds held in Panda escrow',
         metadata: {
           provider: 'pandascrow',
+          pandascrow_escrow_id: escrowResponse.data.escrow_id,
+          escrow_type: escrowResponse.data.type,
         },
       });
     }
 
     await this.cache.clearPrefix('svc:order');
+    await this.cartService.clearCart(buyer_id);
 
     return {
       success: true,
@@ -239,14 +247,27 @@ export class OrderService {
       throw new NotFoundException('Order not found');
     }
 
-    if (!order.escrow_id || order.payment_method !== 'online') {
+    if (order.payment_method !== 'panda') {
       throw new BadRequestException('Order is not a Panda escrow order');
+    }
+
+    /* EXTRACT PANDASCROW ESCROW ID FROM NOTES */
+    let pandascrowEscrowId: number;
+    try {
+      const metadata = JSON.parse(order.notes || '{}');
+      pandascrowEscrowId = metadata.pandascrow_escrow_id;
+      if (!pandascrowEscrowId) {
+        throw new Error('Pandascrow escrow ID not found in order metadata');
+      }
+    } catch (err) {
+      throw new BadRequestException(
+        'Invalid order metadata or missing Pandascrow escrow ID',
+      );
     }
 
     /* COMPLETE ESCROW ON PANDASCROW */
     await this.pandascrowEscrow.completeEscrow({
-      escrow_id: Number(order.escrow_id),
-      uuid: order.buyer_id,
+      escrow_id: pandascrowEscrowId,
       otp,
     });
 
@@ -259,7 +280,7 @@ export class OrderService {
     /* TRANSACTION: PAYOUT */
     await this.transactions.create({
       order_id: order.id,
-      escrow_id: order.escrow_id ?? undefined,
+      escrow_id: undefined,
       user_id: order.buyer_id,
       vendor_id: order.vendor_id,
       type: 'payout',
@@ -269,6 +290,7 @@ export class OrderService {
       description: 'Panda escrow completed and funds released',
       metadata: {
         provider: 'pandascrow',
+        pandascrow_escrow_id: pandascrowEscrowId,
       },
     });
 
@@ -352,6 +374,7 @@ export class OrderService {
     }
 
     await this.cache.clearPrefix('svc:order');
+    await this.cartService.clearCart(buyer_id);
 
     return {
       success: true,
@@ -384,19 +407,26 @@ export class OrderService {
       groups[product.vendor_id].push(item);
     }
 
-    /* VALIDATE VENDORS + CALCULATE GRAND TOTAL */
-    let grandTotal = 0;
+    /* VALIDATE VENDORS + CALCULATE GRAND TOTAL IN KOBO */
+    let grandTotalKobo = 0;
 
     for (const vendor_id of Object.keys(groups)) {
       await this.storeService.validateVendorForOnline(vendor_id);
 
       for (const item of groups[vendor_id]) {
-        grandTotal += (item.discount_price ?? item.price) * item.quantity;
+        const priceKobo = Math.round((item.discount_price ?? item.price) * 100);
+        grandTotalKobo += priceKobo * item.quantity;
       }
     }
 
+    // Convert to naira for Paystack
+    const grandTotalNaira = grandTotalKobo / 100;
+
     /* INIT SINGLE PAYSTACK PAYMENT */
-    const payment = await this.paystack.initializePayment(email, grandTotal);
+    const payment = await this.paystack.initializePayment(
+      email,
+      grandTotalNaira,
+    );
     const reference = payment.reference;
 
     const orders: Order[] = [];
@@ -405,10 +435,15 @@ export class OrderService {
     for (const vendor_id of Object.keys(groups)) {
       const items = groups[vendor_id];
 
-      let subtotal = 0;
+      // Calculate subtotal in kobo
+      let subtotalKobo = 0;
       for (const item of items) {
-        subtotal += (item.discount_price ?? item.price) * item.quantity;
+        const priceKobo = Math.round((item.discount_price ?? item.price) * 100);
+        subtotalKobo += priceKobo * item.quantity;
       }
+
+      // Convert to naira for storage
+      const subtotal = subtotalKobo / 100;
 
       const order = this.orderRepo.create({
         id: uuidv4(),
@@ -423,6 +458,11 @@ export class OrderService {
         payment_access_code: payment.access_code,
         payment_status: 'pending',
         status: 'pending',
+        notes: JSON.stringify({
+          // Store kobo values for verification
+          subtotal_kobo: subtotalKobo,
+          total_kobo: subtotalKobo,
+        }),
       });
 
       const savedOrder = await this.orderRepo.save(order);
@@ -442,6 +482,7 @@ export class OrderService {
     }
 
     await this.cache.clearPrefix('svc:order');
+    await this.cartService.clearCart(buyer_id);
 
     return {
       success: true,
@@ -453,6 +494,7 @@ export class OrderService {
 
   /* ────────────────────────────────────────────────
    CREATE ONLINE ORDER (PAYSTACK — SINGLE PAYMENT)
+   Direct payment with 2% platform fee, no escrow
 ──────────────────────────────────────────────── */
   async createOnlineOrderNoEscrow(data: {
     buyer_id: string;
@@ -474,34 +516,88 @@ export class OrderService {
       groups[product.vendor_id].push(item);
     }
 
-    /* CALCULATE GRAND TOTAL */
-    let grandTotal = 0;
-    for (const vendorItems of Object.values(groups)) {
-      for (const item of vendorItems) {
-        grandTotal += (item.discount_price ?? item.price) * item.quantity;
+    const vendorIds = Object.keys(groups);
+
+    /* CALCULATE GRAND TOTAL WITH 2% PLATFORM FEE - ALL IN KOBO */
+    let subtotalKobo = 0;
+    const vendorSubtotals: Record<string, number> = {};
+
+    // First pass: calculate all vendor subtotals
+    for (const vendor_id of vendorIds) {
+      let vendorSubtotalKobo = 0;
+      for (const item of groups[vendor_id]) {
+        const priceKobo = Math.round((item.discount_price ?? item.price) * 100);
+        vendorSubtotalKobo += priceKobo * item.quantity;
+      }
+      vendorSubtotals[vendor_id] = vendorSubtotalKobo;
+      subtotalKobo += vendorSubtotalKobo;
+    }
+
+    // Calculate platform fee ONCE on the grand total
+    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
+    const grandTotalKobo = subtotalKobo + platformFeeKobo;
+
+    // Convert to naira for Paystack (they expect amount in naira, will convert to kobo internally)
+    const grandTotalNaira = grandTotalKobo / 100;
+
+    /* PREPARE PAYSTACK OPTIONS (SUBACCOUNT) */
+    const paystackOptions: any = {};
+
+    // If SINGLE VENDOR, use Split Payment (Subaccount)
+    if (vendorIds.length === 1) {
+      const vendorId = vendorIds[0];
+      const store = await this.storeService.getStoreByUser(vendorId);
+
+      if (store && store.paystack_subaccount_code) {
+        paystackOptions.subaccount = store.paystack_subaccount_code;
+        paystackOptions.bearer = 'subaccount'; // Store pays Paystack fees
       }
     }
 
     /* INIT SINGLE PAYSTACK PAYMENT */
-    const payment = await this.paystack.initializePayment(email, grandTotal);
+    const payment = await this.paystack.initializePayment(
+      email,
+      grandTotalNaira,
+      paystackOptions,
+    );
     const reference = payment.reference;
 
     const orders: Order[] = [];
+    let distributedPlatformFeeKobo = 0;
 
-    for (const vendor_id of Object.keys(groups)) {
+    // Distribute platform fee proportionally across vendors
+    for (let i = 0; i < vendorIds.length; i++) {
+      const vendor_id = vendorIds[i];
       const items = groups[vendor_id];
+      const vendorSubtotalKobo = vendorSubtotals[vendor_id];
 
-      let subtotal = 0;
-      for (const item of items) {
-        subtotal += (item.discount_price ?? item.price) * item.quantity;
+      let vendorPlatformFeeKobo: number;
+
+      if (i === vendorIds.length - 1) {
+        // Last vendor gets remaining fee to ensure exact match
+        vendorPlatformFeeKobo = platformFeeKobo - distributedPlatformFeeKobo;
+      } else {
+        // Proportional distribution
+        vendorPlatformFeeKobo = Math.round(
+          (vendorSubtotalKobo / subtotalKobo) * platformFeeKobo,
+        );
+        distributedPlatformFeeKobo += vendorPlatformFeeKobo;
       }
+
+      const vendorTotalKobo = vendorSubtotalKobo + vendorPlatformFeeKobo;
+
+      // Convert back to naira for storage
+      const vendorSubtotal = vendorSubtotalKobo / 100;
+      const vendorPlatformFee = vendorPlatformFeeKobo / 100;
+      const vendorTotal = vendorTotalKobo / 100;
 
       const order = this.orderRepo.create({
         id: uuidv4(),
         buyer_id,
         vendor_id,
-        subtotal,
-        total: subtotal,
+        subtotal: vendorSubtotal,
+        shipping_fee: vendorPlatformFee, // Store platform fee in shipping_fee field
+        total: vendorTotal,
         payment_method: 'online',
         payment_reference: reference, // 🔥 SAME REF
         payment_url: payment.authorization_url,
@@ -510,6 +606,14 @@ export class OrderService {
         status: 'pending',
         order_items: items,
         escrow_id: null,
+        notes: JSON.stringify({
+          platform_fee: vendorPlatformFee,
+          fee_percentage: 2,
+          // Store kobo values for verification
+          subtotal_kobo: vendorSubtotalKobo,
+          platform_fee_kobo: vendorPlatformFeeKobo,
+          total_kobo: vendorTotalKobo,
+        }),
       });
 
       const saved = await this.orderRepo.save(order);
@@ -517,6 +621,7 @@ export class OrderService {
     }
 
     await this.cache.clearPrefix('svc:order');
+    await this.cartService.clearCart(buyer_id);
 
     return {
       success: true,
@@ -526,6 +631,9 @@ export class OrderService {
     };
   }
 
+  /* ────────────────────────────────────────────────
+   VERIFY PAYMENT (MULTI-ORDER, SINGLE REFERENCE)
+──────────────────────────────────────────────── */
   /* ────────────────────────────────────────────────
    VERIFY PAYMENT (MULTI-ORDER, SINGLE REFERENCE)
 ──────────────────────────────────────────────── */
@@ -555,60 +663,99 @@ export class OrderService {
       throw new BadRequestException('Payment verification failed');
     }
 
-    const amountPaid = verification.amount / 100;
+    // Paystack returns amount in kobo (smallest denomination)
+    const amountPaidKobo = verification.amount;
 
-    const expectedTotal = orders.reduce((sum, o) => sum + Number(o.total), 0);
+    // Calculate expected total in kobo for exact comparison
+    let expectedTotalKobo = 0;
 
-    if (Number(amountPaid) !== Number(expectedTotal)) {
-      throw new BadRequestException('Payment amount mismatch');
+    for (const order of orders) {
+      // Try to get kobo value from notes first (for new orders)
+      try {
+        const metadata = JSON.parse(order.notes || '{}');
+        if (metadata.total_kobo) {
+          expectedTotalKobo += metadata.total_kobo;
+        } else {
+          // Fallback: convert naira to kobo (for old orders)
+          expectedTotalKobo += Math.round(Number(order.total) * 100);
+        }
+      } catch {
+        // If notes parsing fails, convert naira to kobo
+        expectedTotalKobo += Math.round(Number(order.total) * 100);
+      }
     }
 
-    /* PROCESS EACH ORDER */
-    for (const order of orders) {
-      if (order.payment_status === 'success') continue;
+    // Exact comparison in kobo (no floating point issues)
+    if (amountPaidKobo !== expectedTotalKobo) {
+      throw new BadRequestException(
+        `Payment amount mismatch. Expected: ₦${(expectedTotalKobo / 100).toFixed(2)} (${expectedTotalKobo} kobo), Paid: ₦${(amountPaidKobo / 100).toFixed(2)} (${amountPaidKobo} kobo), Difference: ${Math.abs(amountPaidKobo - expectedTotalKobo)} kobo`,
+      );
+    }
 
-      await this.orderRepo.update(order.id, {
-        payment_status: 'success',
-        status: 'paid',
-      });
+    /* PROCESS EACH ORDER IN A TRANSACTION */
+    // Using transaction ensures that if any order update fails, they ALL fail.
+    // This prevents partial payment states where some orders are paid and others are pending.
+    return await this.dataSource.transaction(async (manager) => {
+      for (const order of orders) {
+        if (order.payment_status === 'success') continue;
 
-      /* FUND ESCROW (IF ANY) */
-      if (order.escrow_id) {
-        await this.escrowService.fundEscrow(order.escrow_id);
+        // 1. Update Order Status (Transactional)
+        await manager.update(Order, order.id, {
+          payment_status: 'success',
+          status: 'paid',
+        });
+
+        // 2. Fund Escrow (Side Effect)
+        /* FUND ESCROW (IF ANY) */
+        if (order.escrow_id) {
+          await this.escrowService.fundEscrow(order.escrow_id);
+        }
+
+        // 3. Create Delivery (Side Effect)
+        /* CREATE DELIVERY */
+        await this.deliveryService.createDelivery({
+          order_id: order.id,
+          buyer_id: order.buyer_id,
+          vendor_id: order.vendor_id,
+        });
+
+        // 4. Record Transaction (Side Effect)
+        /* TRANSACTION RECORD */
+        await this.transactions.create({
+          order_id: order.id,
+          escrow_id: order.escrow_id ?? undefined,
+          user_id: order.buyer_id,
+          vendor_id: order.vendor_id,
+          type: 'payment_confirmed',
+          amount: order.total,
+          currency: 'NGN',
+          status: 'success',
+          description: 'Payment verified manually',
+          metadata: {
+            provider: 'paystack',
+            reference,
+          },
+        });
       }
 
-      /* CREATE DELIVERY */
-      await this.deliveryService.createDelivery({
-        order_id: order.id,
-        buyer_id: order.buyer_id,
-        vendor_id: order.vendor_id,
-      });
+      await this.cache.clearPrefix('svc:order');
 
-      /* TRANSACTION RECORD */
-      await this.transactions.create({
-        order_id: order.id,
-        escrow_id: order.escrow_id ?? undefined,
-        user_id: order.buyer_id,
-        vendor_id: order.vendor_id,
-        type: 'payment_confirmed',
-        amount: order.total,
-        currency: 'NGN',
-        status: 'success',
-        description: 'Payment verified manually',
-        metadata: {
-          provider: 'paystack',
-          reference,
-        },
-      });
-    }
+      // Return updated state
+      // We can just return the original orders marked as success to avoid another fetch
+      // or fetch them again if we want the absolute latest state from DB.
+      // For performance, we'll map the status update locally for the response.
+      const updatedOrders = orders.map((o) => ({
+        ...o,
+        payment_status: 'success' as PaymentStatus,
+        status: 'paid' as OrderStatus,
+      }));
 
-    await this.cache.clearPrefix('svc:order');
-
-    return {
-      success: true,
-      message: 'Payment verified',
-      orders,
-    };
+      return {
+        success: true,
+        message: 'Payment verified',
+        orders: updatedOrders,
+      };
+    });
   }
 
   /* ────────────────────────────────────────────────
@@ -620,8 +767,52 @@ export class OrderService {
     return order;
   }
 
-  async getOrdersByUser(buyer_id: string) {
-    return this.orderRepo.find({ where: { buyer_id } });
+  async getOrdersByUser(
+    buyer_id: string,
+    query?: {
+      search?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const qb = this.orderRepo.createQueryBuilder('order');
+
+    qb.where('order.buyer_id = :buyer_id', { buyer_id });
+
+    if (query?.status && query.status !== 'all') {
+      qb.andWhere('order.status = :status', { status: query.status });
+    }
+
+    if (query?.search) {
+      qb.andWhere(
+        '(CAST(order.id AS TEXT) ILIKE :search OR order.payment_reference ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    // Optimize selection for card display
+    qb.select([
+      'order.id',
+      'order.total',
+      'order.status',
+      'order.payment_status',
+      'order.payment_reference',
+      'order.created_at',
+      'order.order_items', // JSONB column, cannot verify fields easily without raw SQL
+    ]);
+    // qb.leftJoin('order.order_items', 'items'); // Removed: order_items is JSONB, not a relation
+
+    qb.orderBy('order.created_at', 'DESC');
+    qb.skip(skip).take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+
+    return buildPagination(data, total, page, limit);
   }
 
   async getOrdersByVendor(vendor_id: string) {

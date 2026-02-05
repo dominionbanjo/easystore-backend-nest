@@ -50,6 +50,31 @@ export class ProductService {
     private readonly cartService: CartService,
   ) {}
 
+  private async resolveColorsForList(items: any[]) {
+    const allColorIds = new Set<string>();
+    items.forEach((item) => {
+      if (Array.isArray(item.colors)) {
+        item.colors.forEach((c: string) => allColorIds.add(c));
+      }
+    });
+
+    if (allColorIds.size === 0) return items;
+
+    const colors = await this.colorRepo.find({
+      where: { id: In([...allColorIds]) },
+      select: ['id', 'name', 'hex'],
+    });
+
+    const colorMap = new Map(colors.map((c) => [c.id, c]));
+
+    return items.map((item) => ({
+      ...item,
+      colors: Array.isArray(item.colors)
+        ? item.colors.map((id: string) => colorMap.get(id)).filter(Boolean)
+        : [],
+    }));
+  }
+
   private async ensureCategoryExists(categoryId: string) {
     const exists = await this.categoryRepo.exist({
       where: { id: categoryId },
@@ -115,9 +140,11 @@ export class ProductService {
       return image?.url ?? null;
     };
 
+    const enrichedRows = await this.resolveColorsForList(rows);
+
     const grouped = new Map<string, any[]>();
 
-    for (const row of rows) {
+    for (const row of enrichedRows) {
       if (!grouped.has(row.parent_category_id)) {
         grouped.set(row.parent_category_id, []);
       }
@@ -139,6 +166,10 @@ export class ProductService {
 
         // ❤️ wishlist overlay
         is_in_wishlist: wishlistSet.has(row.id),
+
+        // 🛍️ variants
+        colors: row.colors || [],
+        sizes: row.sizes || [],
       });
     }
 
@@ -170,6 +201,7 @@ export class ProductService {
 
     const products = await this.productRepo
       .createQueryBuilder('product')
+      .leftJoin('product.category_ref', 'category')
       .leftJoin('product.store', 'store')
       .select([
         'product.id',
@@ -181,10 +213,13 @@ export class ProductService {
         'product.image',
         'product.rating_average',
         'product.created_at',
+        'product.colors',
+        'product.sizes',
         'store.store_name',
         'store.address_city',
         'store.address_state',
         'store.address_country',
+        'category.name',
       ])
       .where('product.featured = :featured', { featured: true })
       .andWhere('product.status = :status', {
@@ -195,25 +230,32 @@ export class ProductService {
       .limit(limit)
       .getRawMany();
 
+    const items = products.map((p) => ({
+      id: p.product_id,
+      name: p.product_name,
+      slug: p.product_slug,
+      price: p.product_price,
+      discount_price: p.product_discount_price,
+      stock: p.product_stock,
+      rating_average: p.product_rating_average,
+      image: p.product_image?.url ?? null,
+      store_name: p.store_store_name,
+      address_city: p.store_address_city,
+      address_state: p.store_address_state,
+      address_country: p.store_address_country,
+      category: p.category_name,
+
+      // ❤️ ADD THIS (only addition)
+      is_in_wishlist: wishlistSet.has(p.product_id),
+      colors: p.product_colors || [],
+      sizes: p.product_sizes || [],
+    }));
+
+    const enriched = await this.resolveColorsForList(items);
+
     return {
       message: 'Featured products retrieved successfully',
-      data: products.map((p) => ({
-        id: p.product_id,
-        name: p.product_name,
-        slug: p.product_slug,
-        price: p.product_price,
-        discount_price: p.product_discount_price,
-        stock: p.product_stock,
-        rating_average: p.product_rating_average,
-        image: p.product_image?.url ?? null,
-        store_name: p.store_store_name,
-        address_city: p.store_address_city,
-        address_state: p.store_address_state,
-        address_country: p.store_address_country,
-
-        // ❤️ ADD THIS (only addition)
-        is_in_wishlist: wishlistSet.has(p.product_id),
-      })),
+      data: enriched,
     };
   }
 
@@ -244,6 +286,9 @@ export class ProductService {
         'product.rating_average',
         'product.stock', // ✅ ADD THIS
         'product.created_at', // ✅ REQUIRED for orderBy
+        'product.colors',
+        'product.sizes',
+        'product.discount_price',
 
         'category.id',
         'category.name',
@@ -268,18 +313,24 @@ export class ProductService {
       price: Number(p.price),
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
-      stock: p.stock, // ✅ EXPOSE IT
+      stock: p.stock,
       store_name: p.store?.store_name,
       address_city: p.store?.address_city,
       address_state: p.store?.address_state,
       address_country: p.store?.address_country,
       address_postal_code: p.store?.address_postal_code,
       is_in_wishlist: wishlistSet.has(p.id),
+      colors: p.colors || [],
+      sizes: p.sizes || [],
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      category: p.category_ref?.name,
     }));
+
+    const items = await this.resolveColorsForList(data);
 
     return {
       message: 'Products retrieved successfully',
-      data: buildPagination(data, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
 
@@ -324,6 +375,9 @@ export class ProductService {
         'product.rating_average',
         'product.stock',
         'product.created_at',
+        'product.colors',
+        'product.sizes',
+        'product.discount_price',
 
         'store.id',
         'store.store_name',
@@ -357,12 +411,18 @@ export class ProductService {
       address_country: p.store?.address_country,
       address_postal_code: p.store?.address_postal_code,
       is_in_wishlist: wishlistSet.has(p.id),
+      category: category.name,
+      colors: p.colors || [],
+      sizes: p.sizes || [],
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
     }));
+
+    const items = await this.resolveColorsForList(data);
 
     return {
       message: 'Category products retrieved successfully',
       category,
-      data: buildPagination(data, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
 
@@ -444,6 +504,7 @@ export class ProductService {
     const related = await this.productRepo
       .createQueryBuilder('p')
       .leftJoin('p.store', 'store')
+      .leftJoin('p.category_ref', 'category')
       .select([
         'p.id',
         'p.name',
@@ -453,10 +514,13 @@ export class ProductService {
         'p.rating_average',
         'p.stock',
         'p.image',
+        'p.colors',
+        'p.sizes',
         'store.store_name',
         'store.address_city',
         'store.address_state',
         'store.address_country',
+        'category.name',
       ])
       .where('p.category_id = :categoryId', {
         categoryId: product.category_id,
@@ -478,12 +542,17 @@ export class ProductService {
       stock: p.p_stock,
       rating_average: Number(p.p_rating_average),
       image: p.p_image?.url ?? null,
+      colors: p.p_colors || [],
+      sizes: p.p_sizes || [],
       store_name: p.store_store_name,
       address_city: p.store_address_city,
       address_state: p.store_address_state,
       address_country: p.store_address_country,
+      category: p.category_name,
       is_in_wishlist: wishlistSet.has(p.p_id),
     }));
+
+    const enriched_related = await this.resolveColorsForList(related_products);
 
     /* ─────────────────────────────────────────────
      RESPONSE PRODUCT (SAFE COPY)
@@ -507,7 +576,7 @@ export class ProductService {
         },
         store,
         reviews,
-        related_products,
+        related_products: enriched_related,
       },
     };
   }
@@ -545,11 +614,16 @@ export class ProductService {
       address_country: p.store?.address_country,
       address_postal_code: p.store?.address_postal_code,
       created_at: p.created_at,
+      category: p.category_ref?.name,
+      colors: p.colors || [],
+      sizes: p.sizes || [],
     }));
+
+    const enriched = await this.resolveColorsForList(items);
 
     return {
       message: 'Store products retrieved successfully',
-      data: buildPagination(items, total, page, limit),
+      data: buildPagination(enriched, total, page, limit),
     };
   }
   /* ────────────────────────────────────────────────
@@ -667,6 +741,7 @@ export class ProductService {
 
     const qb = this.productRepo
       .createQueryBuilder('product')
+      .leftJoin('product.category_ref', 'category')
       .leftJoin('product.store', 'store')
       .select([
         'product.id',
@@ -676,6 +751,7 @@ export class ProductService {
         'product.image',
         'product.rating_average',
         'product.stock',
+        'category.name',
         'store.address_country',
         'store.address_state',
         'store.address_city',
@@ -683,6 +759,8 @@ export class ProductService {
         'store.store_name',
         'product.featured',
         'product.created_at',
+        'product.colors',
+        'product.sizes',
       ])
       .addSelect(
         `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
@@ -747,13 +825,19 @@ export class ProductService {
       address_state: p.store?.address_state,
       address_country: p.store?.address_country,
       address_postal_code: p.store?.address_postal_code,
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
       is_featured: p.featured,
       is_in_wishlist: wishlistSet.has(p.id),
+      category: p.category_ref?.name,
+      colors: p.colors || [],
+      sizes: p.sizes || [],
     }));
+
+    const enriched = await this.resolveColorsForList(items);
 
     return {
       message: 'Search results',
-      data: buildPagination(items, total, page, limit),
+      data: buildPagination(enriched, total, page, limit),
     };
   }
   /* ────────────────────────────────────────────────
@@ -805,6 +889,9 @@ export class ProductService {
         'product.rating_average',
         'product.stock',
         'product.created_at',
+        'product.colors',
+        'product.sizes',
+        'product.discount_price',
 
         'store.id',
         'store.store_name',
@@ -878,11 +965,16 @@ export class ProductService {
       address_country: p.store?.address_country,
       address_postal_code: p.store?.address_postal_code,
       is_in_wishlist: wishlistSet.has(p.id),
+      colors: p.colors || [],
+      sizes: p.sizes || [],
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
     }));
+
+    const enriched = await this.resolveColorsForList(items);
 
     return {
       message: 'Store search results',
-      data: buildPagination(items, total, page, limit),
+      data: buildPagination(enriched, total, page, limit),
     };
   }
 
@@ -976,12 +1068,19 @@ export class ProductService {
         address_state: store?.address_state,
         address_country: store?.address_country,
         address_postal_code: store?.address_postal_code,
+        colors: product.colors || [],
+        sizes: product.sizes || [],
+        discount_price: product.discount_price
+          ? Number(product.discount_price)
+          : null,
       };
     });
 
+    const enriched = await this.resolveColorsForList(items);
+
     return {
       message: 'Store products search retrieved successfully',
-      data: buildPagination(items, total, page, limit),
+      data: buildPagination(enriched, total, page, limit),
     };
   }
 
