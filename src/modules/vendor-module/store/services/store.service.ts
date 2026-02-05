@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository, In } from 'typeorm';
+import { IsNull, Repository, In, EntityManager } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import { UploadService } from 'src/common/services/upload.service';
@@ -88,12 +88,16 @@ export class StoreService {
   /* ────────────────────────────────────────────────
      UTIL: UNIQUE SLUG
   ──────────────────────────────────────────────── */
-  private async generateUniqueSlug(name: string): Promise<string> {
+  private async generateUniqueSlug(
+    name: string,
+    manager?: EntityManager,
+  ): Promise<string> {
     const base = slugify(name, { lower: true, strict: true });
     let slug = base;
     let i = 1;
+    const repo = manager ? manager.getRepository(Store) : this.storeRepo;
 
-    while (await this.storeRepo.findOne({ where: { slug } })) {
+    while (await repo.findOne({ where: { slug } })) {
       slug = `${base}-${i++}`;
     }
     return slug;
@@ -222,8 +226,11 @@ export class StoreService {
   /* ────────────────────────────────────────────────
    CREATE STORE (INTERNAL CORE)
 ──────────────────────────────────────────────── */
-  async createStore(data: CreateStoreDto) {
+  async createStore(data: CreateStoreDto, manager?: EntityManager) {
     const { user_id, store_name, email } = data;
+
+    const storeRepo = manager ? manager.getRepository(Store) : this.storeRepo;
+    const userRepo = manager ? manager.getRepository(User) : this.userRepo;
 
     // 1️⃣ Required fields
     if (!user_id || !store_name || !email) {
@@ -231,7 +238,7 @@ export class StoreService {
     }
 
     // 2️⃣ Ensure user exists (defensive check)
-    const user = await this.userRepo.findOne({
+    const user = await userRepo.findOne({
       where: { id: user_id },
       select: ['id'],
     });
@@ -241,7 +248,7 @@ export class StoreService {
     }
 
     // 3️⃣ Enforce one store per user (business rule)
-    const existingStoreForUser = await this.storeRepo.findOne({
+    const existingStoreForUser = await storeRepo.findOne({
       where: { user_id },
       select: ['id'],
     });
@@ -253,7 +260,7 @@ export class StoreService {
     }
 
     // 4️⃣ Store name uniqueness (business rule)
-    const existingStoreName = await this.storeRepo.exists({
+    const existingStoreName = await storeRepo.exists({
       where: { store_name },
     });
 
@@ -262,17 +269,17 @@ export class StoreService {
     }
 
     // 5️⃣ Generate unique slug
-    const slug = await this.generateUniqueSlug(store_name);
+    const slug = await this.generateUniqueSlug(store_name, manager);
 
     // 6️⃣ Create store
-    const store = this.storeRepo.create({
+    const store = storeRepo.create({
       ...data,
       id: uuidv4(),
       slug,
     });
 
-    const saved = await this.storeRepo.save(store);
-    await this.analyticsService.initializeAnalyticsForStore(saved.id);
+    const saved = await storeRepo.save(store);
+    await this.analyticsService.initializeAnalyticsForStore(saved.id, manager);
 
     // 7️⃣ Clear caches
     await this.cache.clearPrefix('svc:store');

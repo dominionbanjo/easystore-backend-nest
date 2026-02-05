@@ -90,8 +90,11 @@ export class PandaOrderController {
      GET SINGLE ORDER
   ──────────────────────────────────────────────── */
   @Get(':id')
-  async getOrder(@Param('id') id: string) {
-    return this.orderService.getOrder(id);
+  async getOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.orderService.getOrderForApi(id, user.sub);
   }
 
   /* ────────────────────────────────────────────────

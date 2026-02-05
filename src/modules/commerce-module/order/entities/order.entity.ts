@@ -11,6 +11,7 @@ import {
   Index,
   JoinColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 import { ICartItem } from '../../cart/types/types';
 import { Delivery } from '../../delivery/entities/delivery.entity';
@@ -83,16 +84,12 @@ export class Order {
   escrow: Escrow | null;
 
   /* ───────────────────────────────────────────────
-     RELATION → DELIVERY
+     RELATION → DELIVERY (ONE-TO-ONE)
+     Delivery is the owning side with order_id FK
   ─────────────────────────────────────────────── */
-  @Column({ type: 'uuid', nullable: true })
-  delivery_id: string | null;
-
-  @ManyToOne(() => Delivery, (delivery) => delivery.order, {
-    onDelete: 'SET NULL',
-    onUpdate: 'CASCADE',
+  @OneToOne(() => Delivery, (delivery) => delivery.order, {
+    nullable: true,
   })
-  @JoinColumn({ name: 'delivery_id' })
   delivery: Delivery | null;
 
   /* ───────────────────────────────────────────────

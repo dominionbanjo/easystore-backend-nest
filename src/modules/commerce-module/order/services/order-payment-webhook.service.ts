@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { OrderService } from './order.service';
 import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service';
@@ -6,6 +10,8 @@ import { TransactionsService } from 'src/modules/finance-module/transactions/tra
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { OrderMailService } from 'src/modules/shared-module/email/services/order-mail.service';
 import { DeliveryService } from '../../delivery/delivery.service';
+import { DataSource } from 'typeorm';
+import { Order } from '../entities/order.entity';
 
 @Injectable()
 export class OrderPaymentService {
@@ -17,17 +23,25 @@ export class OrderPaymentService {
     private readonly paystack: PaystackService,
     private readonly mail: OrderMailService,
     private readonly cache: CacheService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /* ────────────────────────────────────────────────
      HANDLE PAYSTACK WEBHOOK
   ──────────────────────────────────────────────── */
   async handlePaystackWebhook(payload: any) {
-    const reference = payload?.reference;
-    if (!reference) return;
+    const reference = payload?.data?.reference || payload?.reference;
+    if (!reference) {
+      console.warn('Paystack Webhook received without reference:', payload);
+      return;
+    }
 
     const orders = await this.orders.getOrdersByPaymentReference(reference);
-    if (!orders.length) return;
+    if (!orders.length) {
+      throw new NotFoundException(
+        `No orders found for payment reference: ${reference}`,
+      );
+    }
 
     // Idempotent check
     if (orders.every((o) => o.payment_status === 'success')) return;
@@ -45,33 +59,44 @@ export class OrderPaymentService {
       throw new BadRequestException('Webhook amount mismatch');
     }
 
-    /* MARK ALL ORDERS AS PAID */
-    for (const order of orders) {
-      await this.orders.markPaid(order.id);
+    /* MARK ALL ORDERS AS PAID IN A TRANSACTION */
+    await this.dataSource.transaction(async (manager) => {
+      for (const order of orders) {
+        if (order.payment_status === 'success') continue;
 
-      if (order.escrow_id) {
-        await this.escrow.fundEscrow(order.escrow_id);
+        // 1. Update Order Status
+        await manager.update(Order, order.id, {
+          payment_status: 'success',
+          status: 'paid',
+        });
+
+        // 2. Fund Escrow (Side Effect)
+        if (order.escrow_id) {
+          await this.escrow.fundEscrow(order.escrow_id);
+        }
+
+        // 3. Create Delivery
+        await this.delivery.createDelivery({
+          order_id: order.id,
+          buyer_id: order.buyer_id,
+          vendor_id: order.vendor_id,
+        });
+
+        // 4. Record Transaction
+        await this.transactions.create({
+          order_id: order.id,
+          escrow_id: order.escrow_id ?? undefined,
+          user_id: order.buyer_id,
+          vendor_id: order.vendor_id,
+          type: 'payment_webhook',
+          amount: order.total,
+          currency: 'NGN',
+          status: 'success',
+          description: 'Payment confirmed via webhook',
+          metadata: payload,
+        });
       }
-
-      await this.delivery.createDelivery({
-        order_id: order.id,
-        buyer_id: order.buyer_id,
-        vendor_id: order.vendor_id,
-      });
-
-      await this.transactions.create({
-        order_id: order.id,
-        escrow_id: order.escrow_id ?? undefined,
-        user_id: order.buyer_id,
-        vendor_id: order.vendor_id,
-        type: 'payment_webhook',
-        amount: order.total,
-        currency: 'NGN',
-        status: 'success',
-        description: 'Payment confirmed (shared checkout)',
-        metadata: payload,
-      });
-    }
+    });
 
     /* ────────────────────────────────────────────────
      EMAILS (NON-BLOCKING)

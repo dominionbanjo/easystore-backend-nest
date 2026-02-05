@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -92,7 +93,7 @@ export class OrderService {
   async getOrdersByPaymentReference(reference: string) {
     return this.orderRepo.find({
       where: { payment_reference: reference },
-      relations: ['buyer'],
+      relations: ['buyer', 'vendor'],
     });
   }
 
@@ -366,10 +367,6 @@ export class OrderService {
         order_id: saved.id,
         buyer_id,
         vendor_id,
-      });
-
-      await this.orderRepo.update(saved.id, {
-        delivery_id: delivery.id,
       });
     }
 
@@ -767,6 +764,49 @@ export class OrderService {
     return order;
   }
 
+  async getOrderForApi(id: string, user_id: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      relations: ['delivery', 'vendor'],
+      select: {
+        delivery: {
+          id: true,
+          delivery_status: true,
+          tracking_number: true,
+          estimated_delivery: true,
+          delivered_at: true,
+          address: true,
+          city: true,
+          state: true,
+          country: true,
+          postal_code: true,
+        },
+        vendor: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          email: true,
+          phone_number: true,
+        },
+      },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+
+    // Check if the user is the buyer of this order
+    if (order.buyer_id !== user_id) {
+      throw new UnauthorizedException(
+        'You are not authorized to view this order',
+      );
+    }
+
+    return {
+      status: 'success',
+      message: 'Order retrieved successfully',
+      data: order,
+    };
+  }
+
   async getOrdersByUser(
     buyer_id: string,
     query?: {
@@ -804,8 +844,15 @@ export class OrderService {
       'order.payment_reference',
       'order.created_at',
       'order.order_items', // JSONB column, cannot verify fields easily without raw SQL
+      'delivery.id',
+      'delivery.delivery_status',
+      'delivery.tracking_number',
+      'delivery.estimated_delivery',
+      'delivery.delivered_at',
     ]);
-    // qb.leftJoin('order.order_items', 'items'); // Removed: order_items is JSONB, not a relation
+
+    // Join delivery relation
+    qb.leftJoinAndSelect('order.delivery', 'delivery');
 
     qb.orderBy('order.created_at', 'DESC');
     qb.skip(skip).take(limit);
