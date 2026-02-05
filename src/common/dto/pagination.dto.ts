@@ -17,4 +17,8 @@ export class PaginationQueryDto {
   @IsOptional()
   @Type(() => String)
   q?: string;
+
+  @IsOptional()
+  @Type(() => String)
+  state?: string;
 }

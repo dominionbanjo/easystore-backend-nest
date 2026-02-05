@@ -131,6 +131,10 @@ export class ProductService {
         stock: row.stock,
         rating_average: Number(row.rating_average),
         store_name: row.store_name,
+        address_city: row.address_city,
+        address_state: row.address_state,
+        address_country: row.address_country,
+        address_postal_code: row.address_postal_code,
         image: extractImageUrl(row.image),
 
         // ❤️ wishlist overlay
@@ -178,6 +182,9 @@ export class ProductService {
         'product.rating_average',
         'product.created_at',
         'store.store_name',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
       ])
       .where('product.featured = :featured', { featured: true })
       .andWhere('product.status = :status', {
@@ -200,6 +207,9 @@ export class ProductService {
         rating_average: p.product_rating_average,
         image: p.product_image?.url ?? null,
         store_name: p.store_store_name,
+        address_city: p.store_address_city,
+        address_state: p.store_address_state,
+        address_country: p.store_address_country,
 
         // ❤️ ADD THIS (only addition)
         is_in_wishlist: wishlistSet.has(p.product_id),
@@ -221,6 +231,7 @@ export class ProductService {
     const [products, total] = await this.productRepo
       .createQueryBuilder('product')
       .leftJoin('product.category_ref', 'category')
+      .leftJoin('product.store', 'store')
       .where('product.status = :status', {
         status: ProductStatus.ACTIVE,
       })
@@ -237,6 +248,13 @@ export class ProductService {
         'category.id',
         'category.name',
         'category.slug',
+
+        'store.id',
+        'store.store_name',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
       ])
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
@@ -251,6 +269,11 @@ export class ProductService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock, // ✅ EXPOSE IT
+      store_name: p.store?.store_name,
+      address_city: p.store?.address_city,
+      address_state: p.store?.address_state,
+      address_country: p.store?.address_country,
+      address_postal_code: p.store?.address_postal_code,
       is_in_wishlist: wishlistSet.has(p.id),
     }));
 
@@ -291,6 +314,7 @@ export class ProductService {
     // 2️⃣ Fetch products (same shape as getAllProducts)
     const [products, total] = await this.productRepo
       .createQueryBuilder('product')
+      .leftJoin('product.store', 'store')
       .select([
         'product.id',
         'product.name',
@@ -300,6 +324,13 @@ export class ProductService {
         'product.rating_average',
         'product.stock',
         'product.created_at',
+
+        'store.id',
+        'store.store_name',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
       ])
       .where('product.category_id = :categoryId', { categoryId: category.id })
       .andWhere('product.status = :status', {
@@ -320,6 +351,11 @@ export class ProductService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
+      store_name: p.store?.store_name,
+      address_city: p.store?.address_city,
+      address_state: p.store?.address_state,
+      address_country: p.store?.address_country,
+      address_postal_code: p.store?.address_postal_code,
       is_in_wishlist: wishlistSet.has(p.id),
     }));
 
@@ -377,6 +413,10 @@ export class ProductService {
           rating_average: product.store.rating_average,
           rating_count: product.store.rating_count,
           logo: product.store.logo,
+          address_city: product.store.address_city,
+          address_state: product.store.address_state,
+          address_country: product.store.address_country,
+          address_postal_code: product.store.address_postal_code,
         }
       : null;
 
@@ -414,6 +454,9 @@ export class ProductService {
         'p.stock',
         'p.image',
         'store.store_name',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
       ])
       .where('p.category_id = :categoryId', {
         categoryId: product.category_id,
@@ -436,6 +479,9 @@ export class ProductService {
       rating_average: Number(p.p_rating_average),
       image: p.p_image?.url ?? null,
       store_name: p.store_store_name,
+      address_city: p.store_address_city,
+      address_state: p.store_address_state,
+      address_country: p.store_address_country,
       is_in_wishlist: wishlistSet.has(p.p_id),
     }));
 
@@ -481,12 +527,29 @@ export class ProductService {
       skip: (page - 1) * limit,
       take: limit,
       order: { created_at: 'DESC' },
-      relations: ['category_ref'],
+      relations: ['category_ref', 'store'],
     });
+
+    const items = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      image: p.image?.url ?? null,
+      rating_average: Number(p.rating_average),
+      stock: p.stock,
+      store_name: p.store?.store_name,
+      address_city: p.store?.address_city,
+      address_state: p.store?.address_state,
+      address_country: p.store?.address_country,
+      address_postal_code: p.store?.address_postal_code,
+      created_at: p.created_at,
+    }));
 
     return {
       message: 'Store products retrieved successfully',
-      data: buildPagination(products, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
   /* ────────────────────────────────────────────────
@@ -604,6 +667,7 @@ export class ProductService {
 
     const qb = this.productRepo
       .createQueryBuilder('product')
+      .leftJoin('product.store', 'store')
       .select([
         'product.id',
         'product.name',
@@ -612,9 +676,11 @@ export class ProductService {
         'product.image',
         'product.rating_average',
         'product.stock',
-        'product.country',
-        'product.state',
-        'product.city',
+        'store.address_country',
+        'store.address_state',
+        'store.address_city',
+        'store.address_postal_code',
+        'store.store_name',
         'product.featured',
         'product.created_at',
       ])
@@ -635,9 +701,9 @@ export class ProductService {
     }
 
     /* ---------- LOCATION ---------- */
-    if (country) qb.andWhere('product.country = :country', { country });
-    if (state) qb.andWhere('product.state = :state', { state });
-    if (city) qb.andWhere('product.city = :city', { city });
+    if (country) qb.andWhere('store.address_country = :country', { country });
+    if (state) qb.andWhere('store.address_state = :state', { state });
+    if (city) qb.andWhere('store.address_city = :city', { city });
 
     /* ---------- RATING ---------- */
     if (rating !== undefined) {
@@ -676,6 +742,11 @@ export class ProductService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
+      store_name: p.store?.store_name,
+      address_city: p.store?.address_city,
+      address_state: p.store?.address_state,
+      address_country: p.store?.address_country,
+      address_postal_code: p.store?.address_postal_code,
       is_featured: p.featured,
       is_in_wishlist: wishlistSet.has(p.id),
     }));
@@ -724,6 +795,7 @@ export class ProductService {
 
     const qb = this.productRepo
       .createQueryBuilder('product')
+      .leftJoin('product.store', 'store')
       .select([
         'product.id',
         'product.name',
@@ -733,6 +805,13 @@ export class ProductService {
         'product.rating_average',
         'product.stock',
         'product.created_at',
+
+        'store.id',
+        'store.store_name',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
       ])
       .addSelect(
         `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
@@ -793,6 +872,11 @@ export class ProductService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
+      store_name: p.store?.store_name,
+      address_city: p.store?.address_city,
+      address_state: p.store?.address_state,
+      address_country: p.store?.address_country,
+      address_postal_code: p.store?.address_postal_code,
       is_in_wishlist: wishlistSet.has(p.id),
     }));
 
@@ -834,6 +918,7 @@ export class ProductService {
     const qb = this.productRepo
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category_ref', 'category')
+      .leftJoinAndSelect('product.store', 'store')
       .where(`product.search_vector @@ to_tsquery('english', :tsQuery)`, {
         tsQuery,
       })
@@ -882,15 +967,166 @@ export class ProductService {
 
     /* ---------- SHAPE RESPONSE ---------- */
     const items = products.map((product) => {
-      const { category_ref, ...rest } = product;
+      const { category_ref, store, ...rest } = product;
       return {
         ...rest,
         category_ref,
+        store_name: store?.store_name,
+        address_city: store?.address_city,
+        address_state: store?.address_state,
+        address_country: store?.address_country,
+        address_postal_code: store?.address_postal_code,
       };
     });
 
     return {
       message: 'Store products search retrieved successfully',
+      data: buildPagination(items, total, page, limit),
+    };
+  }
+
+  /* ────────────────────────────────────────────────
+     🔍 UNIFIED: GET / SEARCH VENDOR PRODUCTS
+  ──────────────────────────────────────────────── */
+  async getVendorProducts(storeId: string, params: ProductSearchDto) {
+    const {
+      q,
+      page = 1,
+      limit = 20,
+      minPrice,
+      maxPrice,
+      rating,
+      inStock,
+      onSale,
+      colors,
+      sizes,
+    } = params;
+
+    const qb = this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category_ref', 'category')
+      .leftJoinAndSelect('product.store', 'store')
+      .where('product.store_id = :storeId', { storeId });
+
+    /* ---------- FULL TEXT QUERY (OPTIONAL) ---------- */
+    if (q?.trim()) {
+      const tsQuery = q
+        .trim()
+        .split(/\s+/)
+        .map((w) => `${w}:*`)
+        .join(' & ');
+
+      qb.andWhere(`product.search_vector @@ to_tsquery('english', :tsQuery)`, {
+        tsQuery,
+      });
+      qb.addSelect(
+        `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
+        'rank',
+      );
+      qb.orderBy('rank', 'DESC');
+    } else {
+      qb.orderBy('product.created_at', 'DESC');
+    }
+
+    /* ---------- FILTERS ---------- */
+    if (minPrice !== undefined) {
+      qb.andWhere('product.price >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    if (rating !== undefined) {
+      qb.andWhere('product.rating_average >= :rating', { rating });
+    }
+
+    const stockTrue = inStock === true || (inStock as any) === 'true';
+    const stockFalse = inStock === false || (inStock as any) === 'false';
+
+    if (stockTrue) {
+      qb.andWhere('product.stock > 0');
+    } else if (stockFalse) {
+      qb.andWhere('product.stock <= 0');
+    }
+
+    /* ---------- ON SALE (ROBUST BOOLEAN CHECK) ---------- */
+    if (onSale !== undefined) {
+      const saleTrue = onSale === true || (onSale as any) === 'true';
+      const saleFalse = onSale === false || (onSale as any) === 'false';
+
+      if (saleTrue) {
+        qb.andWhere('product.on_sale = :onSaleTrue', { onSaleTrue: true });
+      } else if (saleFalse) {
+        // Handle NULL as false
+        qb.andWhere(
+          '(product.on_sale = :onSaleFalse OR product.on_sale IS NULL)',
+          {
+            onSaleFalse: false,
+          },
+        );
+      }
+    }
+
+    if (params.status) {
+      qb.andWhere('product.status = :status', { status: params.status });
+    }
+
+    /* ---------- COLORS & SIZES ---------- */
+    if (colors?.length) {
+      qb.andWhere('product.colors && :colors', { colors });
+    }
+
+    if (sizes?.length) {
+      qb.andWhere('product.sizes && :sizes', { sizes });
+    }
+
+    /* ---------- EXECUTION ---------- */
+    const [products, total] = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    /* ---------- SHAPE RESPONSE ---------- */
+    const items = products.map((product) => {
+      const { category_ref, store, ...rest } = product;
+      return {
+        ...rest,
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        description: product.description,
+        price: Number(product.price),
+        discount_price: product.discount_price
+          ? Number(product.discount_price)
+          : null,
+        stock: product.stock,
+        tags: product.tags,
+        image: product.image, // Object { url, public_id }
+        gallery: product.gallery,
+        highlights: product.highlights,
+        specs: product.specs,
+        colors: product.colors,
+        sizes: product.sizes,
+        shipping_note: product.shipping_note,
+        returns_note: product.returns_note,
+        status: product.status,
+        shipping_cost: Number(product.shipping_cost),
+        rating_average: Number(product.rating_average),
+        rating_count: product.rating_count,
+        review_count: product.review_count,
+        total_sold: product.total_sold,
+        featured: product.featured,
+        on_sale: product.on_sale,
+        category_ref,
+        store_name: store?.store_name,
+        created_at: product.created_at,
+        updated_at: product.updated_at,
+      };
+    });
+
+    return {
+      message: 'Products retrieved successfully',
       data: buildPagination(items, total, page, limit),
     };
   }

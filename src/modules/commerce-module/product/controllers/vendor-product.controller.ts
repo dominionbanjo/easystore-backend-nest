@@ -32,6 +32,23 @@ export class VendorProductController {
   constructor(private readonly productService: ProductService) {}
 
   /* ────────────────────────────────────────────────
+     📋 VENDOR: GET ALL MY PRODUCTS (Unified Search & List)
+     GET /vendor/products
+  ──────────────────────────────────────────────── */
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('vendor', 'admin')
+  getAllProducts(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Query() query: ProductSearchDto,
+  ) {
+    if (!user.store_id) {
+      throw new NotFoundException('User does not own a store');
+    }
+    return this.productService.getVendorProducts(user.store_id, query);
+  }
+
+  /* ────────────────────────────────────────────────
      🔍 VENDOR: SEARCH PRODUCTS IN MY STORE
      GET /vendor/products/store/me/search
   ──────────────────────────────────────────────── */
