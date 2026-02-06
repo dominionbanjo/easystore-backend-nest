@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Delivery } from './entities/delivery.entity';
 import { DeliveryService } from './delivery.service';
@@ -9,6 +9,7 @@ import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheModule } from 'src/modules/shared-module/cache/cache.module';
 import { EmailModule } from 'src/modules/shared-module/email/email.module';
 import { Order } from '../order/entities/order.entity';
+import { StoreAnalyticsModule } from 'src/modules/vendor-module/store-analytics/store-analytics.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Order } from '../order/entities/order.entity';
     EscrowModule,
     CacheModule,
     EmailModule,
+    forwardRef(() => StoreAnalyticsModule),
   ],
   controllers: [DeliveryController],
   providers: [DeliveryService],

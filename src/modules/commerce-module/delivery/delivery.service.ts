@@ -2,6 +2,8 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,6 +14,7 @@ import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { DeliveryMailService } from 'src/modules/shared-module/email/services/delivery-mail.service';
 import { Order } from '../order/entities/order.entity';
+import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/store-analytics.service';
 
 @Injectable()
 export class DeliveryService {
@@ -29,7 +32,41 @@ export class DeliveryService {
     private readonly upload: UploadService,
     private readonly cache: CacheService,
     private readonly mail: DeliveryMailService,
+    @Inject(forwardRef(() => StoreAnalyticsService))
+    private readonly analyticsService: StoreAnalyticsService,
   ) {}
+
+  /* ────────────────────────────────────────────────
+     PRIVATE: PROCESS ANALYTICS
+  ──────────────────────────────────────────────── */
+  private async processAnalytics(orderId: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ['vendor', 'vendor.store'],
+    });
+
+    if (!order || order.analytics_processed) return;
+
+    if (!order.vendor?.store?.id) {
+      console.warn(
+        `Store not found for vendor ${order.vendor_id} on order ${order.id}`,
+      );
+      return;
+    }
+
+    try {
+      await this.analyticsService.updateFromOrder(
+        order.vendor.store.id,
+        order.total,
+        order.buyer_id,
+        order.order_items,
+      );
+
+      await this.orderRepo.update(orderId, { analytics_processed: true });
+    } catch (error) {
+      console.error(`Failed to update analytics for order ${orderId}:`, error);
+    }
+  }
 
   private async getVendorEmailAndStoreName(vendorId: string) {
     return this.userRepo
@@ -218,6 +255,9 @@ export class DeliveryService {
         console.error('Failed to send confirmation email to vendor:', error);
       }
     }
+
+    // Trigger analytics
+    await this.processAnalytics(order_id);
 
     return {
       success: true,
@@ -412,6 +452,11 @@ export class DeliveryService {
       }
     }
 
+    // Trigger analytics if delivered
+    if (status === 'delivered') {
+      await this.processAnalytics(delivery.order_id!);
+    }
+
     return { success: true };
   }
 
@@ -484,6 +529,9 @@ export class DeliveryService {
         );
       }
     }
+
+    // Trigger analytics
+    await this.processAnalytics(order_id);
 
     return this.escrowService.releaseEscrow(order_id, code);
   }

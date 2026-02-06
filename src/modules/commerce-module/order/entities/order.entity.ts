@@ -158,6 +158,12 @@ export class Order {
   @Column({ type: 'jsonb', default: [] })
   order_items: ICartItem[];
 
+  /* ───────────────────────────────────────────────
+     ANALYTICS FLAG
+  ─────────────────────────────────────────────── */
+  @Column({ type: 'boolean', default: false })
+  analytics_processed: boolean;
+
   @OneToMany(() => Payout, (payout) => payout.order)
   payouts: Payout[];
   /* ───────────────────────────────────────────────

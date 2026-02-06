@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Order } from './entities/order.entity';
@@ -24,6 +24,7 @@ import { OrderController } from './controllers/pandaOrder.controller';
 import { PandaOrderController } from './controllers/order.controller';
 import { OrderPaymentService } from './services/order-payment-webhook.service';
 import { CartModule } from '../cart/cart.module';
+import { StoreAnalyticsModule } from 'src/modules/vendor-module/store-analytics/store-analytics.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { CartModule } from '../cart/cart.module';
     CommonModule,
     StoreModule,
     CartModule,
+    forwardRef(() => StoreAnalyticsModule),
   ],
   controllers: [OrderController, PandaOrderController, OrderPaymentController],
   providers: [

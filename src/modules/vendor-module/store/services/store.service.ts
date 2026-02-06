@@ -318,7 +318,19 @@ export class StoreService {
 
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
+      relations: ['user'],
     });
+
+    if (store && store.user) {
+      // Filter user fields to only include what's needed for public view
+      const { password: _, ...safeUser } = store.user as any;
+      (store as any).user = {
+        first_name: safeUser.first_name,
+        last_name: safeUser.last_name,
+        username: safeUser.username,
+        avatar: safeUser.avatar,
+      };
+    }
 
     if (!store) {
       throw new NotFoundException('Store not found');
