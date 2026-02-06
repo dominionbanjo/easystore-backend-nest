@@ -391,7 +391,11 @@ export class DeliveryService {
     }
 
     // 🔐 Escrow logic (online orders only)
-    if (status === 'delivered' && order?.payment_method === 'online') {
+    if (
+      status === 'delivered' &&
+      order?.payment_method === 'online' &&
+      order?.escrow
+    ) {
       await this.escrowService.markDelivered(delivery.order_id!);
 
       if (buyer?.email && order.escrow?.release_code) {

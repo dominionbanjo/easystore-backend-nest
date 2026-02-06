@@ -81,6 +81,15 @@ export class ProductSearchDto {
     return undefined;
   })
   @IsBoolean()
+  isOutOfStock?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
   onSale?: boolean;
 
   @IsOptional()

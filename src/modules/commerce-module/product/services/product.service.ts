@@ -216,6 +216,7 @@ export class ProductService {
         'product.colors',
         'product.sizes',
         'store.store_name',
+        'store.slug',
         'store.address_city',
         'store.address_state',
         'store.address_country',
@@ -240,6 +241,7 @@ export class ProductService {
       rating_average: p.product_rating_average,
       image: p.product_image?.url ?? null,
       store_name: p.store_store_name,
+      store_slug: p.store_slug, // Mapped store.slug
       address_city: p.store_address_city,
       address_state: p.store_address_state,
       address_country: p.store_address_country,
@@ -315,6 +317,7 @@ export class ProductService {
       rating_average: Number(p.rating_average),
       stock: p.stock,
       store_name: p.store?.store_name,
+      store_slug: p.store?.slug,
       address_city: p.store?.address_city,
       address_state: p.store?.address_state,
       address_country: p.store?.address_country,
@@ -381,6 +384,7 @@ export class ProductService {
 
         'store.id',
         'store.store_name',
+        'store.slug',
         'store.address_city',
         'store.address_state',
         'store.address_country',
@@ -406,6 +410,7 @@ export class ProductService {
       rating_average: Number(p.rating_average),
       stock: p.stock,
       store_name: p.store?.store_name,
+      store_slug: p.store?.slug,
       address_city: p.store?.address_city,
       address_state: p.store?.address_state,
       address_country: p.store?.address_country,
@@ -545,6 +550,7 @@ export class ProductService {
       colors: p.p_colors || [],
       sizes: p.p_sizes || [],
       store_name: p.store_store_name,
+      store_slug: p.store_slug,
       address_city: p.store_address_city,
       address_state: p.store_address_state,
       address_country: p.store_address_country,
@@ -609,6 +615,7 @@ export class ProductService {
       rating_average: Number(p.rating_average),
       stock: p.stock,
       store_name: p.store?.store_name,
+      store_slug: p.store?.slug,
       address_city: p.store?.address_city,
       address_state: p.store?.address_state,
       address_country: p.store?.address_country,
@@ -755,6 +762,7 @@ export class ProductService {
         'store.address_country',
         'store.address_state',
         'store.address_city',
+        'store.slug',
         'store.address_postal_code',
         'store.store_name',
         'product.featured',
@@ -821,6 +829,7 @@ export class ProductService {
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
       store_name: p.store?.store_name,
+      store_slug: p.store?.slug,
       address_city: p.store?.address_city,
       address_state: p.store?.address_state,
       address_country: p.store?.address_country,
@@ -892,6 +901,7 @@ export class ProductService {
         'product.colors',
         'product.sizes',
         'product.discount_price',
+        'product.is_out_of_stock',
 
         'store.id',
         'store.store_name',
@@ -928,8 +938,10 @@ export class ProductService {
     }
 
     /* ---------- STOCK ---------- */
-    if (inStock === true) {
-      qb.andWhere('product.stock > 0');
+    if (inStock === true || (inStock as any) === 'true') {
+      qb.andWhere('product.is_out_of_stock = :oos', { oos: false });
+    } else if (inStock === false || (inStock as any) === 'false') {
+      qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
     /* ---------- COLORS ---------- */
@@ -968,6 +980,7 @@ export class ProductService {
       colors: p.colors || [],
       sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) : null,
+      is_out_of_stock: p.is_out_of_stock,
     }));
 
     const enriched = await this.resolveColorsForList(items);
@@ -1036,8 +1049,10 @@ export class ProductService {
     }
 
     /* ---------- STOCK ---------- */
-    if (inStock === true) {
-      qb.andWhere('product.stock > 0');
+    if (inStock === true || (inStock as any) === 'true') {
+      qb.andWhere('product.is_out_of_stock = :oos', { oos: false });
+    } else if (inStock === false || (inStock as any) === 'false') {
+      qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
     /* ---------- COLORS ---------- */
@@ -1096,6 +1111,7 @@ export class ProductService {
       maxPrice,
       rating,
       inStock,
+      isOutOfStock,
       onSale,
       colors,
       sizes,
@@ -1144,9 +1160,16 @@ export class ProductService {
     const stockFalse = inStock === false || (inStock as any) === 'false';
 
     if (stockTrue) {
-      qb.andWhere('product.stock > 0');
+      qb.andWhere('product.is_out_of_stock = :oos', { oos: false });
     } else if (stockFalse) {
-      qb.andWhere('product.stock <= 0');
+      qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
+    }
+
+    if (isOutOfStock !== undefined) {
+      const oos = isOutOfStock === true || (isOutOfStock as any) === 'true';
+      qb.andWhere('product.is_out_of_stock = :explicitOos', {
+        explicitOos: oos,
+      });
     }
 
     /* ---------- ON SALE (ROBUST BOOLEAN CHECK) ---------- */
@@ -1217,6 +1240,7 @@ export class ProductService {
         total_sold: product.total_sold,
         featured: product.featured,
         on_sale: product.on_sale,
+        is_out_of_stock: product.is_out_of_stock,
         category_ref,
         store_name: store?.store_name,
         created_at: product.created_at,

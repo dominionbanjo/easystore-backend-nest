@@ -31,13 +31,13 @@ export class Delivery {
   id: string;
 
   /* ───────────────────────────────────────────────
-     RELATION → ORDER
-     onDelete: SET NULL (matches schema)
+     RELATION → ORDER (ONE-TO-ONE)
+     Delivery is the owning side with order_id FK
   ─────────────────────────────────────────────── */
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'uuid', nullable: true, unique: true })
   order_id: string | null;
 
-  @ManyToOne(() => Order, (order) => order.delivery, {
+  @OneToOne(() => Order, (order) => order.delivery, {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE',
   })
