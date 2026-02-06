@@ -34,7 +34,7 @@ export class StoreAnalytics {
      (SOURCE OF TRUTH)
   ──────────────────────────────────────────────── */
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'bigint', default: 0 })
   total_revenue: number;
 
   @Column({ type: 'int', default: 0 })

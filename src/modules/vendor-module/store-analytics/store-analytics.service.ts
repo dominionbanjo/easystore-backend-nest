@@ -65,7 +65,7 @@ export class StoreAnalyticsService {
 
     // ✅ SOURCE OF TRUTH: compute order total
     const orderTotal = items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
+      (sum, item) => sum + Number(item.price) * Number(item.quantity),
       0,
     );
 
@@ -156,7 +156,7 @@ export class StoreAnalyticsService {
         `
       UPDATE store_monthly_analytics
       SET
-        revenue = revenue + $1,
+        revenue = CAST(revenue AS BIGINT) + $1,
         orders = orders + 1,
         unique_customers = unique_customers + $2
       WHERE store_id = $3
@@ -169,21 +169,24 @@ export class StoreAnalyticsService {
       /* ────────────────────────────────────────────────
        6️⃣ UPDATE LIFETIME ANALYTICS
     ──────────────────────────────────────────────── */
-      analyticsRow.total_revenue += orderTotal;
-      analyticsRow.total_orders += 1;
+      // Ensure we treat existing values as numbers (bigint comes as string)
+      const currentRevenue = Number(analyticsRow.total_revenue || 0);
+      const currentOrders = Number(analyticsRow.total_orders || 0);
+      const currentCustomers = Number(analyticsRow.total_customers || 0);
+
+      analyticsRow.total_revenue = currentRevenue + orderTotal;
+      analyticsRow.total_orders = currentOrders + 1;
 
       if (isFirstOrderForStore) {
-        analyticsRow.total_customers += 1;
+        analyticsRow.total_customers = currentCustomers + 1;
       }
 
+      const totalCustomers = Number(analyticsRow.total_customers);
+      const totalOrders = Number(analyticsRow.total_orders);
+
       analyticsRow.conversion_rate =
-        analyticsRow.total_customers > 0
-          ? Number(
-              (
-                (analyticsRow.total_orders / analyticsRow.total_customers) *
-                100
-              ).toFixed(2),
-            )
+        totalCustomers > 0
+          ? Number(((totalOrders / totalCustomers) * 100).toFixed(2))
           : 0;
 
       analyticsRow.last_order_at = now;
@@ -354,10 +357,10 @@ export class StoreAnalyticsService {
   ──────────────────────────────────────────────── */
     const result = {
       summary: {
-        total_sales: analyticsRow.total_revenue,
-        orders: analyticsRow.total_orders,
-        customers: analyticsRow.total_customers,
-        conversion_rate: analyticsRow.conversion_rate,
+        total_sales: Number(analyticsRow.total_revenue || 0),
+        orders: Number(analyticsRow.total_orders || 0),
+        customers: Number(analyticsRow.total_customers || 0),
+        conversion_rate: Number(analyticsRow.conversion_rate || 0),
         total_products: totalProducts,
       },
       trends: {

@@ -28,24 +28,26 @@ export class OrderValidationService {
         throw new BadRequestException(`Invalid quantity for ${product.name}`);
       }
 
-      // Only use discount_price if product is on_sale
       const price =
         product.on_sale && product.discount_price
-          ? product.discount_price
-          : product.price;
+          ? Number(product.discount_price)
+          : Number(product.price);
       subtotal += price * item.quantity;
 
       validated.push({
         product_id: product.id,
+        vendor_id: product.vendor_id,
         name: product.name,
         slug: product.slug,
-        price: product.price,
-        discount_price: product.on_sale ? product.discount_price : null,
+        price: Number(product.price),
+        discount_price: product.on_sale ? Number(product.discount_price) : null,
         image: product.image?.url ?? null,
         quantity: item.quantity,
         size: item.size ?? null,
         color: item.color ?? null,
-        shipping_cost: product.shipping_cost ?? null,
+        shipping_cost: product.shipping_cost
+          ? Number(product.shipping_cost)
+          : null,
       });
     }
 

@@ -58,6 +58,17 @@ export class OrderQueryService {
           email: true,
           phone_number: true,
         },
+        id: true,
+        buyer_id: true,
+        status: true,
+        payment_status: true,
+        created_at: true,
+        subtotal: true,
+        shipping_fee: true,
+        platform_fee: true,
+        tax: true,
+        total: true,
+        order_items: true,
       },
     });
 
@@ -109,6 +120,9 @@ export class OrderQueryService {
     // Optimize selection for card display
     qb.select([
       'order.id',
+      'order.subtotal',
+      'order.shipping_fee',
+      'order.platform_fee',
       'order.total',
       'order.status',
       'order.payment_status',
@@ -175,6 +189,7 @@ export class OrderQueryService {
       'order.order_items',
       'order.subtotal',
       'order.shipping_fee',
+      'order.platform_fee',
       'order.tax',
       'order.total',
       'order.payment_method',

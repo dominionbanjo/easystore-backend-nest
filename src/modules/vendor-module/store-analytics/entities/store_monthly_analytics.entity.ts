@@ -32,7 +32,7 @@ export class StoreMonthlyAnalytics {
   month: number; // 1–12 (IMPORTANT: numeric, not string)
 
   /* ───────── METRICS ───────── */
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'bigint', default: 0 })
   revenue: number;
 
   @Column({ type: 'int', default: 0 })

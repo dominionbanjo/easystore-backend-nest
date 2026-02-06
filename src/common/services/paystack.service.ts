@@ -78,7 +78,7 @@ export class PaystackService {
   }
 
   /* ────────────────────────────────────────────────
-     PAYMENTS
+    PAYMENTS
   ──────────────────────────────────────────────── */
 
   /* ────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export class PaystackService {
 
   async initializePayment(
     email: string,
-    amount: number,
+    amountKobo: number,
     options?: {
       subaccount?: string;
       transaction_charge?: number;
@@ -131,7 +131,7 @@ export class PaystackService {
     try {
       const payload: any = {
         email,
-        amount: Math.round(amount * 100),
+        amount: Math.round(amountKobo), // ALREADY IN KOBO
         currency: 'NGN',
         callback_url:
           options?.callback_url ||
@@ -141,9 +141,6 @@ export class PaystackService {
 
       if (options?.subaccount) {
         payload.subaccount = options.subaccount;
-        // If subaccount is present, we usually want the subaccount to bear the fees
-        // unless specified otherwise.
-        // But per prompt: "bearer: 'subaccount' Means: Store pays Paystack transaction fees"
         payload.bearer = options.bearer || 'subaccount';
       }
 
@@ -256,11 +253,11 @@ export class PaystackService {
 
   async initiateTransfer({
     recipient_code,
-    amount,
+    amountKobo,
     reason,
   }: {
     recipient_code: string;
-    amount: number;
+    amountKobo: number;
     reason: string;
   }) {
     if (!recipient_code) {
@@ -275,7 +272,7 @@ export class PaystackService {
         {
           source: 'balance',
           recipient: recipient_code,
-          amount: Math.round(amount * 100),
+          amount: Math.round(amountKobo), // ALREADY IN KOBO
           reason,
           reference,
         },

@@ -72,10 +72,11 @@ export class OrderCreationService {
 
       const items = groups[vendor_id];
 
-      /* CALCULATE SUBTOTAL */
-      let subtotal = 0;
+      /* CALCULATE SUBTOTAL (IN KOBO) */
+      let subtotalKobo = 0;
       for (const item of items) {
-        subtotal += (item.discount_price ?? item.price) * item.quantity;
+        subtotalKobo +=
+          Number(item.discount_price ?? item.price) * item.quantity;
       }
 
       /* INIT PANDASCROW ESCROW */
@@ -85,7 +86,7 @@ export class OrderCreationService {
         acceptance_criteria: 'Items delivered as listed',
 
         currency: 'NGN',
-        amount: subtotal,
+        amount: subtotalKobo / 100, // Pandascrow API might expect Naira? Usually APIs expect Naira if they take decimals. I'll keep it as subtotalKobo / 100 for external API if it expects float.
 
         inspection_period: '3',
         delivery_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
@@ -108,11 +109,11 @@ export class OrderCreationService {
         id: uuidv4(),
         buyer_id: buyer.id,
         vendor_id: vendor.id,
-        escrow_id: null, // Pandascrow uses numeric ID, not UUID
-        subtotal,
+        escrow_id: null,
+        subtotal: subtotalKobo, // STORE IN KOBO
         shipping_fee: 0,
         tax: null,
-        total: subtotal,
+        total: subtotalKobo, // STORE IN KOBO
         payment_method: 'panda',
         payment_reference: escrowResponse.data.transaction_ref,
         payment_url: escrowResponse.data.payment_url,
@@ -123,6 +124,7 @@ export class OrderCreationService {
           pandascrow_escrow_id: escrowResponse.data.escrow_id,
           escrow_type: escrowResponse.data.type,
           escrow_status: escrowResponse.data.status,
+          subtotal_kobo: subtotalKobo,
         }),
       });
 
@@ -132,11 +134,11 @@ export class OrderCreationService {
       /* TRANSACTION: ESCROW HOLD */
       await this.transactions.create({
         order_id: savedOrder.id,
-        escrow_id: undefined, // No internal escrow for Panda orders
+        escrow_id: undefined,
         user_id: buyer.id,
         vendor_id: vendor.id,
         type: 'escrow_hold',
-        amount: subtotal,
+        amount: subtotalKobo, // STORE IN KOBO
         currency: 'NGN',
         reference: escrowResponse.data.transaction_ref,
         status: 'pending',
@@ -209,7 +211,7 @@ export class OrderCreationService {
       user_id: order.buyer_id,
       vendor_id: order.vendor_id,
       type: 'payout',
-      amount: order.total,
+      amount: order.total, // ALREADY IN KOBO
       currency: 'NGN',
       status: 'success',
       description: 'Panda escrow completed and funds released',
@@ -246,21 +248,22 @@ export class OrderCreationService {
     for (const vendor_id of Object.keys(groups)) {
       const vendorItems = groups[vendor_id];
 
-      let subtotal = 0;
+      let subtotalKobo = 0;
       for (const i of vendorItems) {
-        subtotal += (i.discount_price ?? i.price) * i.quantity;
+        subtotalKobo += Number(i.discount_price ?? i.price) * i.quantity;
       }
 
-      const total = subtotal + tax;
+      const taxKobo = tax;
+      const totalKobo = subtotalKobo + taxKobo;
 
       const order = this.orderRepo.create({
         id: uuidv4(),
         buyer_id,
         vendor_id,
         order_items: vendorItems,
-        subtotal,
-        tax,
-        total,
+        subtotal: subtotalKobo, // STORE IN KOBO
+        tax: taxKobo, // STORE IN KOBO
+        total: totalKobo, // STORE IN KOBO
         payment_method: 'offline',
         payment_status: 'unpaid',
         status: 'pending',
@@ -275,7 +278,7 @@ export class OrderCreationService {
         user_id: buyer_id,
         vendor_id,
         type: 'order_created',
-        amount: total,
+        amount: totalKobo, // STORE IN KOBO
         currency: 'NGN',
         status: 'pending',
         description: 'Offline order created',
@@ -320,50 +323,78 @@ export class OrderCreationService {
       await this.validationService.groupItemsByVendor(validatedItems);
 
     /* VALIDATE VENDORS + CALCULATE GRAND TOTAL IN KOBO */
-    let grandTotalKobo = 0;
+    let subtotalKobo = 0;
+    let totalShippingKobo = 0;
+    const vendorSubtotals: Record<string, number> = {};
+    const vendorShippingFees: Record<string, number> = {};
 
     for (const vendor_id of Object.keys(groups)) {
       await this.storeService.validateVendorForOnline(vendor_id);
 
+      let vendorSubtotalKobo = 0;
+      let vendorMaxShippingKobo = 0;
+
       for (const item of groups[vendor_id]) {
-        const priceKobo = Math.round((item.discount_price ?? item.price) * 100);
-        grandTotalKobo += priceKobo * item.quantity;
+        const priceKobo = Number(item.discount_price ?? item.price);
+        vendorSubtotalKobo += priceKobo * item.quantity;
+
+        const itemShippingKobo = item.shipping_cost
+          ? Number(item.shipping_cost)
+          : 0;
+        if (itemShippingKobo > vendorMaxShippingKobo) {
+          vendorMaxShippingKobo = itemShippingKobo;
+        }
       }
+
+      vendorSubtotals[vendor_id] = vendorSubtotalKobo;
+      vendorShippingFees[vendor_id] = vendorMaxShippingKobo;
+      subtotalKobo += vendorSubtotalKobo;
+      totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    // Convert to naira for Paystack
-    const grandTotalNaira = grandTotalKobo / 100;
+    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
+    const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
 
     /* INIT SINGLE PAYSTACK PAYMENT */
     const payment = await this.paystack.initializePayment(
       email,
-      grandTotalNaira,
+      grandTotalKobo,
     );
     const reference = payment.reference;
 
     const orders: Order[] = [];
+    let distributedPlatformFeeKobo = 0;
 
     /* CREATE ORDERS + ESCROWS */
-    for (const vendor_id of Object.keys(groups)) {
+    const vendorIds = Object.keys(groups);
+    for (let i = 0; i < vendorIds.length; i++) {
+      const vendor_id = vendorIds[i];
       const items = groups[vendor_id];
+      const vendorSubtotalKobo = vendorSubtotals[vendor_id];
+      const vendorShippingFeeKobo = vendorShippingFees[vendor_id];
 
-      // Calculate subtotal in kobo
-      let subtotalKobo = 0;
-      for (const item of items) {
-        const priceKobo = Math.round((item.discount_price ?? item.price) * 100);
-        subtotalKobo += priceKobo * item.quantity;
+      let vendorPlatformFeeKobo: number;
+      if (i === vendorIds.length - 1) {
+        vendorPlatformFeeKobo = platformFeeKobo - distributedPlatformFeeKobo;
+      } else {
+        vendorPlatformFeeKobo = Math.round(
+          (vendorSubtotalKobo / (subtotalKobo || 1)) * platformFeeKobo,
+        );
+        distributedPlatformFeeKobo += vendorPlatformFeeKobo;
       }
 
-      // Convert to naira for storage
-      const subtotal = subtotalKobo / 100;
+      const vendorTotalKobo =
+        vendorSubtotalKobo + vendorShippingFeeKobo + vendorPlatformFeeKobo;
 
       const order = this.orderRepo.create({
         id: uuidv4(),
         buyer_id,
         vendor_id,
         order_items: items,
-        subtotal,
-        total: subtotal,
+        subtotal: vendorSubtotalKobo,
+        shipping_fee: vendorShippingFeeKobo,
+        platform_fee: vendorPlatformFeeKobo,
+        total: vendorTotalKobo,
         payment_method: 'online',
         payment_reference: reference, // 🔥 SAME FOR ALL
         payment_url: payment.authorization_url,
@@ -371,9 +402,10 @@ export class OrderCreationService {
         payment_status: 'pending',
         status: 'pending',
         notes: JSON.stringify({
-          // Store kobo values for verification
-          subtotal_kobo: subtotalKobo,
-          total_kobo: subtotalKobo,
+          subtotal_kobo: vendorSubtotalKobo,
+          shipping_fee_kobo: vendorShippingFeeKobo,
+          platform_fee_kobo: vendorPlatformFeeKobo,
+          total_kobo: vendorTotalKobo,
         }),
       });
 
@@ -385,7 +417,7 @@ export class OrderCreationService {
         order_id: savedOrder.id,
         buyer_id,
         vendor_id,
-        amount: subtotal,
+        amount: subtotalKobo, // STORE IN KOBO
       });
 
       await this.orderRepo.update(savedOrder.id, {
@@ -427,27 +459,40 @@ export class OrderCreationService {
 
     const vendorIds = Object.keys(groups);
 
-    /* CALCULATE GRAND TOTAL WITH 2% PLATFORM FEE - ALL IN KOBO */
+    /* CALCULATE GRAND TOTAL WITH 2% PLATFORM FEE + SHIPPING - ALL IN KOBO */
     let subtotalKobo = 0;
+    let totalShippingKobo = 0;
     const vendorSubtotals: Record<string, number> = {};
+    const vendorShippingFees: Record<string, number> = {};
 
-    // First pass: calculate all vendor subtotals
+    // First pass: calculate all vendor subtotals and shipping
     for (const vendor_id of vendorIds) {
       let vendorSubtotalKobo = 0;
+      let vendorMaxShippingKobo = 0;
+
       for (const item of groups[vendor_id]) {
-        const priceKobo = Math.round((item.discount_price ?? item.price) * 100);
+        // ProductService returns Kobo (bigint)
+        const priceKobo = Number(item.discount_price ?? item.price);
         vendorSubtotalKobo += priceKobo * item.quantity;
+
+        // Take the max shipping cost in the group for this vendor
+        const itemShippingKobo = item.shipping_cost
+          ? Number(item.shipping_cost)
+          : 0;
+        if (itemShippingKobo > vendorMaxShippingKobo) {
+          vendorMaxShippingKobo = itemShippingKobo;
+        }
       }
+
       vendorSubtotals[vendor_id] = vendorSubtotalKobo;
+      vendorShippingFees[vendor_id] = vendorMaxShippingKobo;
       subtotalKobo += vendorSubtotalKobo;
+      totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    // Calculate platform fee ONCE on the grand total
+    // Calculate platform fee ONCE on the subtotal
     const platformFeeKobo = Math.round(subtotalKobo * 0.02);
-    const grandTotalKobo = subtotalKobo + platformFeeKobo;
-
-    // Convert to naira for Paystack
-    const grandTotalNaira = grandTotalKobo / 100;
+    const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
 
     /* PREPARE PAYSTACK OPTIONS (SUBACCOUNT) */
     const paystackOptions: any = {};
@@ -466,7 +511,7 @@ export class OrderCreationService {
     /* INIT SINGLE PAYSTACK PAYMENT */
     const payment = await this.paystack.initializePayment(
       email,
-      grandTotalNaira,
+      grandTotalKobo,
       paystackOptions,
     );
     const reference = payment.reference;
@@ -479,6 +524,7 @@ export class OrderCreationService {
       const vendor_id = vendorIds[i];
       const items = groups[vendor_id];
       const vendorSubtotalKobo = vendorSubtotals[vendor_id];
+      const vendorShippingFeeKobo = vendorShippingFees[vendor_id];
 
       let vendorPlatformFeeKobo: number;
 
@@ -488,27 +534,24 @@ export class OrderCreationService {
       } else {
         // Proportional distribution
         vendorPlatformFeeKobo = Math.round(
-          (vendorSubtotalKobo / subtotalKobo) * platformFeeKobo,
+          (vendorSubtotalKobo / (subtotalKobo || 1)) * platformFeeKobo,
         );
         distributedPlatformFeeKobo += vendorPlatformFeeKobo;
       }
 
-      const vendorTotalKobo = vendorSubtotalKobo + vendorPlatformFeeKobo;
-
-      // Convert back to naira for storage
-      const vendorSubtotal = vendorSubtotalKobo / 100;
-      const vendorPlatformFee = vendorPlatformFeeKobo / 100;
-      const vendorTotal = vendorTotalKobo / 100;
+      const vendorTotalKobo =
+        vendorSubtotalKobo + vendorShippingFeeKobo + vendorPlatformFeeKobo;
 
       const order = this.orderRepo.create({
         id: uuidv4(),
         buyer_id,
         vendor_id,
-        subtotal: vendorSubtotal,
-        shipping_fee: vendorPlatformFee, // Store platform fee in shipping_fee field
-        total: vendorTotal,
+        subtotal: vendorSubtotalKobo,
+        shipping_fee: vendorShippingFeeKobo,
+        platform_fee: vendorPlatformFeeKobo,
+        total: vendorTotalKobo,
         payment_method: 'online',
-        payment_reference: reference, // 🔥 SAME REF
+        payment_reference: reference,
         payment_url: payment.authorization_url,
         payment_access_code: payment.access_code,
         payment_status: 'pending',
@@ -516,11 +559,10 @@ export class OrderCreationService {
         order_items: items,
         escrow_id: null,
         notes: JSON.stringify({
-          platform_fee: vendorPlatformFee,
-          fee_percentage: 2,
-          // Store kobo values for verification
-          subtotal_kobo: vendorSubtotalKobo,
           platform_fee_kobo: vendorPlatformFeeKobo,
+          shipping_fee_kobo: vendorShippingFeeKobo,
+          fee_percentage: 2,
+          subtotal_kobo: vendorSubtotalKobo,
           total_kobo: vendorTotalKobo,
         }),
       });

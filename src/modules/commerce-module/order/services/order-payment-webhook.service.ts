@@ -51,12 +51,16 @@ export class OrderPaymentService {
       throw new BadRequestException('Webhook payment verification failed');
     }
 
-    const amountPaid = verification.amount / 100;
+    const amountPaidKobo = verification.amount;
+    const expectedTotalKobo = orders.reduce(
+      (sum, o) => sum + Number(o.total),
+      0,
+    );
 
-    const expectedTotal = orders.reduce((sum, o) => sum + Number(o.total), 0);
-
-    if (Number(amountPaid) !== Number(expectedTotal)) {
-      throw new BadRequestException('Webhook amount mismatch');
+    if (amountPaidKobo !== expectedTotalKobo) {
+      throw new BadRequestException(
+        `Webhook amount mismatch. Expected: ${expectedTotalKobo} kobo, Paid: ${amountPaidKobo} kobo`,
+      );
     }
 
     /* MARK ALL ORDERS AS PAID IN A TRANSACTION */
@@ -112,7 +116,7 @@ export class OrderPaymentService {
         order: {
           id: firstOrder.id,
           status: 'paid',
-          total: expectedTotal,
+          total: expectedTotalKobo / 100,
         },
       });
     } catch (error) {
@@ -128,7 +132,7 @@ export class OrderPaymentService {
           order: {
             id: order.id,
             status: 'paid',
-            total: order.total,
+            total: Number(order.total) / 100,
           },
         });
       } catch (error) {

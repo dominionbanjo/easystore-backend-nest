@@ -94,11 +94,14 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2 })
+  @Column({ type: 'bigint' })
   price: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'bigint', nullable: true })
   discount_price: number | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  shipping_cost: number | null;
 
   @Column({ type: 'int', default: 0 })
   stock: number;
@@ -153,24 +156,6 @@ export class Product {
     default: ProductStatus.ACTIVE,
   })
   status: ProductStatus;
-
-  //   @Column({ type: 'varchar', length: 255, nullable: true })
-  //   location: string | null;
-
-  //   @Index('IDX_PRODUCT_COUNTRY')
-  //   @Column({ type: 'varchar', length: 100 })
-  //   country: string;
-
-  //   @Index('IDX_PRODUCT_STATE')
-  //   @Column({ type: 'varchar', length: 100 })
-  //   state: string;
-
-  //   @Index('IDX_PRODUCT_CITY')
-  //   @Column({ type: 'varchar', length: 100 })
-  //   city: string;
-
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
-  shipping_cost: number | null;
 
   /* ────────────────────────────────────────────────
      RATINGS

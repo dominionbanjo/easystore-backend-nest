@@ -61,19 +61,8 @@ export class OrderPaymentVerificationService {
     let expectedTotalKobo = 0;
 
     for (const order of orders) {
-      // Try to get kobo value from notes first (for new orders)
-      try {
-        const metadata = JSON.parse(order.notes || '{}');
-        if (metadata.total_kobo) {
-          expectedTotalKobo += metadata.total_kobo;
-        } else {
-          // Fallback: convert naira to kobo (for old orders)
-          expectedTotalKobo += Math.round(Number(order.total) * 100);
-        }
-      } catch {
-        // If notes parsing fails, convert naira to kobo
-        expectedTotalKobo += Math.round(Number(order.total) * 100);
-      }
+      // For new orders, total is already in kobo
+      expectedTotalKobo += Number(order.total);
     }
 
     // Exact comparison in kobo (no floating point issues)
