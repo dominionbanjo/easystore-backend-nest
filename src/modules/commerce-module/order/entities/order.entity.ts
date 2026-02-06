@@ -95,16 +95,19 @@ export class Order {
   /* ───────────────────────────────────────────────
      ORDER AMOUNTS
   ─────────────────────────────────────────────── */
-  @Column({ type: 'numeric', precision: 10, scale: 2 })
+  @Column({ type: 'bigint', default: 0 })
   subtotal: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  @Column({ type: 'bigint', default: 0 })
   shipping_fee: number;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'bigint', default: 0 })
+  platform_fee: number;
+
+  @Column({ type: 'bigint', default: 0, nullable: true })
   tax: number | null;
 
-  @Column({ type: 'numeric', precision: 10, scale: 2 })
+  @Column({ type: 'bigint', default: 0 })
   total: number;
 
   /* ───────────────────────────────────────────────

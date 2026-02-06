@@ -69,6 +69,13 @@ export class ProductService {
 
     return items.map((item) => ({
       ...item,
+      price: Number(item.price) / 100,
+      discount_price: item.discount_price
+        ? Number(item.discount_price) / 100
+        : null,
+      shipping_cost: item.shipping_cost
+        ? Number(item.shipping_cost) / 100
+        : null,
       colors: Array.isArray(item.colors)
         ? item.colors.map((id: string) => colorMap.get(id)).filter(Boolean)
         : [],
@@ -577,6 +584,13 @@ export class ProductService {
       data: {
         product: {
           ...productOnly,
+          price: Number(product.price) / 100,
+          discount_price: product.discount_price
+            ? Number(product.discount_price) / 100
+            : null,
+          shipping_cost: product.shipping_cost
+            ? Number(product.shipping_cost) / 100
+            : null,
           colors: resolvedColors, // ✅ hydrated colors here ONLY
           is_in_wishlist: wishlistSet.has(product.id),
         },
@@ -967,7 +981,7 @@ export class ProductService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
+      price: Number(p.price) / 100,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
@@ -979,7 +993,7 @@ export class ProductService {
       is_in_wishlist: wishlistSet.has(p.id),
       colors: p.colors || [],
       sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       is_out_of_stock: p.is_out_of_stock,
     }));
 
@@ -1077,6 +1091,13 @@ export class ProductService {
       const { category_ref, store, ...rest } = product;
       return {
         ...rest,
+        price: Number(product.price) / 100,
+        discount_price: product.discount_price
+          ? Number(product.discount_price) / 100
+          : null,
+        shipping_cost: product.shipping_cost
+          ? Number(product.shipping_cost) / 100
+          : null,
         category_ref,
         store_name: store?.store_name,
         address_city: store?.address_city,
@@ -1085,9 +1106,6 @@ export class ProductService {
         address_postal_code: store?.address_postal_code,
         colors: product.colors || [],
         sizes: product.sizes || [],
-        discount_price: product.discount_price
-          ? Number(product.discount_price)
-          : null,
       };
     });
 
@@ -1218,9 +1236,9 @@ export class ProductService {
         name: product.name,
         slug: product.slug,
         description: product.description,
-        price: Number(product.price),
+        price: Number(product.price) / 100,
         discount_price: product.discount_price
-          ? Number(product.discount_price)
+          ? Number(product.discount_price) / 100
           : null,
         stock: product.stock,
         tags: product.tags,
@@ -1233,7 +1251,7 @@ export class ProductService {
         shipping_note: product.shipping_note,
         returns_note: product.returns_note,
         status: product.status,
-        shipping_cost: Number(product.shipping_cost),
+        shipping_cost: Number(product.shipping_cost) / 100,
         rating_average: Number(product.rating_average),
         rating_count: product.rating_count,
         review_count: product.review_count,
@@ -1311,6 +1329,14 @@ export class ProductService {
   ──────────────────────────────────────────────── */
     const product = this.productRepo.create({
       ...dto,
+      // 🔐 Convert to kobo for internal storage
+      price: Math.round(Number(dto.price) * 100),
+      discount_price: dto.discount_price
+        ? Math.round(Number(dto.discount_price) * 100)
+        : null,
+      shipping_cost: dto.shipping_cost
+        ? Math.round(Number(dto.shipping_cost) * 100)
+        : null,
 
       // 🔐 enforced from JWT
       vendor_id: user.sub,
@@ -1351,6 +1377,14 @@ export class ProductService {
 
     const product = this.productRepo.create({
       ...dto,
+      // 🔐 Convert to kobo for internal storage
+      price: Math.round(Number(dto.price) * 100),
+      discount_price: dto.discount_price
+        ? Math.round(Number(dto.discount_price) * 100)
+        : null,
+      shipping_cost: dto.shipping_cost
+        ? Math.round(Number(dto.shipping_cost) * 100)
+        : null,
 
       vendor_id: user.sub,
       store_id: user.store_id,
@@ -1421,6 +1455,14 @@ export class ProductService {
     const products = this.productRepo.create(
       dtos.map((dto) => ({
         ...dto,
+        // 🔐 Convert to kobo for internal storage
+        price: Math.round(Number(dto.price) * 100),
+        discount_price: dto.discount_price
+          ? Math.round(Number(dto.discount_price) * 100)
+          : null,
+        shipping_cost: dto.shipping_cost
+          ? Math.round(Number(dto.shipping_cost) * 100)
+          : null,
 
         // 🔐 enforced from JWT
         vendor_id: user.sub,
@@ -1458,7 +1500,25 @@ export class ProductService {
       product.slug = slugify(dto.name, { lower: true, strict: true });
     }
 
-    Object.assign(product, dto);
+    Object.assign(product, {
+      ...dto,
+      price:
+        dto.price !== undefined
+          ? Math.round(Number(dto.price) * 100)
+          : product.price,
+      discount_price:
+        dto.discount_price !== undefined
+          ? dto.discount_price
+            ? Math.round(Number(dto.discount_price) * 100)
+            : null
+          : product.discount_price,
+      shipping_cost:
+        dto.shipping_cost !== undefined
+          ? dto.shipping_cost
+            ? Math.round(Number(dto.shipping_cost) * 100)
+            : null
+          : product.shipping_cost,
+    });
 
     const updated = await this.productRepo.save(product);
 
@@ -1507,6 +1567,22 @@ export class ProductService {
   ───────────────────────────────────────────── */
     Object.assign(product, {
       ...dto,
+      price:
+        dto.price !== undefined
+          ? Math.round(Number(dto.price) * 100)
+          : product.price,
+      discount_price:
+        dto.discount_price !== undefined
+          ? dto.discount_price
+            ? Math.round(Number(dto.discount_price) * 100)
+            : null
+          : product.discount_price,
+      shipping_cost:
+        dto.shipping_cost !== undefined
+          ? dto.shipping_cost
+            ? Math.round(Number(dto.shipping_cost) * 100)
+            : null
+          : product.shipping_cost,
       image: product.image,
       gallery: product.gallery,
     });

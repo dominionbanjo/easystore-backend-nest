@@ -215,7 +215,7 @@ export class EscrowService {
 
     const transfer = await this.paystack.initiateTransfer({
       recipient_code: store.recipient_code,
-      amount: escrow.amount,
+      amountKobo: escrow.amount,
       reason: `Payout for order ${order.id}`,
     });
 
@@ -267,7 +267,7 @@ export class EscrowService {
 
     const transfer = await this.paystack.initiateTransfer({
       recipient_code: buyer!.recipient_code!,
-      amount: escrow.amount,
+      amountKobo: escrow.amount,
       reason: `Refund for order ${order.id}`,
     });
 

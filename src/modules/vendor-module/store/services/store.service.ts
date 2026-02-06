@@ -373,7 +373,7 @@ export class StoreService {
         id: p.id,
         name: p.name,
         slug: p.slug,
-        price: Number(p.price),
+        price: Number(p.price) / 100,
         image: p.image?.url ?? null,
         rating_average: Number(p.rating_average),
         stock: p.stock,
@@ -642,7 +642,7 @@ export class StoreService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
+      price: Number(p.price) / 100,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
@@ -655,7 +655,7 @@ export class StoreService {
       category: p.category_ref?.name,
       colors: p.colors || [],
       sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
     }));
 
     const enriched = await this.resolveColorsForList(items);
@@ -754,7 +754,7 @@ export class StoreService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
+      price: Number(p.price) / 100,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
@@ -767,7 +767,7 @@ export class StoreService {
       category: p.category_ref?.name,
       colors: p.colors || [],
       sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
     }));
 
     const enriched = await this.resolveColorsForList(items);
@@ -850,8 +850,10 @@ export class StoreService {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        price: Number(row.price),
-        discount_price: row.discount_price ? Number(row.discount_price) : null,
+        price: Number(row.price) / 100,
+        discount_price: row.discount_price
+          ? Number(row.discount_price) / 100
+          : null,
         stock: row.stock,
         rating_average: Number(row.rating_average),
         image: extractImageUrl(row.image),

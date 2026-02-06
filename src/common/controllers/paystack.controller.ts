@@ -45,7 +45,10 @@ export class PaystackController {
       throw new BadRequestException('Email and amount are required');
     }
 
-    return this.paystack.initializePayment(body.email, body.amount);
+    return this.paystack.initializePayment(
+      body.email,
+      Math.round(body.amount * 100),
+    );
   }
 
   /* ────────────────────────────────────────────────
@@ -126,6 +129,10 @@ export class PaystackController {
       throw new BadRequestException('Missing transfer parameters');
     }
 
-    return this.paystack.initiateTransfer(body);
+    return this.paystack.initiateTransfer({
+      recipient_code: body.recipient_code,
+      amountKobo: Math.round(body.amount * 100),
+      reason: body.reason,
+    });
   }
 }

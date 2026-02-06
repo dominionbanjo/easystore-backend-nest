@@ -65,7 +65,7 @@ export class Payout {
   /* ───────────────────────────────────────────────
      TRANSACTION DETAILS
   ─────────────────────────────────────────────── */
-  @Column({ type: 'numeric', precision: 12, scale: 2 })
+  @Column({ type: 'bigint', default: 0 })
   amount: number;
 
   @Column({ type: 'varchar', length: 10, default: 'NGN', nullable: true })

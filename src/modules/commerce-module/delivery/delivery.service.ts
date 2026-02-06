@@ -221,6 +221,11 @@ export class DeliveryService {
     await this.deliveryRepo.save(delivery);
     await this.cache.clearPrefix('delivery');
 
+    // Sync order status
+    await this.orderRepo.update(order_id, {
+      status: 'completed',
+    });
+
     const buyer = await this.userRepo.findOne({
       where: { id: delivery.buyer_id },
     });
@@ -449,6 +454,21 @@ export class DeliveryService {
         } catch (error) {
           console.error('Failed to send release code email to buyer:', error);
         }
+      }
+    }
+
+    // 🔃 Sync order status
+    if (order) {
+      const orderStatusMap: Partial<Record<DeliveryStatus, any>> = {
+        in_transit: 'in_transit',
+        delivered: 'delivered',
+        failed: 'failed',
+        returned: 'canceled',
+      };
+
+      if (orderStatusMap[status]) {
+        order.status = orderStatusMap[status];
+        await this.orderRepo.save(order);
       }
     }
 

@@ -38,7 +38,7 @@ export class StoreCustomer {
   @Column({ type: 'int', default: 0 })
   orders_count: number;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'bigint', default: 0 })
   total_spent: number;
 
   @Column({ type: 'numeric', precision: 2, scale: 1, default: 0 })

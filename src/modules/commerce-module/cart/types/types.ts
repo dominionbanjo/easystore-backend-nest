@@ -1,5 +1,6 @@
 export interface ICartItem {
   product_id: string;
+  vendor_id: string;
   name: string;
   slug: string;
   price: number;

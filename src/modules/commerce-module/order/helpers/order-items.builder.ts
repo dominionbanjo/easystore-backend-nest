@@ -37,6 +37,7 @@ export class OrderItemsBuilder {
 
       validated.push({
         product_id: product.id,
+        vendor_id: product.vendor_id,
         name: product.name,
         slug: product.slug,
         price: Number(product.price),
@@ -47,7 +48,9 @@ export class OrderItemsBuilder {
         quantity: item.quantity,
         size: item.size ?? null,
         color: item.color ?? null,
-        shipping_cost: product.shipping_cost ?? null,
+        shipping_cost: product.shipping_cost
+          ? Number(product.shipping_cost)
+          : null,
       });
     }
 

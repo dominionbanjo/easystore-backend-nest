@@ -69,19 +69,35 @@ export class CartService {
   }
 
   private calculateTotals(cartItems: ICartItem[]) {
-    let subtotal = 0;
-    let shipping = 0;
+    let subtotalKobo = 0;
+    const vendorShippingFees: Record<string, number> = {};
 
     for (const item of cartItems) {
-      const price = item.discount_price ?? item.price;
-      subtotal += price * item.quantity;
-      shipping += item.shipping_cost ?? 0;
+      const priceKobo = item.discount_price ?? item.price;
+      subtotalKobo += priceKobo * item.quantity;
+
+      // Group by vendor and take the maximum shipping cost for that vendor
+      const itemShippingKobo = Number(item.shipping_cost || 0);
+      if (
+        !vendorShippingFees[item.vendor_id] ||
+        itemShippingKobo > vendorShippingFees[item.vendor_id]
+      ) {
+        vendorShippingFees[item.vendor_id] = itemShippingKobo;
+      }
     }
 
+    const totalShippingKobo = Object.values(vendorShippingFees).reduce(
+      (sum, fee) => sum + fee,
+      0,
+    );
+    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
+    const totalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
+
     return {
-      subtotal,
-      shipping,
-      total: subtotal + shipping,
+      subtotalKobo,
+      shippingKobo: totalShippingKobo,
+      platformFeeKobo,
+      totalKobo,
     };
   }
 
@@ -97,8 +113,20 @@ export class CartService {
       message: 'Cart retrieved successfully',
       cart: {
         id: cart.id,
-        items: cart.cart_items,
-        ...totals,
+        items: cart.cart_items.map((item) => ({
+          ...item,
+          price: Number(item.price) / 100,
+          discount_price: item.discount_price
+            ? Number(item.discount_price) / 100
+            : null,
+          shipping_cost: item.shipping_cost
+            ? Number(item.shipping_cost) / 100
+            : null,
+        })),
+        subtotal: totals.subtotalKobo / 100,
+        shipping: totals.shippingKobo / 100,
+        platform_fee: totals.platformFeeKobo / 100,
+        total: totals.totalKobo / 100,
       },
     };
   }
@@ -159,6 +187,7 @@ export class CartService {
 
       const item: ICartItem = {
         product_id: product.id,
+        vendor_id: product.vendor_id,
         name: product.name,
         slug: product.slug,
         price: Number(product.price),
