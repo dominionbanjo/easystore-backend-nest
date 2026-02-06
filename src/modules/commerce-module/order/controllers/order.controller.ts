@@ -20,6 +20,7 @@ import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.g
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { ICartItem } from '../../cart/types/types';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -120,10 +121,24 @@ export class PandaOrderController {
      GET ORDERS — VENDOR
   ──────────────────────────────────────────────── */
   @Get('vendor/me')
-  @UseGuards(RolesGuard)
-  @Roles('seller')
-  async getVendorOrders(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
-    return this.orderService.getOrdersByVendor(user.sub);
+  @UseGuards(RolesGuard, StoreOwnerGuard)
+  @Roles('vendor')
+  async getVendorOrders(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    if (!user.store_id) {
+      throw new BadRequestException('Store not found for this vendor');
+    }
+    return this.orderService.getOrdersByVendor(user.sub, {
+      search,
+      status,
+      page,
+      limit,
+    });
   }
 
   /* ────────────────────────────────────────────────

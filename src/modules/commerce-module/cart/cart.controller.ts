@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CartService } from './cart.service';
@@ -77,8 +78,10 @@ export class CartController {
   removeItem(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Param('productId') productId: string,
+    @Query('size') size?: string,
+    @Query('color') color?: string,
   ) {
-    return this.cartService.removeItem(user.sub, productId);
+    return this.cartService.removeItem(user.sub, productId, size, color);
   }
 
   /* ────────────────────────────────────────────────

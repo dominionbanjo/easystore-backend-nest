@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { ICartItem } from './types/types';
 import { Product } from '../product/entities/product.entity';
+import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 
 @Injectable()
 export class CartService {
@@ -18,6 +19,9 @@ export class CartService {
 
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+
+    @InjectRepository(ProductColor)
+    private readonly colorRepo: Repository<ProductColor>,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -132,13 +136,27 @@ export class CartService {
     const existing = cart.cart_items.find(
       (i) =>
         i.product_id === product.id &&
-        i.size === (payload.size ?? null) &&
-        i.color === (payload.color ?? null),
+        (i.size ?? null) === (payload.size ?? null) &&
+        (i.color ?? null) === (payload.color ?? null),
     );
 
     if (existing) {
       existing.quantity += payload.quantity;
     } else {
+      // Resolve color name if ID provided
+      let colorDisplay = payload.color ?? null;
+      let colorHex: string | null = null;
+
+      if (payload.color && /^[0-9a-f]{8}-/.test(payload.color)) {
+        const colorEntity = await this.colorRepo.findOne({
+          where: { id: payload.color },
+        });
+        if (colorEntity) {
+          colorDisplay = colorEntity.name;
+          colorHex = colorEntity.hex;
+        }
+      }
+
       const item: ICartItem = {
         product_id: product.id,
         name: product.name,
@@ -150,7 +168,8 @@ export class CartService {
         image: product.image?.url ?? null,
         quantity: payload.quantity,
         size: payload.size ?? null,
-        color: payload.color ?? null,
+        color: colorDisplay,
+        color_hex: colorHex,
         shipping_cost: product.shipping_cost
           ? Number(product.shipping_cost)
           : null,
@@ -178,10 +197,15 @@ export class CartService {
   ) {
     const cart = await this.getOrCreateCart(userId);
 
-    const item = cart.cart_items.find((i) => i.product_id === productId);
+    const item = cart.cart_items.find(
+      (i) =>
+        i.product_id === productId &&
+        (i.size ?? null) === (payload.size ?? null) &&
+        (i.color ?? null) === (payload.color ?? null),
+    );
 
     if (!item) {
-      throw new NotFoundException('Item not found in cart');
+      throw new NotFoundException('Item variant not found in cart');
     }
 
     if (payload.quantity !== undefined) {
@@ -212,10 +236,22 @@ export class CartService {
   /* ────────────────────────────────────────────────
      REMOVE ITEM
   ──────────────────────────────────────────────── */
-  async removeItem(userId: string, productId: string) {
+  async removeItem(
+    userId: string,
+    productId: string,
+    size?: string | null,
+    color?: string | null,
+  ) {
     const cart = await this.getOrCreateCart(userId);
 
-    cart.cart_items = cart.cart_items.filter((i) => i.product_id !== productId);
+    cart.cart_items = cart.cart_items.filter(
+      (i) =>
+        !(
+          i.product_id === productId &&
+          (i.size ?? null) === (size ?? null) &&
+          (i.color ?? null) === (color ?? null)
+        ),
+    );
 
     await this.cartRepo.save(cart);
 

@@ -3,6 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Order } from './entities/order.entity';
 import { OrderService } from './services/order.service';
+import { OrderCreationService } from './services/order-creation.service';
+import { OrderQueryService } from './services/order-query.service';
+import { OrderManagementService } from './services/order-management.service';
+import { OrderPaymentVerificationService } from './services/order-payment-verification.service';
+import { OrderValidationService } from './services/order-validation.service';
 import { CommonModule } from 'src/common/common.module';
 import { EscrowModule } from 'src/modules/finance-module/escrow/escrow.module';
 import { TransactionsModule } from 'src/modules/finance-module/transactions/transactions.module';
@@ -35,7 +40,21 @@ import { CartModule } from '../cart/cart.module';
     CartModule,
   ],
   controllers: [OrderController, PandaOrderController, OrderPaymentController],
-  providers: [OrderService, PandascrowEscrowService, OrderPaymentService],
+  providers: [
+    // Main orchestrator service
+    OrderService,
+
+    // Specialized services
+    OrderCreationService,
+    OrderQueryService,
+    OrderManagementService,
+    OrderPaymentVerificationService,
+    OrderValidationService,
+
+    // Supporting services
+    PandascrowEscrowService,
+    OrderPaymentService,
+  ],
   exports: [OrderService],
 })
 export class OrderModule {}

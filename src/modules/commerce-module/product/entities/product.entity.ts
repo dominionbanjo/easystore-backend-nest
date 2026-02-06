@@ -103,6 +103,13 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
+  @Column({
+    type: 'boolean',
+    generatedType: 'STORED',
+    asExpression: 'stock < 1',
+  })
+  is_out_of_stock: boolean;
+
   @Column({ type: 'text', array: true, nullable: true })
   tags: string[] | null;
 
