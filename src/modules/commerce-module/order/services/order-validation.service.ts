@@ -9,7 +9,7 @@ export class OrderValidationService {
   /* ────────────────────────────────────────────────
      VALIDATE & BUILD ORDER ITEMS
   ──────────────────────────────────────────────── */
-  async buildOrderItems(order_items: ICartItem[]) {
+  async buildOrderItems(order_items: ICartItem[], buyer_id?: string) {
     if (!order_items || order_items.length === 0) {
       throw new BadRequestException('Order items are required');
     }
@@ -22,6 +22,13 @@ export class OrderValidationService {
 
       if (!product) {
         throw new BadRequestException(`Product not found: ${item.product_id}`);
+      }
+
+      // 🚫 Prevent self-ordering
+      if (buyer_id && product.vendor_id === buyer_id) {
+        throw new BadRequestException(
+          `You cannot purchase your own product: ${product.name}`,
+        );
       }
 
       if (item.quantity < 1 || item.quantity > product.stock) {
