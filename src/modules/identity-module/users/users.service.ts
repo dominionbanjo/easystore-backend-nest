@@ -51,6 +51,12 @@ export class UsersService {
   findById(id: string) {
     return this.userRepo.findOne({ where: { id } });
   }
+  findByGoogleId(googleId: string) {
+    return this.userRepo.findOne({
+      where: { google_id: googleId },
+    });
+  }
+
   /* ────────────────────────────────────────────────
      CREATE USER
   ──────────────────────────────────────────────── */

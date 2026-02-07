@@ -64,4 +64,30 @@ export class AuthController {
   logout(@Req() req: Request & { user: JwtAuthUser }) {
     return this.authService.logout(req.user.sub);
   }
+
+  // ------------------------------------------------------------------
+  // GOOGLE RISC (Cross-Account Protection)
+  // Endpoint to receive security events from Google
+  // Note: Ensure your server can parse 'application/secevent+jwt' content type as text/string/buffer.
+  // Additional middleware may be required in app.module or main.ts to handle this specific content type.
+  // ------------------------------------------------------------------
+  @Post('google-risc')
+  async googleRisc(@Body() token: any) {
+    // If body parser handles it as text/string, 'token' is the string.
+    // If it's JSON { "token": "..." }, 'token' is object. We assume direct token string or {token: string} structure if wrappers are used.
+
+    // Check if token is the body itself (string) or property
+    const tokenString = typeof token === 'string' ? token : token?.token;
+
+    if (!tokenString) {
+      // Fallback: If body parser didn't parse it (empty object), logging error.
+      // In real setup, you must configure body-parser for 'application/secevent+jwt'.
+      console.warn(
+        'Received empty body for RISC event. Check body-parser configuration.',
+      );
+      throw new Error('Missing token in body');
+    }
+
+    return this.authService.handleRiscEvent(tokenString);
+  }
 }
