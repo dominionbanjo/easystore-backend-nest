@@ -437,10 +437,26 @@ export class AuthService implements OnModuleInit {
     const receiverUrl = `${process.env.BASE_URL}/auth/google-risc`;
     console.log(`Registering RISC stream for endpoint: ${receiverUrl}`);
 
+    // Fix: Handle quotes and newlines in private key robustly
+    let privateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
+    if (privateKey) {
+      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+        privateKey = privateKey.slice(1, -1);
+      }
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+
+    if (!privateKey || !process.env.GOOGLE_SA_CLIENT_EMAIL) {
+      console.error(
+        'Missing GOOGLE_SA_PRIVATE_KEY or GOOGLE_SA_CLIENT_EMAIL. Skipping RISC registration.',
+      );
+      return;
+    }
+
     const auth = new GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_SA_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_SA_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        private_key: privateKey,
       },
       scopes: ['https://www.googleapis.com/auth/riscconfiguration'],
     });
