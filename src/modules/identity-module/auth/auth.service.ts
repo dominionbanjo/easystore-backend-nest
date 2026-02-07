@@ -437,27 +437,50 @@ export class AuthService implements OnModuleInit {
     const receiverUrl = `${process.env.BASE_URL}/auth/google-risc`;
     console.log(`Registering RISC stream for endpoint: ${receiverUrl}`);
 
-    // Fix: Handle quotes and newlines in private key robustly
-    let privateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
-    if (privateKey) {
-      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-        privateKey = privateKey.slice(1, -1);
+    let credentials;
+
+    // Option A: Use full JSON from env (Recommended for Render/Heroku)
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      try {
+        const json = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+        credentials = {
+          client_email: json.client_email,
+          private_key: json.private_key,
+        };
+      } catch (error) {
+        console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON', error);
       }
-      privateKey = privateKey.replace(/\\n/g, '\n');
     }
 
-    if (!privateKey || !process.env.GOOGLE_SA_CLIENT_EMAIL) {
+    // Option B: Fallback to individual variables
+    if (!credentials) {
+      let privateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
+      if (privateKey) {
+        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+          privateKey = privateKey.slice(1, -1);
+        }
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+
+      credentials = {
+        client_email: process.env.GOOGLE_SA_CLIENT_EMAIL,
+        private_key: privateKey,
+      };
+    }
+
+    if (!credentials.private_key || !credentials.client_email) {
       console.error(
-        'Missing GOOGLE_SA_PRIVATE_KEY or GOOGLE_SA_CLIENT_EMAIL. Skipping RISC registration.',
+        'Missing Google Service Account credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SA_CLIENT_EMAIL/PRIVATE_KEY.',
       );
       return;
     }
 
+    console.log(
+      `Using Service Account: ${credentials.client_email.slice(0, 5)}...`,
+    );
+
     const auth = new GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SA_CLIENT_EMAIL,
-        private_key: privateKey,
-      },
+      credentials,
       scopes: ['https://www.googleapis.com/auth/riscconfiguration'],
     });
 
