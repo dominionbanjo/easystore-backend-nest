@@ -117,6 +117,10 @@ export class User {
   })
   signup_medium: SignupMedium | null;
 
+  @Index('IDX_USER_GOOGLE_ID')
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
+  google_id: string | null;
+
   /* MEDIA */
   @Column({ type: 'text', nullable: true })
   avatar: string | null;

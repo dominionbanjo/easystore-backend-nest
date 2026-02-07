@@ -3,9 +3,10 @@ import {
   BadRequestException,
   UnauthorizedException,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { OAuth2Client, TokenPayload } from 'google-auth-library';
+import { OAuth2Client, TokenPayload, GoogleAuth } from 'google-auth-library';
 import { DataSource } from 'typeorm';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
@@ -25,7 +26,7 @@ import createHash from 'src/utils/auth/createHash';
 import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
   constructor(
@@ -230,6 +231,7 @@ export class AuthService {
     const name = payload.name;
     const picture = payload.picture ?? null;
     const email_verified = payload.email_verified ?? false;
+    const sub = payload.sub; // Google ID
 
     if (!email) {
       throw new BadRequestException('Google account has no email');
@@ -240,6 +242,16 @@ export class AuthService {
     }
 
     let user = await this.users.findByEmail(email);
+
+    if (user) {
+      // Keep google_id updated
+      if (!user.google_id) {
+        await this.users.update(user.id, { google_id: sub });
+      }
+    } else {
+      // Try finding by google_id just in case email changed (rare for Google but possible?)
+      user = await this.users.findByGoogleId(sub);
+    }
 
     if (!user) {
       const [first, last = ''] = name.trim().split(' ');
@@ -254,6 +266,7 @@ export class AuthService {
         email_verified,
         avatar: picture,
         signup_medium: 'google',
+        google_id: sub,
       });
     }
 
@@ -402,6 +415,149 @@ export class AuthService {
     });
 
     return { message: 'Password reset successful' };
+  }
+
+  // ------------------------------------------------------------------
+  // RISC STREAM REGISTRATION
+  // ------------------------------------------------------------------
+  async onModuleInit() {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Skipping RISC stream registration (not production)');
+      return;
+    }
+
+    try {
+      await this.registerRiscStream();
+    } catch (error) {
+      console.error('Failed to register RISC stream:', error);
+    }
+  }
+
+  private async registerRiscStream() {
+    const receiverUrl = `${process.env.BASE_URL}/auth/google-risc`;
+    console.log(`Registering RISC stream for endpoint: ${receiverUrl}`);
+
+    const auth = new GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SA_CLIENT_EMAIL,
+        private_key: process.env.GOOGLE_SA_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      },
+      scopes: ['https://www.googleapis.com/auth/riscconfiguration'],
+    });
+
+    const client = await auth.getClient();
+    const token = await client.getAccessToken();
+
+    if (!token.token) {
+      throw new Error('Failed to get access token for RISC registration');
+    }
+
+    // 1. Update Stream
+    const response = await fetch(
+      'https://risc.googleapis.com/v1beta/stream:update',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          delivery: {
+            delivery_method:
+              'https://schemas.openid.net/secevent/risc/delivery-method/push',
+            url: receiverUrl,
+          },
+          events_requested: [
+            'https://schemas.openid.net/secevent/risc/event-type/account-credentials-change-required',
+            'https://schemas.openid.net/secevent/risc/event-type/account-disabled',
+            'https://schemas.openid.net/secevent/risc/event-type/sessions-revoked',
+            'https://schemas.openid.net/secevent/risc/event-type/verification',
+          ],
+        }),
+      },
+    );
+
+    const data = await response.json();
+    console.log('RISC Stream Registration Result:', data);
+  }
+
+  // ------------------------------------------------------------------
+  // RISC (Cross-Account Protection)
+  // ------------------------------------------------------------------
+  async handleRiscEvent(token: string) {
+    let payload;
+    try {
+      // Verify the token (SET)
+      // verifyIdToken fetches Google's public keys and verifies the signature
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (error) {
+      throw new BadRequestException('Invalid RISC token');
+    }
+
+    if (!payload || !payload['events']) {
+      throw new BadRequestException('Invalid RISC payload: missing events');
+    }
+
+    // 1. Handle Verification Event
+    if (
+      payload['events'][
+        'https://schemas.openid.net/secevent/risc/event-type/verification'
+      ]
+    ) {
+      return { message: 'Verification successful' };
+    }
+
+    // 2. Extract User Identifier (Subject)
+    // The subject claim identifies the user. It corresponds to the 'sub' in ID tokens.
+    // We try to find by Google ID first, then fallback to email.
+    const sub = payload.sub;
+    const email = payload.email || payload.subject?.email; // Some events might nest it
+
+    let user: User | null = null;
+
+    // A. Try finding by Google ID (sub) - Most reliable
+    if (sub) {
+      user = await this.users.findByGoogleId(sub);
+    }
+
+    // B. Fallback to Email if not found by sub
+    if (!user && email) {
+      user = await this.users.findByEmail(email);
+
+      // Note: We could link the account here, but it's safer to do it on login.
+    }
+
+    if (!user) {
+      // We can't identify the user to protect.
+      console.warn(
+        `RISC event received for unknown user. Sub: ${sub}, Email: ${email}`,
+      );
+      return { message: 'Event received' };
+    }
+
+    // 3. Handle Critical Events
+    // We look for events that require session revocation
+    const criticalEvents = [
+      'https://schemas.openid.net/secevent/risc/event-type/account-disabled',
+      'https://schemas.openid.net/secevent/risc/event-type/sessions-revoked',
+      'https://schemas.openid.net/secevent/risc/event-type/account-credential-change-required',
+    ];
+
+    const hasCriticalEvent = criticalEvents.some(
+      (type) => payload['events'][type],
+    );
+
+    if (hasCriticalEvent) {
+      console.log(`Revoking sessions for user ${user.id} due to RISC event`);
+      // Invalidate all tokens for this user
+      await this.users.incrementTokenVersion(user.id);
+    }
+
+    return { message: 'Event processed' };
   }
 
   // ------------------------------------------------------------------
