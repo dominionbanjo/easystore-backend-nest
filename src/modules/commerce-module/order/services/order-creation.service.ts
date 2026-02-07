@@ -54,8 +54,10 @@ export class OrderCreationService {
       throw new NotFoundException('Buyer not found');
     }
 
-    const { validatedItems } =
-      await this.validationService.buildOrderItems(order_items);
+    const { validatedItems } = await this.validationService.buildOrderItems(
+      order_items,
+      buyer_id,
+    );
 
     /* GROUP ITEMS BY VENDOR */
     const groups =
@@ -237,8 +239,10 @@ export class OrderCreationService {
   }) {
     const { buyer_id, order_items, tax = 0, notes } = data;
 
-    const { validatedItems } =
-      await this.validationService.buildOrderItems(order_items);
+    const { validatedItems } = await this.validationService.buildOrderItems(
+      order_items,
+      buyer_id,
+    );
 
     const groups =
       await this.validationService.groupItemsByVendor(validatedItems);
@@ -315,8 +319,10 @@ export class OrderCreationService {
       throw new NotFoundException('Buyer not found');
     }
 
-    const { validatedItems } =
-      await this.validationService.buildOrderItems(order_items);
+    const { validatedItems } = await this.validationService.buildOrderItems(
+      order_items,
+      buyer_id,
+    );
 
     /* GROUP ITEMS BY VENDOR */
     const groups =
@@ -469,8 +475,10 @@ export class OrderCreationService {
     const buyer = await this.userRepo.findOne({ where: { id: buyer_id } });
     if (!buyer) throw new NotFoundException('Buyer not found');
 
-    const { validatedItems } =
-      await this.validationService.buildOrderItems(order_items);
+    const { validatedItems } = await this.validationService.buildOrderItems(
+      order_items,
+      buyer_id,
+    );
 
     /* GROUP BY VENDOR */
     const groups =
