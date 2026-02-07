@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import slugify from 'slugify';
 import {
   Product,
@@ -34,6 +34,38 @@ export class ProductWriteService {
     private readonly cache: CacheService,
     private readonly helpers: ProductHelperService,
   ) {}
+
+  private async handleOutOfStock(productId: string, manager?: EntityManager) {
+    const repo = manager ? manager.getRepository(Product) : this.productRepo;
+
+    const product = await repo.findOne({
+      where: { id: productId },
+    });
+    if (!product) {
+      return;
+    }
+
+    // Remove from carts and get affected users
+    const userIds =
+      await this.cartService.removeProductFromAllCartsAndReturnUserIds(
+        productId,
+        manager,
+      );
+
+    // Add to wishlist for each user
+    for (const userId of userIds) {
+      await this.wishlistService.addToWishlist(
+        userId,
+        {
+          product_id: product.id,
+          name: product.name,
+          image: product.image?.url ?? null,
+          price: Number(product.price),
+        },
+        manager,
+      );
+    }
+  }
 
   async create(
     user: { sub: string; store_id: string | null },
@@ -239,6 +271,10 @@ export class ProductWriteService {
 
     const updated = await this.productRepo.save(product);
 
+    if (updated.stock <= 0) {
+      await this.handleOutOfStock(updated.id);
+    }
+
     return {
       message: 'Product updated successfully',
       product: updated,
@@ -293,6 +329,10 @@ export class ProductWriteService {
     });
 
     const updated = await this.productRepo.save(product);
+
+    if (updated.stock <= 0) {
+      await this.handleOutOfStock(updated.id);
+    }
 
     return {
       message: 'Product updated successfully',
@@ -381,7 +421,7 @@ export class ProductWriteService {
       throw new NotFoundException('Product not found');
     }
 
-    await this.cartService.removeProductFromAllCarts(id);
+    await this.cartService.removeProductFromAllCartsAndReturnUserIds(id);
     await this.wishlistService.removeProductFromAllWishlists(id);
 
     if (product.image?.public_id) {
@@ -412,6 +452,15 @@ export class ProductWriteService {
         'total_sold',
         Math.abs(adjustment),
       );
+
+      // Check if stock is now 0 or less
+      const p = await repo.findOne({
+        where: { id: productId },
+        select: ['stock'],
+      });
+      if (p && p.stock <= 0) {
+        await this.handleOutOfStock(productId, manager);
+      }
     }
 
     await this.cache.clearPrefix('svc:product');

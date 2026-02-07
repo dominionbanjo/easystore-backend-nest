@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 
 import { Cart } from './entities/cart.entity';
 import { ICartItem } from './types/types';
@@ -28,23 +28,34 @@ export class CartService {
      REMOVE PRODUCT FROM ALL CARTS (GLOBAL CLEANUP)
      Called when a product is deleted
   ──────────────────────────────────────────────── */
-  async removeProductFromAllCarts(productId: string) {
-    const carts = await this.cartRepo
+  async removeProductFromAllCartsAndReturnUserIds(
+    productId: string,
+    manager?: EntityManager,
+  ) {
+    const repo = manager ? manager.getRepository(Cart) : this.cartRepo;
+
+    const carts = await repo
       .createQueryBuilder('cart')
       .where(`cart.cart_items @> :item`, {
         item: JSON.stringify([{ product_id: productId }]),
       })
       .getMany();
 
-    if (!carts.length) return;
+    if (!carts.length) return [];
+
+    const userIds = new Set<string>();
 
     for (const cart of carts) {
+      if (cart.user_id) {
+        userIds.add(cart.user_id);
+      }
       cart.cart_items = cart.cart_items.filter(
         (item) => item.product_id !== productId,
       );
     }
 
-    await this.cartRepo.save(carts);
+    await repo.save(carts);
+    return Array.from(userIds);
   }
 
   /* ────────────────────────────────────────────────

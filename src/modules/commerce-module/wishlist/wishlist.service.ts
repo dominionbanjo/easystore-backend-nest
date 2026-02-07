@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Wishlist } from './entities/wishlist.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { Product } from '../product/entities/product.entity';
@@ -87,6 +87,7 @@ export class WishlistService {
       image?: string | null;
       price: number;
     },
+    manager?: EntityManager,
   ) {
     if (!userId) {
       throw new BadRequestException('User ID is required');
@@ -96,7 +97,11 @@ export class WishlistService {
       throw new BadRequestException('Product ID is required');
     }
 
-    const exists = await this.productRepo.findOne({
+    // Use manager if provided, otherwise default repo
+    const wRepo = manager ? manager.getRepository(Wishlist) : this.wishlistRepo;
+    const pRepo = manager ? manager.getRepository(Product) : this.productRepo;
+
+    const exists = await pRepo.findOne({
       where: { id: product.product_id },
     });
 
@@ -106,7 +111,7 @@ export class WishlistService {
       );
     }
 
-    const existing = await this.wishlistRepo.findOne({
+    const existing = await wRepo.findOne({
       where: {
         user_id: userId,
         product_id: product.product_id,
@@ -120,7 +125,7 @@ export class WishlistService {
       };
     }
 
-    const wishlistItem = this.wishlistRepo.create({
+    const wishlistItem = wRepo.create({
       user_id: userId,
       product_id: product.product_id,
       name: product.name,
@@ -128,7 +133,7 @@ export class WishlistService {
       price: product.price,
     });
 
-    const saved = await this.wishlistRepo.save(wishlistItem);
+    const saved = await wRepo.save(wishlistItem);
 
     await this.cache.clearPrefix('wishlist');
 

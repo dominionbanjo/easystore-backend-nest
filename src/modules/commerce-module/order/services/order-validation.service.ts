@@ -32,7 +32,9 @@ export class OrderValidationService {
       }
 
       if (item.quantity < 1 || item.quantity > product.stock) {
-        throw new BadRequestException(`Invalid quantity for ${product.name}`);
+        throw new BadRequestException(
+          `${product.name} is out of stock or less than order quantity, Update cart`,
+        );
       }
 
       const price =
