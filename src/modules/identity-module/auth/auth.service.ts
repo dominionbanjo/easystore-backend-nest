@@ -6,7 +6,12 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { OAuth2Client, TokenPayload, GoogleAuth } from 'google-auth-library';
+import {
+  OAuth2Client,
+  TokenPayload,
+  GoogleAuth,
+  JWT,
+} from 'google-auth-library';
 import { DataSource } from 'typeorm';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
@@ -439,23 +444,22 @@ export class AuthService implements OnModuleInit {
 
     let credentials;
 
-    // Option A: Use full JSON from env (Recommended for Render/Heroku)
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
       try {
         const json = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
         credentials = {
-          client_email: json.client_email,
-          private_key: json.private_key,
+          client_email: json.client_email?.trim(),
+          private_key: json.private_key?.trim(),
         };
       } catch (error) {
         console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON', error);
       }
     }
 
-    // Option B: Fallback to individual variables
     if (!credentials) {
       let privateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
       if (privateKey) {
+        privateKey = privateKey.trim();
         if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
           privateKey = privateKey.slice(1, -1);
         }
@@ -463,17 +467,21 @@ export class AuthService implements OnModuleInit {
       }
 
       credentials = {
-        client_email: process.env.GOOGLE_SA_CLIENT_EMAIL,
+        client_email: process.env.GOOGLE_SA_CLIENT_EMAIL?.trim(),
         private_key: privateKey,
       };
     }
 
     if (!credentials.private_key || !credentials.client_email) {
-      console.error(
-        'Missing Google Service Account credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SA_CLIENT_EMAIL/PRIVATE_KEY.',
-      );
+      console.error('Missing Google Service Account credentials.');
       return;
     }
+
+    /* DEBUGGING EMAIL for Hidden Chars */
+    const email = credentials.client_email;
+    console.log(`[RISC Debug] Email: "${email}" (Length: ${email.length})`);
+    // Print explicit char codes to detect hidden utf8 chars
+    // console.log(`[RISC Debug] Email CharCodes: ${email.split('').map(c => c.charCodeAt(0)).join(',')}`);
 
     /* DEBUGGING KEY FORMAT */
     const key = credentials.private_key;
@@ -497,12 +505,13 @@ export class AuthService implements OnModuleInit {
     }
 
     try {
-      const auth = new GoogleAuth({
-        credentials,
+      // Use JWT Client directly for explicit control
+      const client = new JWT({
+        email: credentials.client_email,
+        key: credentials.private_key,
         scopes: ['https://www.googleapis.com/auth/riscconfiguration'],
       });
 
-      const client = await auth.getClient();
       const token = await client.getAccessToken();
 
       if (!token.token) {
