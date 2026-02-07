@@ -560,8 +560,12 @@ export class AuthService implements OnModuleInit {
 
       const data = await response.json();
       console.log('RISC Stream Registration Result:', data);
-    } catch (error) {
-      console.error('[RISC Error] Failed to register stream:', error);
+    } catch (error: any) {
+      console.error('[RISC Error] Failed to register stream. Details:', {
+        message: error.message,
+        response: error.response?.data,
+        cause: error.cause, // catch-all for nested errors
+      });
       // Re-throw if critical
       // throw error;
     }
