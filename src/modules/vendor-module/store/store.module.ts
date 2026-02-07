@@ -16,6 +16,9 @@ import { ProductColor } from 'src/modules/shared-module/colors/entities/color.en
 import { StoreDeliveryRateController } from './controllers/store-delivery-rate.controller';
 import { StoreDeliveryRateService } from 'src/modules/vendor-module/store/services/store-delivery-rate.service';
 import { StoreService } from './services/store.service';
+import { StoreReadService } from './services/store-read.service';
+import { StoreWriteService } from './services/store-write.service';
+import { StoreHelperService } from './services/store-helper.service';
 
 @Module({
   imports: [
@@ -37,7 +40,14 @@ import { StoreService } from './services/store.service';
     StoreAdminController,
     StoreDeliveryRateController,
   ],
-  providers: [StoreService, StoreOwnerGuard, StoreDeliveryRateService],
-  exports: [StoreService, StoreOwnerGuard],
+  providers: [
+    StoreService,
+    StoreReadService,
+    StoreWriteService,
+    StoreHelperService,
+    StoreOwnerGuard,
+    StoreDeliveryRateService,
+  ],
+  exports: [StoreService, StoreReadService, StoreWriteService, StoreOwnerGuard],
 })
 export class StoreModule {}

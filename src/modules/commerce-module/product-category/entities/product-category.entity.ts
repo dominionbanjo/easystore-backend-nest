@@ -20,22 +20,26 @@ export class ProductCategory {
   id: string;
 
   /* ────────────────────────────────────────────────
-     NAME (UNIQUE + REQUIRED)
+     NAME (SEARCHABLE + UNIQUE)
   ───────────────────────────────────────────────── */
+
   @Index('IDX_CATEGORY_NAME')
+  @Index('idx_category_name_trgm', { synchronize: false }) // 🔥 Required for fuzzy search
   @Column({ type: 'varchar', length: 100, unique: true })
   name: string;
 
   /* ────────────────────────────────────────────────
-     SLUG (UNIQUE + REQUIRED)
+     SLUG (URL + FAST LOOKUP)
   ───────────────────────────────────────────────── */
+
   @Index('IDX_CATEGORY_SLUG')
-  @Column({ type: 'varchar', length: 100, unique: true })
+  @Column({ type: 'varchar', length: 120, unique: true })
   slug: string;
 
   /* ────────────────────────────────────────────────
-     SELF-REFERENCING RELATION (PARENT CATEGORY)
+     SELF HIERARCHY
   ───────────────────────────────────────────────── */
+
   @Index('IDX_CATEGORY_PARENT_ID')
   @Column({ type: 'uuid', nullable: true })
   parent_id: string | null;
@@ -43,21 +47,37 @@ export class ProductCategory {
   @ManyToOne(() => ProductCategory, (parent) => parent.children, {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE',
+    nullable: true,
   })
   @JoinColumn({ name: 'parent_id' })
   parent: ProductCategory | null;
 
   /* ────────────────────────────────────────────────
-     CHILD CATEGORIES
+     CHILDREN
   ───────────────────────────────────────────────── */
+
   @OneToMany(() => ProductCategory, (child) => child.parent)
   children: ProductCategory[];
 
+  /* ────────────────────────────────────────────────
+     PRODUCTS
+  ───────────────────────────────────────────────── */
+
   @OneToMany(() => Product, (product) => product.category_ref)
   products: Product[];
+
+  /* ────────────────────────────────────────────────
+     OPTIONAL: TREE DEPTH (Future performance)
+     Helps avoid recursive queries later
+  ───────────────────────────────────────────────── */
+
+  @Column({ type: 'int', default: 0 })
+  depth: number;
+
   /* ────────────────────────────────────────────────
      TIMESTAMPS
   ───────────────────────────────────────────────── */
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
