@@ -444,6 +444,7 @@ export class AuthService implements OnModuleInit {
 
     let credentials;
 
+    // Use full JSON from env (Recommended for Render/Heroku)
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
       try {
         const json = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -456,24 +457,10 @@ export class AuthService implements OnModuleInit {
       }
     }
 
-    if (!credentials) {
-      let privateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
-      if (privateKey) {
-        privateKey = privateKey.trim();
-        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-          privateKey = privateKey.slice(1, -1);
-        }
-        privateKey = privateKey.replace(/\\n/g, '\n');
-      }
-
-      credentials = {
-        client_email: process.env.GOOGLE_SA_CLIENT_EMAIL?.trim(),
-        private_key: privateKey,
-      };
-    }
-
-    if (!credentials.private_key || !credentials.client_email) {
-      console.error('Missing Google Service Account credentials.');
+    if (!credentials || !credentials.private_key || !credentials.client_email) {
+      console.error(
+        'Missing or invalid Google Service Account credentials. Set GOOGLE_SERVICE_ACCOUNT_JSON.',
+      );
       return;
     }
 
