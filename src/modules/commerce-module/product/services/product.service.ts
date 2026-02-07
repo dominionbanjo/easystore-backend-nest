@@ -27,6 +27,7 @@ import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 import { UpdateProductCloudinaryDto } from '../dto/update-product=coudinary.dto';
 import { CartService } from '../../cart/cart.service';
+import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 // import { SetProductDeliveryRateDto } from '../dto/delivery-rate.dto';
 // import { ProductDeliveryRate } from '../entities/product-delivery-rate.entity';
 
@@ -48,6 +49,7 @@ export class ProductService {
     private readonly upload: UploadService,
     private readonly wishlistService: WishlistService,
     private readonly cartService: CartService,
+    private readonly cache: CacheService,
   ) {}
 
   private async resolveColorsForList(items: any[]) {
@@ -80,6 +82,22 @@ export class ProductService {
         ? item.colors.map((id: string) => colorMap.get(id)).filter(Boolean)
         : [],
     }));
+  }
+
+  private async resolveColorIds(identifiers: string[]): Promise<string[]> {
+    if (!identifiers || identifiers.length === 0) return [];
+
+    const colors = await this.colorRepo.find({
+      where: [
+        { name: In(identifiers) },
+        { hex: In(identifiers) },
+        // Also allow passing IDs directly if they happen to be valid UUIDs
+        // { id: In(identifiers) } // Optional: strictness
+      ],
+      select: ['id'],
+    });
+
+    return colors.map((c) => c.id);
   }
 
   private async ensureCategoryExists(categoryId: string) {
@@ -162,6 +180,7 @@ export class ProductService {
         slug: row.slug,
         price: Number(row.price),
         discount_price: row.discount_price ? Number(row.discount_price) : null,
+        on_sale: row.on_sale,
         stock: row.stock,
         rating_average: Number(row.rating_average),
         store_name: row.store_name,
@@ -216,6 +235,7 @@ export class ProductService {
         'product.slug',
         'product.price',
         'product.discount_price',
+        'product.on_sale',
         'product.stock',
         'product.image',
         'product.rating_average',
@@ -244,6 +264,7 @@ export class ProductService {
       slug: p.product_slug,
       price: p.product_price,
       discount_price: p.product_discount_price,
+      on_sale: p.product_on_sale,
       stock: p.product_stock,
       rating_average: p.product_rating_average,
       image: p.product_image?.url ?? null,
@@ -297,7 +318,9 @@ export class ProductService {
         'product.created_at', // ✅ REQUIRED for orderBy
         'product.colors',
         'product.sizes',
+        'product.sizes',
         'product.discount_price',
+        'product.on_sale',
 
         'category.id',
         'category.name',
@@ -333,6 +356,7 @@ export class ProductService {
       colors: p.colors || [],
       sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) : null,
+      on_sale: p.on_sale,
       category: p.category_ref?.name,
     }));
 
@@ -388,6 +412,7 @@ export class ProductService {
         'product.colors',
         'product.sizes',
         'product.discount_price',
+        'product.on_sale',
 
         'store.id',
         'store.store_name',
@@ -427,6 +452,7 @@ export class ProductService {
       colors: p.colors || [],
       sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) : null,
+      on_sale: p.on_sale,
     }));
 
     const items = await this.resolveColorsForList(data);
@@ -523,6 +549,7 @@ export class ProductService {
         'p.slug',
         'p.price',
         'p.discount_price',
+        'p.on_sale',
         'p.rating_average',
         'p.stock',
         'p.image',
@@ -551,6 +578,7 @@ export class ProductService {
       slug: p.p_slug,
       price: Number(p.p_price),
       discount_price: p.p_discount_price ? Number(p.p_discount_price) : null,
+      on_sale: p.p_on_sale,
       stock: p.p_stock,
       rating_average: Number(p.p_rating_average),
       image: p.p_image?.url ?? null,
@@ -625,6 +653,7 @@ export class ProductService {
       slug: p.slug,
       price: Number(p.price),
       discount_price: p.discount_price ? Number(p.discount_price) : null,
+      on_sale: p.on_sale,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
@@ -783,6 +812,8 @@ export class ProductService {
         'product.created_at',
         'product.colors',
         'product.sizes',
+        'product.discount_price',
+        'product.on_sale',
       ])
       .addSelect(
         `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
@@ -815,9 +846,14 @@ export class ProductService {
       qb.andWhere('product.stock > 0');
     }
 
-    /* ---------- COLORS ---------- */
+    /* ---------- COLORS (Fixed) ---------- */
     if (colors?.length) {
-      qb.andWhere('product.colors && :colors', { colors });
+      const colorIds = await this.resolveColorIds(colors);
+      if (colorIds.length > 0) {
+        qb.andWhere('product.colors && :colorIds', { colorIds });
+      } else {
+        qb.andWhere('1=0'); // No matching colors found
+      }
     }
 
     /* ---------- SIZES ---------- */
@@ -826,9 +862,22 @@ export class ProductService {
     }
 
     /* ---------- EXECUTION ---------- */
+    const { sort } = params;
+
+    if (sort === 'price_asc') {
+      qb.orderBy('product.price', 'ASC');
+    } else if (sort === 'price_desc') {
+      qb.orderBy('product.price', 'DESC');
+    } else if (sort === 'rating_desc') {
+      qb.orderBy('product.rating_average', 'DESC');
+    } else if (sort === 'date_desc') {
+      qb.orderBy('product.created_at', 'DESC');
+    } else {
+      // Default: Relevance + Date
+      qb.orderBy('rank', 'DESC').addOrderBy('product.created_at', 'DESC');
+    }
+
     const [products, total] = await qb
-      .orderBy('rank', 'DESC')
-      .addOrderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -849,6 +898,7 @@ export class ProductService {
       address_country: p.store?.address_country,
       address_postal_code: p.store?.address_postal_code,
       discount_price: p.discount_price ? Number(p.discount_price) : null,
+      on_sale: p.on_sale,
       is_featured: p.featured,
       is_in_wishlist: wishlistSet.has(p.id),
       category: p.category_ref?.name,
@@ -915,6 +965,7 @@ export class ProductService {
         'product.colors',
         'product.sizes',
         'product.discount_price',
+        'product.on_sale',
         'product.is_out_of_stock',
 
         'store.id',
@@ -958,9 +1009,14 @@ export class ProductService {
       qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
-    /* ---------- COLORS ---------- */
+    /* ---------- COLORS (Fixed) ---------- */
     if (colors?.length) {
-      qb.andWhere('product.colors && :colors', { colors });
+      const colorIds = await this.resolveColorIds(colors);
+      if (colorIds.length > 0) {
+        qb.andWhere('product.colors && :colorIds', { colorIds });
+      } else {
+        qb.andWhere('1=0');
+      }
     }
 
     /* ---------- SIZES ---------- */
@@ -981,7 +1037,7 @@ export class ProductService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price) / 100,
+      price: Number(p.price),
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
@@ -993,7 +1049,8 @@ export class ProductService {
       is_in_wishlist: wishlistSet.has(p.id),
       colors: p.colors || [],
       sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
+      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      on_sale: p.on_sale,
       is_out_of_stock: p.is_out_of_stock,
     }));
 
@@ -1069,9 +1126,14 @@ export class ProductService {
       qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
-    /* ---------- COLORS ---------- */
+    /* ---------- COLORS (Fixed) ---------- */
     if (colors?.length) {
-      qb.andWhere('product.colors && :colors', { colors });
+      const colorIds = await this.resolveColorIds(colors);
+      if (colorIds.length > 0) {
+        qb.andWhere('product.colors && :colors', { colors: colorIds });
+      } else {
+        qb.andWhere('1=0');
+      }
     }
 
     /* ---------- SIZES ---------- */
@@ -1091,12 +1153,12 @@ export class ProductService {
       const { category_ref, store, ...rest } = product;
       return {
         ...rest,
-        price: Number(product.price) / 100,
+        price: Number(product.price),
         discount_price: product.discount_price
-          ? Number(product.discount_price) / 100
+          ? Number(product.discount_price)
           : null,
         shipping_cost: product.shipping_cost
-          ? Number(product.shipping_cost) / 100
+          ? Number(product.shipping_cost)
           : null,
         category_ref,
         store_name: store?.store_name,
@@ -1214,7 +1276,12 @@ export class ProductService {
 
     /* ---------- COLORS & SIZES ---------- */
     if (colors?.length) {
-      qb.andWhere('product.colors && :colors', { colors });
+      const colorIds = await this.resolveColorIds(colors);
+      if (colorIds.length > 0) {
+        qb.andWhere('product.colors && :colors', { colors: colorIds });
+      } else {
+        qb.andWhere('1=0');
+      }
     }
 
     if (sizes?.length) {
@@ -1640,5 +1707,28 @@ export class ProductService {
     return {
       message: 'Product and images deleted successfully',
     };
+  }
+
+  /* ────────────────────────────────────────────────
+     INVENTORY MANAGEMENT
+  ──────────────────────────────────────────────── */
+  async adjustStock(productId: string, adjustment: number, manager?: any) {
+    const repo = manager ? manager.getRepository(Product) : this.productRepo;
+
+    if (adjustment > 0) {
+      await repo.increment({ id: productId }, 'stock', adjustment);
+      await repo.decrement({ id: productId }, 'total_sold', adjustment);
+    } else if (adjustment < 0) {
+      // Adjustment is negative (reducing stock)
+      await repo.decrement({ id: productId }, 'stock', Math.abs(adjustment));
+      await repo.increment(
+        { id: productId },
+        'total_sold',
+        Math.abs(adjustment),
+      );
+    }
+
+    // Clear caches related to this product
+    await this.cache.clearPrefix('svc:product');
   }
 }

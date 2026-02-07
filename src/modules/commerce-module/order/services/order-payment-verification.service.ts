@@ -10,6 +10,7 @@ import { PaystackService } from 'src/common/services/paystack.service';
 import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service';
 import { TransactionsService } from 'src/modules/finance-module/transactions/transactions.service';
 import { DeliveryService } from '../../delivery/delivery.service';
+import { ProductService } from '../../product/services/product.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 
 @Injectable()
@@ -22,6 +23,7 @@ export class OrderPaymentVerificationService {
     private readonly escrowService: EscrowService,
     private readonly transactions: TransactionsService,
     private readonly deliveryService: DeliveryService,
+    private readonly productService: ProductService,
     private readonly cache: CacheService,
   ) {}
 
@@ -116,6 +118,15 @@ export class OrderPaymentVerificationService {
             reference,
           },
         });
+
+        // 5. Adjust Stock (REDUCE)
+        for (const item of order.order_items) {
+          await this.productService.adjustStock(
+            item.product_id,
+            -Number(item.quantity),
+            manager,
+          );
+        }
       }
 
       await this.cache.clearPrefix('svc:order');

@@ -355,10 +355,29 @@ export class OrderCreationService {
     const platformFeeKobo = Math.round(subtotalKobo * 0.02);
     const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
 
+    /* PREPARE PAYSTACK METADATA */
+    const paystackMetadata = {
+      cart_items: validatedItems.map((item) => ({
+        id: item.product_id,
+        name: item.name,
+        vendor: item.vendor_id,
+        qty: item.quantity,
+        price: item.price,
+      })),
+      vendors: Object.keys(groups).map((vId) => ({
+        vendor_id: vId,
+        subtotal: vendorSubtotals[vId],
+        shipping: vendorShippingFees[vId],
+      })),
+      platform_fee: platformFeeKobo,
+      order_type: 'escrow_order',
+    };
+
     /* INIT SINGLE PAYSTACK PAYMENT */
     const payment = await this.paystack.initializePayment(
       email,
       grandTotalKobo,
+      { metadata: paystackMetadata },
     );
     const reference = payment.reference;
 
@@ -490,14 +509,30 @@ export class OrderCreationService {
       totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    // Calculate platform fee ONCE on the subtotal
     const platformFeeKobo = Math.round(subtotalKobo * 0.02);
     const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
+    const reference = `ref_${uuidv4().replace(/-/g, '')}`;
 
-    /* PREPARE PAYSTACK OPTIONS (SUBACCOUNT) */
-    const paystackOptions: any = {};
+    /* PREPARE PAYSTACK OPTIONS (SPLIT) */
+    const paystackOptions: any = {
+      metadata: {
+        cart_items: validatedItems.map((item) => ({
+          id: item.product_id,
+          name: item.name,
+          vendor: item.vendor_id,
+          qty: item.quantity,
+          price: item.price,
+        })),
+        vendors: vendorIds.map((vId) => ({
+          vendor_id: vId,
+          subtotal: vendorSubtotals[vId],
+          shipping: vendorShippingFees[vId],
+        })),
+        platform_fee: platformFeeKobo,
+        order_type: 'direct_order',
+      },
+    };
 
-    // If SINGLE VENDOR, use Split Payment (Subaccount)
     if (vendorIds.length === 1) {
       const vendorId = vendorIds[0];
       const store = await this.storeService.getStoreByUser(vendorId);
@@ -506,15 +541,41 @@ export class OrderCreationService {
         paystackOptions.subaccount = store.paystack_subaccount_code;
         paystackOptions.bearer = 'subaccount'; // Store pays Paystack fees
       }
+    } else {
+      // MULTI-VENDOR SPLIT
+      const splitSubaccounts: { subaccount: string; share: number }[] = [];
+      for (const vendorId of vendorIds) {
+        const store = await this.storeService.getStoreByUser(vendorId);
+        if (store && store.paystack_subaccount_code) {
+          // Calculate what vendor gets: Subtotal + Shipping (platform keeps fee)
+          const vendorShare =
+            vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
+          splitSubaccounts.push({
+            subaccount: store.paystack_subaccount_code,
+            share: vendorShare,
+          });
+        }
+      }
+
+      if (splitSubaccounts.length > 0) {
+        // Create a dynamic split
+        const splitData = await this.paystack.createSplit({
+          name: `Marketplace Split - ${reference}`,
+          type: 'flat',
+          currency: 'NGN',
+          subaccounts: splitSubaccounts,
+          bearer_type: 'account', // Platform pays transaction fee from its own share
+        });
+        paystackOptions.split_code = splitData.split_code;
+      }
     }
 
     /* INIT SINGLE PAYSTACK PAYMENT */
     const payment = await this.paystack.initializePayment(
       email,
       grandTotalKobo,
-      paystackOptions,
+      { ...paystackOptions, reference },
     );
-    const reference = payment.reference;
 
     const orders: Order[] = [];
     let distributedPlatformFeeKobo = 0;

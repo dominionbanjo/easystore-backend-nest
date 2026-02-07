@@ -10,6 +10,7 @@ import { TransactionsService } from 'src/modules/finance-module/transactions/tra
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { OrderMailService } from 'src/modules/shared-module/email/services/order-mail.service';
 import { DeliveryService } from '../../delivery/delivery.service';
+import { ProductService } from '../../product/services/product.service';
 import { DataSource } from 'typeorm';
 import { Order } from '../entities/order.entity';
 
@@ -21,6 +22,7 @@ export class OrderPaymentService {
     private readonly delivery: DeliveryService,
     private readonly escrow: EscrowService,
     private readonly paystack: PaystackService,
+    private readonly productService: ProductService,
     private readonly mail: OrderMailService,
     private readonly cache: CacheService,
     private readonly dataSource: DataSource,
@@ -99,6 +101,15 @@ export class OrderPaymentService {
           description: 'Payment confirmed via webhook',
           metadata: payload,
         });
+
+        // 5. Adjust Stock (REDUCE)
+        for (const item of order.order_items) {
+          await this.productService.adjustStock(
+            item.product_id,
+            -Number(item.quantity),
+            manager,
+          );
+        }
       }
     });
 

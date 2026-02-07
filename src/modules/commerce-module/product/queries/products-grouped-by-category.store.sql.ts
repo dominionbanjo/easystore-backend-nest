@@ -12,6 +12,7 @@ WITH ranked_products AS (
     p.image,
     p.colors,
     p.sizes,
+    p.on_sale,
 
     -- resolve MAIN category
     COALESCE(pc.id, c.id) AS parent_category_id,
