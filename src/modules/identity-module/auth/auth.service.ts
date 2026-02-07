@@ -475,49 +475,72 @@ export class AuthService implements OnModuleInit {
       return;
     }
 
+    /* DEBUGGING KEY FORMAT */
+    const key = credentials.private_key;
+    const keyLength = key.length;
+    const hasHeader = key.includes('-----BEGIN PRIVATE KEY-----');
+    const hasFooter = key.includes('-----END PRIVATE KEY-----');
+    const newlines = (key.match(/\n/g) || []).length;
+
+    console.log(`[RISC Debug] Key Length: ${keyLength}`);
+    console.log(`[RISC Debug] Has Header: ${hasHeader}`);
+    console.log(`[RISC Debug] Has Footer: ${hasFooter}`);
+    console.log(`[RISC Debug] Newlines count: ${newlines}`);
     console.log(
-      `Using Service Account: ${credentials.client_email.slice(0, 5)}...`,
+      `[RISC Debug] Using Service Account: ${credentials.client_email}`,
     );
 
-    const auth = new GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/riscconfiguration'],
-    });
-
-    const client = await auth.getClient();
-    const token = await client.getAccessToken();
-
-    if (!token.token) {
-      throw new Error('Failed to get access token for RISC registration');
+    if (!hasHeader || !hasFooter || newlines < 5) {
+      console.error(
+        '[RISC Error] Private key seems malformed (missing headers or newlines). Check env vars.',
+      );
     }
 
-    // 1. Update Stream
-    const response = await fetch(
-      'https://risc.googleapis.com/v1beta/stream:update',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          delivery: {
-            delivery_method:
-              'https://schemas.openid.net/secevent/risc/delivery-method/push',
-            url: receiverUrl,
-          },
-          events_requested: [
-            'https://schemas.openid.net/secevent/risc/event-type/account-credentials-change-required',
-            'https://schemas.openid.net/secevent/risc/event-type/account-disabled',
-            'https://schemas.openid.net/secevent/risc/event-type/sessions-revoked',
-            'https://schemas.openid.net/secevent/risc/event-type/verification',
-          ],
-        }),
-      },
-    );
+    try {
+      const auth = new GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/riscconfiguration'],
+      });
 
-    const data = await response.json();
-    console.log('RISC Stream Registration Result:', data);
+      const client = await auth.getClient();
+      const token = await client.getAccessToken();
+
+      if (!token.token) {
+        throw new Error('Failed to get access token (empty token returned)');
+      }
+
+      // 1. Update Stream
+      const response = await fetch(
+        'https://risc.googleapis.com/v1beta/stream:update',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            delivery: {
+              delivery_method:
+                'https://schemas.openid.net/secevent/risc/delivery-method/push',
+              url: receiverUrl,
+            },
+            events_requested: [
+              'https://schemas.openid.net/secevent/risc/event-type/account-credentials-change-required',
+              'https://schemas.openid.net/secevent/risc/event-type/account-disabled',
+              'https://schemas.openid.net/secevent/risc/event-type/sessions-revoked',
+              'https://schemas.openid.net/secevent/risc/event-type/verification',
+            ],
+          }),
+        },
+      );
+
+      const data = await response.json();
+      console.log('RISC Stream Registration Result:', data);
+    } catch (error) {
+      console.error('[RISC Error] Failed to register stream:', error);
+      // Re-throw if critical
+      // throw error;
+    }
   }
 
   // ------------------------------------------------------------------
