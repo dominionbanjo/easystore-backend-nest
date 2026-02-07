@@ -484,6 +484,11 @@ export class AuthService implements OnModuleInit {
     // console.log(`[RISC Debug] Email CharCodes: ${email.split('').map(c => c.charCodeAt(0)).join(',')}`);
 
     /* DEBUGGING KEY FORMAT */
+    // Ensure key ends with newline (PEM standard)
+    if (!credentials.private_key.endsWith('\n')) {
+      credentials.private_key += '\n';
+    }
+
     const key = credentials.private_key;
     const keyLength = key.length;
     const hasHeader = key.includes('-----BEGIN PRIVATE KEY-----');
@@ -494,6 +499,16 @@ export class AuthService implements OnModuleInit {
     console.log(`[RISC Debug] Has Header: ${hasHeader}`);
     console.log(`[RISC Debug] Has Footer: ${hasFooter}`);
     console.log(`[RISC Debug] Newlines count: ${newlines}`);
+    console.log(`[RISC Debug] Key Start: ${key.substring(0, 35)}...`);
+    console.log(
+      `[RISC Debug] Key End: ...${key.substring(key.length - 35).replace(/\n/g, '\\n')}`,
+    );
+
+    if (!hasHeader || !hasFooter || newlines < 5) {
+      console.error(
+        '[RISC Error] Private key seems malformed (missing headers or newlines). Check env vars.',
+      );
+    }
     console.log(
       `[RISC Debug] Using Service Account: ${credentials.client_email}`,
     );
