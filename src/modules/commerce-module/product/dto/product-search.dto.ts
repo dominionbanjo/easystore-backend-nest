@@ -15,6 +15,10 @@ export class ProductSearchDto {
   @IsString()
   q: string;
 
+  @IsOptional()
+  @IsString()
+  sort?: 'relevance' | 'price_asc' | 'price_desc' | 'rating_desc' | 'date_desc';
+
   /* ───────────────── PAGINATION ───────────────── */
 
   @IsOptional()

@@ -10,6 +10,8 @@ import { Order, OrderStatus } from '../entities/order.entity';
 import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/store-analytics.service';
+import { ProductService } from '../../product/services/product.service';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class OrderManagementService {
@@ -18,6 +20,8 @@ export class OrderManagementService {
     private readonly orderRepo: Repository<Order>,
     private readonly escrowService: EscrowService,
     private readonly cache: CacheService,
+    private readonly productService: ProductService,
+    private readonly dataSource: DataSource,
     @Inject(forwardRef(() => StoreAnalyticsService))
     private readonly analyticsService: StoreAnalyticsService,
   ) {}
@@ -58,10 +62,27 @@ export class OrderManagementService {
      MARK ORDER AS PAID
   ──────────────────────────────────────────────── */
   async markPaid(orderId: string) {
-    await this.orderRepo.update(orderId, {
-      payment_status: 'success',
-      status: 'paid',
+    const order = await this.orderRepo.findOne({ where: { id: orderId } });
+    if (!order) throw new BadRequestException('Order not found');
+    if (order.status === 'paid' || order.payment_status === 'success') return;
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(Order, orderId, {
+        payment_status: 'success',
+        status: 'paid',
+      });
+
+      // Reduce stock
+      for (const item of order.order_items) {
+        await this.productService.adjustStock(
+          item.product_id,
+          -Number(item.quantity),
+          manager,
+        );
+      }
     });
+
+    await this.cache.clearPrefix('svc:order');
   }
 
   /* ────────────────────────────────────────────────
@@ -82,7 +103,39 @@ export class OrderManagementService {
     const order = await this.orderRepo.findOne({ where: { id } });
     if (!order) throw new BadRequestException('Order not found');
 
-    await this.orderRepo.update(id, { status });
+    const previousStatus = order.status;
+
+    // If transitioning to a status that indicates payment (if not already paid)
+    // Actually, usually it goes through markPaid or webhook.
+    // But if they manually set it to 'paid' here:
+    if (status === 'paid' && previousStatus !== 'paid') {
+      await this.markPaid(id);
+      return { success: true };
+    }
+
+    // If transitioning from a "paid" state to a "failed" or "canceled" state, restore stock
+    const isPaidState = [
+      'paid',
+      'processing',
+      'in_transit',
+      'delivered',
+      'completed',
+    ].includes(previousStatus);
+    const isNegativeState = ['failed', 'canceled'].includes(status);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(Order, id, { status });
+
+      if (isPaidState && isNegativeState) {
+        for (const item of order.order_items) {
+          await this.productService.adjustStock(
+            item.product_id,
+            Number(item.quantity),
+            manager,
+          );
+        }
+      }
+    });
 
     if (status === 'delivered' && order.payment_method === 'online') {
       await this.escrowService.markDelivered(order.id);
@@ -108,11 +161,24 @@ export class OrderManagementService {
       throw new BadRequestException('Unauthorized');
     }
 
-    if (['delivered', 'completed'].includes(order.status)) {
-      throw new BadRequestException('Completed orders cannot be canceled');
-    }
+    const previousStatus = order.status;
+    const isPaidState = ['paid', 'processing', 'in_transit'].includes(
+      previousStatus,
+    );
 
-    await this.orderRepo.update(id, { status: 'canceled' });
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(Order, id, { status: 'canceled' });
+
+      if (isPaidState) {
+        for (const item of order.order_items) {
+          await this.productService.adjustStock(
+            item.product_id,
+            Number(item.quantity),
+            manager,
+          );
+        }
+      }
+    });
 
     if (order.escrow_id && order.payment_method === 'online') {
       await this.escrowService.refundEscrow(order.escrow_id, requestedBy);

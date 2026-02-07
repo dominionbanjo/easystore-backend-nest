@@ -113,6 +113,24 @@ export class PaystackService {
     }
   }
 
+  async createSplit(data: {
+    name: string;
+    type: 'percentage' | 'flat';
+    currency: string;
+    subaccounts: { subaccount: string; share: number }[];
+    bearer_type: 'subaccount' | 'account' | 'all-pro-rata' | 'all';
+    bearer_subaccount?: string;
+  }) {
+    try {
+      const res = await axios.post(`${this.baseUrl}/split`, data, {
+        headers: this.headers,
+      });
+      return res.data?.data;
+    } catch (error) {
+      this.handleError(error, 'Split creation');
+    }
+  }
+
   /* ────────────────────────────────────────────────
      PAYMENTS
   ──────────────────────────────────────────────── */
@@ -122,6 +140,8 @@ export class PaystackService {
     amountKobo: number,
     options?: {
       subaccount?: string;
+      split_code?: string;
+      reference?: string;
       transaction_charge?: number;
       bearer?: 'account' | 'subaccount';
       callback_url?: string;
@@ -139,9 +159,17 @@ export class PaystackService {
         metadata: options?.metadata,
       };
 
-      if (options?.subaccount) {
+      if (options?.reference) {
+        payload.reference = options.reference;
+      }
+
+      if (options?.subaccount && !options?.split_code) {
         payload.subaccount = options.subaccount;
         payload.bearer = options.bearer || 'subaccount';
+      }
+
+      if (options?.split_code) {
+        payload.split_code = options.split_code;
       }
 
       if (options?.transaction_charge) {

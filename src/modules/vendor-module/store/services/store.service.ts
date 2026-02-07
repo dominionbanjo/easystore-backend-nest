@@ -358,6 +358,8 @@ export class StoreService {
           'product.rating_average',
           'product.stock',
           'product.created_at',
+          'product.discount_price',
+          'product.on_sale',
 
           'category.id',
           'category.name',
@@ -377,6 +379,10 @@ export class StoreService {
         image: p.image?.url ?? null,
         rating_average: Number(p.rating_average),
         stock: p.stock,
+        discount_price: p.discount_price
+          ? Number(p.discount_price) / 100
+          : null,
+        on_sale: p.on_sale,
       }));
 
       productsResult = buildPagination(items, total, page, limit);
@@ -620,10 +626,12 @@ export class StoreService {
         'product.image',
         'product.rating_average',
         'product.stock',
+        'product.stock',
         'product.created_at',
         'product.colors',
         'product.sizes',
         'product.discount_price',
+        'product.on_sale',
 
         'category.id',
         'category.name',
@@ -656,6 +664,7 @@ export class StoreService {
       colors: p.colors || [],
       sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
+      on_sale: p.on_sale,
     }));
 
     const enriched = await this.resolveColorsForList(items);
@@ -735,6 +744,7 @@ export class StoreService {
         'product.colors',
         'product.sizes',
         'product.discount_price',
+        'product.on_sale',
 
         'category.id',
         'category.name',
@@ -768,6 +778,7 @@ export class StoreService {
       colors: p.colors || [],
       sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
+      on_sale: p.on_sale,
     }));
 
     const enriched = await this.resolveColorsForList(items);
@@ -854,6 +865,7 @@ export class StoreService {
         discount_price: row.discount_price
           ? Number(row.discount_price) / 100
           : null,
+        on_sale: row.on_sale,
         stock: row.stock,
         rating_average: Number(row.rating_average),
         image: extractImageUrl(row.image),

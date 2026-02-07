@@ -12,6 +12,7 @@ WITH ranked_products AS (
     p.image,
     p.colors,
     p.sizes,
+    p.on_sale,
 
     s.store_name,
     s.address_city,
