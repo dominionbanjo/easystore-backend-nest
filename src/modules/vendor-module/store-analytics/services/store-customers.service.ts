@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { StoreCustomer } from './entities/store_customers.entity';
+import { StoreCustomer } from '../entities/store_customers.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
 
 @Injectable()

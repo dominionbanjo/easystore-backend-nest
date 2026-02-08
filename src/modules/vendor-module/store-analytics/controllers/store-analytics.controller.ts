@@ -7,12 +7,12 @@ import {
   UseGuards,
   NotFoundException,
 } from '@nestjs/common';
-import { StoreAnalyticsService } from './store-analytics.service';
+import { StoreAnalyticsService } from '../services/store-analytics.service';
 import { ICartItem } from 'src/modules/commerce-module/cart/types/types';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
-import { StoreOwnerGuard } from '../store/guards/store-owner.guard';
+import { StoreOwnerGuard } from '../../store/guards/store-owner.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 

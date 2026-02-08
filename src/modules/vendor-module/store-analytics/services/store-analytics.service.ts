@@ -6,14 +6,14 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
-import { StoreAnalytics } from './entities/store-analytics.entity';
+import { StoreAnalytics } from '../entities/store-analytics.entity';
 import { ICartItem } from 'src/modules/commerce-module/cart/types/types';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
-import { Store } from '../store/entities/store.entity';
-import { StoreMonthlyAnalytics } from './entities/store_monthly_analytics.entity';
-import { StoreCustomer } from './entities/store_customers.entity';
-import { StoreService } from '../store/services/store.service';
+import { Store } from '../../store/entities/store.entity';
+import { StoreMonthlyAnalytics } from '../entities/store_monthly_analytics.entity';
+import { StoreCustomer } from '../entities/store_customers.entity';
+import { StoreService } from '../../store/services/store.service';
 
 @Injectable()
 export class StoreAnalyticsService {

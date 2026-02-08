@@ -12,7 +12,7 @@ import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
-import { StoreAnalyticsService } from '../../store-analytics/store-analytics.service';
+import { StoreAnalyticsService } from '../../store-analytics/services/store-analytics.service';
 import { Store } from '../entities/store.entity';
 import { CreateStoreDto } from '../dto/create-store.dto';
 import { StoreHelperService } from './store-helper.service';

@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { StoreCustomersService } from './store-customers.service';
+import { StoreCustomersService } from '../services/store-customers.service';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import type { JwtAuthUser } from 'src/modules/identity-module/auth/strategies/jwt.strategy';
