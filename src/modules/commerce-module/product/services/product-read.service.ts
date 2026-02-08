@@ -67,6 +67,7 @@ export class ProductReadService {
         stock: row.stock,
         rating_average: Number(row.rating_average),
         store_name: row.store_name,
+        store_slug: row.store_slug || row.store_name, // Fallback if slug is missing in SQL
         address_city: row.address_city,
         address_state: row.address_state,
         address_country: row.address_country,
@@ -92,16 +93,18 @@ export class ProductReadService {
   }
 
   async getFeaturedProducts(
-    pagination: PaginationQueryDto = { limit: 20 },
+    query: PaginationQueryDto = { page: 1, limit: 20 },
     userId?: string,
   ) {
-    const limit = pagination.limit ?? 20;
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
 
     const wishlistSet = userId
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
 
-    const products = await this.productRepo
+    const queryBuilder = this.productRepo
       .createQueryBuilder('product')
       .leftJoin('product.category_ref', 'category')
       .leftJoin('product.store', 'store')
@@ -128,9 +131,14 @@ export class ProductReadService {
       .where('product.featured = :featured', { featured: true })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
-      })
+      });
+
+    const total = await queryBuilder.getCount(); // Get total count before applying limit/offset
+
+    const products = await queryBuilder
       .orderBy('product.created_at', 'DESC')
       .limit(limit)
+      .offset(offset)
       .getRawMany();
 
     const items = products.map((p) => ({
@@ -158,7 +166,7 @@ export class ProductReadService {
 
     return {
       message: 'Featured products retrieved successfully',
-      data: enriched,
+      data: buildPagination(enriched, total, page, limit),
     };
   }
 
@@ -198,6 +206,7 @@ export class ProductReadService {
         'category.slug',
         'store.id',
         'store.store_name',
+        'store.slug',
         'store.address_city',
         'store.address_state',
         'store.address_country',
@@ -412,6 +421,7 @@ export class ProductReadService {
         'p.colors',
         'p.sizes',
         'store.store_name',
+        'store.slug',
         'store.address_city',
         'store.address_state',
         'store.address_country',
