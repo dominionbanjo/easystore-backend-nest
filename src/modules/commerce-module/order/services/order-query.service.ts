@@ -37,7 +37,7 @@ export class OrderQueryService {
   async getOrderForApi(id: string, user_id: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      relations: ['delivery', 'vendor'],
+      relations: ['delivery', 'vendor', 'vendor.store'],
       select: {
         delivery: {
           id: true,
@@ -57,6 +57,16 @@ export class OrderQueryService {
           last_name: true,
           email: true,
           phone_number: true,
+          store: {
+            id: true,
+            store_name: true,
+            slug: true,
+            logo: true,
+            phone_number: true,
+            address_street: true,
+            address_city: true,
+            address_state: true,
+          },
         },
         id: true,
         buyer_id: true,
@@ -69,6 +79,9 @@ export class OrderQueryService {
         tax: true,
         total: true,
         order_items: true,
+        notes: true,
+        payment_method: true,
+        payment_reference: true,
       },
     });
 
@@ -117,6 +130,11 @@ export class OrderQueryService {
       );
     }
 
+    // Join delivery relation
+    qb.leftJoinAndSelect('order.delivery', 'delivery');
+    qb.leftJoinAndSelect('order.vendor', 'vendor');
+    qb.leftJoinAndSelect('vendor.store', 'store');
+
     // Optimize selection for card display
     qb.select([
       'order.id',
@@ -128,16 +146,20 @@ export class OrderQueryService {
       'order.payment_status',
       'order.payment_reference',
       'order.created_at',
-      'order.order_items', // JSONB column
+      'order.order_items',
       'delivery.id',
       'delivery.delivery_status',
       'delivery.tracking_number',
       'delivery.estimated_delivery',
       'delivery.delivered_at',
+      'vendor.id',
+      'vendor.first_name',
+      'vendor.last_name',
+      'store.id',
+      'store.store_name',
+      'store.slug',
+      'store.logo',
     ]);
-
-    // Join delivery relation
-    qb.leftJoinAndSelect('order.delivery', 'delivery');
 
     qb.orderBy('order.created_at', 'DESC');
     qb.skip(skip).take(limit);
@@ -160,8 +182,9 @@ export class OrderQueryService {
 
     const qb = this.orderRepo.createQueryBuilder('order');
 
-    // Join delivery relation early to allow filtering
+    // Join relations
     qb.leftJoinAndSelect('order.delivery', 'delivery');
+    qb.leftJoinAndSelect('order.buyer', 'buyer');
 
     qb.where('order.vendor_id = :vendor_id', { vendor_id });
 
@@ -176,7 +199,7 @@ export class OrderQueryService {
     // Search filter (by order ID or payment reference)
     if (query?.search) {
       qb.andWhere(
-        '(CAST(order.id AS TEXT) ILIKE :search OR order.payment_reference ILIKE :search)',
+        '(CAST(order.id AS TEXT) ILIKE :search OR order.payment_reference ILIKE :search OR buyer.first_name ILIKE :search OR buyer.last_name ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
@@ -203,6 +226,17 @@ export class OrderQueryService {
       'delivery.tracking_number',
       'delivery.estimated_delivery',
       'delivery.delivered_at',
+      'delivery.address',
+      'delivery.city',
+      'delivery.state',
+      'delivery.country',
+      'delivery.postal_code',
+      'buyer.id',
+      'buyer.first_name',
+      'buyer.last_name',
+      'buyer.email',
+      'buyer.phone_number',
+      'buyer.avatar',
     ]);
 
     qb.orderBy('order.created_at', 'DESC');
