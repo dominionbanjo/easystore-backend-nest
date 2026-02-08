@@ -102,7 +102,14 @@ export class StoreAnalyticsService {
     ──────────────────────────────────────────────── */
       const user = await manager.findOne(User, {
         where: { id: customerId },
-        select: ['id', 'first_name', 'last_name', 'email', 'address'],
+        select: [
+          'id',
+          'first_name',
+          'last_name',
+          'email',
+          'address',
+          'phone_number',
+        ],
       });
 
       if (!user) {
@@ -133,6 +140,7 @@ export class StoreAnalyticsService {
             orders_count: () => `"orders_count" + 1`,
             total_spent: () => `"total_spent" + ${orderTotal}`,
             last_order_at: now,
+            phone_number: user.phone_number,
           },
         );
       } else {
@@ -142,6 +150,7 @@ export class StoreAnalyticsService {
           name: `${user.first_name} ${user.last_name}`.trim(),
           email: user.email,
           location,
+          phone_number: user.phone_number,
           orders_count: 1,
           total_spent: orderTotal,
           rating: 0,
@@ -321,6 +330,7 @@ export class StoreAnalyticsService {
       name,
       email,
       location,
+      phone_number,
       orders_count AS orders,
       total_spent AS spent,
       rating,

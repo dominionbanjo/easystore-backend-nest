@@ -9,6 +9,9 @@ import { StoreModule } from '../store/store.module';
 import { StoreMonthlyAnalytics } from './entities/store_monthly_analytics.entity';
 import { StoreCustomer } from './entities/store_customers.entity';
 
+import { StoreCustomersController } from './store-customers.controller';
+import { StoreCustomersService } from './store-customers.service';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -20,8 +23,8 @@ import { StoreCustomer } from './entities/store_customers.entity';
     CacheModule,
     forwardRef(() => StoreModule), // ✅ ADD THIS
   ],
-  controllers: [StoreAnalyticsController],
-  providers: [StoreAnalyticsService],
-  exports: [StoreAnalyticsService], // ✅ IMPORTANT
+  controllers: [StoreAnalyticsController, StoreCustomersController],
+  providers: [StoreAnalyticsService, StoreCustomersService],
+  exports: [StoreAnalyticsService, StoreCustomersService], // ✅ IMPORTANT
 })
 export class StoreAnalyticsModule {}
