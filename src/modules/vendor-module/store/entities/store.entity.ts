@@ -116,8 +116,8 @@ export class Store {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone_number: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  website: string | null;
+  @Column({ type: 'jsonb', nullable: true, default: () => "'{}'" })
+  social_links: Record<string, string> | null;
 
   /* RATINGS */
   @Column({ type: 'numeric', precision: 3, scale: 2, default: 0 })

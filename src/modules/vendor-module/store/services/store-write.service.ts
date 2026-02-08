@@ -114,14 +114,26 @@ export class StoreWriteService {
       'category_ids',
       'email',
       'phone_number',
-      'website',
-      'address',
+      'social_links',
+      'address_street',
+      'address_city',
+      'address_state',
+      'address_country',
+      'address_postal_code',
     ];
 
     const filtered: Partial<Store> = {};
     for (const key of allowed) {
       if (data[key] !== undefined) {
-        filtered[key] = data[key];
+        if (key === 'social_links' && typeof data[key] === 'string') {
+          try {
+            filtered[key] = JSON.parse(data[key]);
+          } catch (e) {
+            // skip invalid json
+          }
+        } else {
+          filtered[key] = data[key];
+        }
       }
     }
 

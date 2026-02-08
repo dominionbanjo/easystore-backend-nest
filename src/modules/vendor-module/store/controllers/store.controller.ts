@@ -41,6 +41,13 @@ export class StoreController {
     return this.storeService.createStore(dto);
   }
 
+  // GET /store/me
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMyStore(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.storeService.getStoreByUser(user.sub);
+  }
+
   // GET /store
   @Get()
   findAll(@Query() pagination: PaginationQueryDto) {
