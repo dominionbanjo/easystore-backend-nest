@@ -41,7 +41,6 @@ export class StoreWriteService {
 
     const storeRepo = manager ? manager.getRepository(Store) : this.storeRepo;
     const userRepo = manager ? manager.getRepository(User) : this.userRepo;
-
     if (!user_id || !store_name || !email) {
       throw new BadRequestException('Missing required store fields');
     }
@@ -83,6 +82,10 @@ export class StoreWriteService {
     });
 
     const saved = await storeRepo.save(store);
+
+    // Update user account type to vendor if not already
+    await userRepo.update(user_id, { account_type: 'vendor' });
+
     await this.analyticsService.initializeAnalyticsForStore(saved.id, manager);
 
     await this.cache.clearPrefix('svc:store');

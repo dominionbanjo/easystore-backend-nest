@@ -229,6 +229,7 @@ export class ProductSearchService {
         'store.address_state',
         'store.address_country',
         'store.address_postal_code',
+        'store.slug',
       ])
       .addSelect(
         `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
@@ -285,6 +286,7 @@ export class ProductSearchService {
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average ?? 0),
       stock: p.stock,
+      store_slug: p.store?.slug,
       store_name: p.store?.store_name,
       address_city: p.store?.address_city,
       address_state: p.store?.address_state,
@@ -392,6 +394,7 @@ export class ProductSearchService {
           ? Number(product.shipping_cost)
           : null,
         category_ref,
+        store_slug: store?.slug,
         store_name: store?.store_name,
         address_city: store?.address_city,
         address_state: store?.address_state,
@@ -546,6 +549,7 @@ export class ProductSearchService {
         on_sale: product.on_sale,
         is_out_of_stock: product.is_out_of_stock,
         category_ref,
+        store_slug: store?.slug,
         store_name: store?.store_name,
         created_at: product.created_at,
         updated_at: product.updated_at,

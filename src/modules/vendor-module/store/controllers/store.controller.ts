@@ -30,6 +30,17 @@ export class StoreController {
      PUBLIC STORE ROUTES
   ──────────────────────────────────────────────── */
 
+  // POST /store
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  create(
+    @Body() dto: import('../dto/create-store.dto').CreateStoreDto,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    dto.user_id = user.sub;
+    return this.storeService.createStore(dto);
+  }
+
   // GET /store
   @Get()
   findAll(@Query() pagination: PaginationQueryDto) {

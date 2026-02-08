@@ -102,10 +102,10 @@ export class AuthService implements OnModuleInit {
     const otp_expiration = toUTCDate(10) as Date;
     const hashed = await hashPassword(dto.password);
 
-    const username =
-      dto.account_type === 'vendor'
-        ? await this.generateUniqueUsername(dto.first_name, dto.last_name)
-        : undefined;
+    const username = await this.generateUniqueUsername(
+      dto.first_name,
+      dto.last_name,
+    );
 
     // ---------------------------
     // 🔒 TRANSACTIONAL CREATION
