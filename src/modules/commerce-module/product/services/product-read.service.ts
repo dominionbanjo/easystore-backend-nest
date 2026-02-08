@@ -10,6 +10,7 @@ import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from '../queries/products-grouped-by
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { normalizeJson } from 'src/utils/response/normalizeJson';
 import { ProductHelperService } from './product-helper.service';
+import { applyProductSort } from 'src/utils/helpers/product-sort.util';
 
 @Injectable()
 export class ProductReadService {
@@ -172,7 +173,7 @@ export class ProductReadService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set();
 
-    const [products, total] = await this.productRepo
+    const qb = this.productRepo
       .createQueryBuilder('product')
       .leftJoin('product.category_ref', 'category')
       .leftJoin('product.store', 'store')
@@ -201,8 +202,12 @@ export class ProductReadService {
         'store.address_state',
         'store.address_country',
         'store.address_postal_code',
-      ])
-      .orderBy('product.created_at', 'DESC')
+      ]);
+
+    // Apply sorting
+    applyProductSort(qb, pagination.sort);
+
+    const [products, total] = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -260,7 +265,7 @@ export class ProductReadService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
 
-    const [products, total] = await this.productRepo
+    const qb = this.productRepo
       .createQueryBuilder('product')
       .leftJoin('product.store', 'store')
       .select([
@@ -287,8 +292,12 @@ export class ProductReadService {
       .where('product.category_id = :categoryId', { categoryId: category.id })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
-      })
-      .orderBy('product.created_at', 'DESC')
+      });
+
+    // Apply sorting
+    applyProductSort(qb, pagination.sort);
+
+    const [products, total] = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
