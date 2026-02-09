@@ -155,7 +155,7 @@ export class PaystackService {
         currency: 'NGN',
         callback_url:
           options?.callback_url ||
-          `${process.env.BASE_URL}/account/verify-payment`,
+          `${process.env.FRONTEND_URL}/account/verify-payment`,
         metadata: options?.metadata,
       };
 
