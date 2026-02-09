@@ -14,7 +14,7 @@ import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { DeliveryMailService } from 'src/modules/shared-module/email/services/delivery-mail.service';
 import { Order } from '../order/entities/order.entity';
-import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/store-analytics.service';
+import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/services/store-analytics.service';
 
 @Injectable()
 export class DeliveryService {

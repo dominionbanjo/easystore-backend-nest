@@ -6,14 +6,14 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
-import { StoreAnalytics } from './entities/store-analytics.entity';
+import { StoreAnalytics } from '../entities/store-analytics.entity';
 import { ICartItem } from 'src/modules/commerce-module/cart/types/types';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
-import { Store } from '../store/entities/store.entity';
-import { StoreMonthlyAnalytics } from './entities/store_monthly_analytics.entity';
-import { StoreCustomer } from './entities/store_customers.entity';
-import { StoreService } from '../store/services/store.service';
+import { Store } from '../../store/entities/store.entity';
+import { StoreMonthlyAnalytics } from '../entities/store_monthly_analytics.entity';
+import { StoreCustomer } from '../entities/store_customers.entity';
+import { StoreService } from '../../store/services/store.service';
 
 @Injectable()
 export class StoreAnalyticsService {
@@ -102,7 +102,14 @@ export class StoreAnalyticsService {
     ──────────────────────────────────────────────── */
       const user = await manager.findOne(User, {
         where: { id: customerId },
-        select: ['id', 'first_name', 'last_name', 'email', 'address'],
+        select: [
+          'id',
+          'first_name',
+          'last_name',
+          'email',
+          'address',
+          'phone_number',
+        ],
       });
 
       if (!user) {
@@ -133,6 +140,7 @@ export class StoreAnalyticsService {
             orders_count: () => `"orders_count" + 1`,
             total_spent: () => `"total_spent" + ${orderTotal}`,
             last_order_at: now,
+            phone_number: user.phone_number,
           },
         );
       } else {
@@ -142,6 +150,7 @@ export class StoreAnalyticsService {
           name: `${user.first_name} ${user.last_name}`.trim(),
           email: user.email,
           location,
+          phone_number: user.phone_number,
           orders_count: 1,
           total_spent: orderTotal,
           rating: 0,
@@ -321,6 +330,7 @@ export class StoreAnalyticsService {
       name,
       email,
       location,
+      phone_number,
       orders_count AS orders,
       total_spent AS spent,
       rating,
@@ -353,7 +363,22 @@ export class StoreAnalyticsService {
     );
 
     /* ────────────────────────────────────────────────
-     6️⃣ FINAL RESPONSE SHAPE
+     6️⃣ ALERTS & PENDING ITEMS (DASHBOARD)
+  ──────────────────────────────────────────────── */
+    const [{ count: outOfStock }] = await this.analyticsRepo.manager.query(
+      `SELECT COUNT(*) as count FROM products WHERE store_id = $1 AND stock < 1`,
+      [storeId],
+    );
+
+    const response: any = await this.storeService.getStore(storeId);
+
+    const [{ count: pendingOrders }] = await this.analyticsRepo.manager.query(
+      `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1 AND status IN ('pending', 'paid', 'processing')`,
+      [response.store.user_id],
+    );
+
+    /* ────────────────────────────────────────────────
+     7️⃣ FINAL RESPONSE SHAPE
   ──────────────────────────────────────────────── */
     const result = {
       summary: {
@@ -362,6 +387,8 @@ export class StoreAnalyticsService {
         customers: Number(analyticsRow.total_customers || 0),
         conversion_rate: Number(analyticsRow.conversion_rate || 0),
         total_products: totalProducts,
+        out_of_stock_count: Number(outOfStock),
+        pending_orders_count: Number(pendingOrders),
       },
       trends: {
         monthly: monthlyTrends,

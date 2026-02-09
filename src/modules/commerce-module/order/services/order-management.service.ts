@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { Order, OrderStatus } from '../entities/order.entity';
 import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
-import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/store-analytics.service';
+import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/services/store-analytics.service';
 import { ProductService } from '../../product/services/product.service';
 import { DataSource } from 'typeorm';
 

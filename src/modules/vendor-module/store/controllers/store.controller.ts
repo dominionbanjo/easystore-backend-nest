@@ -30,6 +30,24 @@ export class StoreController {
      PUBLIC STORE ROUTES
   ──────────────────────────────────────────────── */
 
+  // POST /store
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  create(
+    @Body() dto: import('../dto/create-store.dto').CreateStoreDto,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    dto.user_id = user.sub;
+    return this.storeService.createStore(dto);
+  }
+
+  // GET /store/me
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMyStore(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.storeService.getStoreByUser(user.sub);
+  }
+
   // GET /store
   @Get()
   findAll(@Query() pagination: PaginationQueryDto) {
@@ -60,9 +78,9 @@ export class StoreController {
   @Get(':identifier/products')
   getStoreProducts(
     @Param('identifier') identifier: string,
-    @Query() pagination: PaginationQueryDto,
+    @Query() query: PaginationQueryDto,
   ) {
-    return this.storeService.getStoreProducts(identifier, pagination);
+    return this.storeService.getStoreProducts(identifier, query);
   }
   // GET /store/:identifier
   @Get(':identifier')

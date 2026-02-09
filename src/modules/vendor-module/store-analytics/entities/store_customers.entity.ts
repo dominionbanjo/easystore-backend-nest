@@ -58,6 +58,9 @@ export class StoreCustomer {
   @Column({ type: 'varchar', length: 255, nullable: true })
   location: string | null;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone_number: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
