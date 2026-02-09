@@ -78,9 +78,9 @@ export class StoreController {
   @Get(':identifier/products')
   getStoreProducts(
     @Param('identifier') identifier: string,
-    @Query() pagination: PaginationQueryDto,
+    @Query() query: PaginationQueryDto,
   ) {
-    return this.storeService.getStoreProducts(identifier, pagination);
+    return this.storeService.getStoreProducts(identifier, query);
   }
   // GET /store/:identifier
   @Get(':identifier')

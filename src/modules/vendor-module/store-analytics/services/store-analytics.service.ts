@@ -363,7 +363,22 @@ export class StoreAnalyticsService {
     );
 
     /* ────────────────────────────────────────────────
-     6️⃣ FINAL RESPONSE SHAPE
+     6️⃣ ALERTS & PENDING ITEMS (DASHBOARD)
+  ──────────────────────────────────────────────── */
+    const [{ count: outOfStock }] = await this.analyticsRepo.manager.query(
+      `SELECT COUNT(*) as count FROM products WHERE store_id = $1 AND stock < 1`,
+      [storeId],
+    );
+
+    const response: any = await this.storeService.getStore(storeId);
+
+    const [{ count: pendingOrders }] = await this.analyticsRepo.manager.query(
+      `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1 AND status IN ('pending', 'paid', 'processing')`,
+      [response.store.user_id],
+    );
+
+    /* ────────────────────────────────────────────────
+     7️⃣ FINAL RESPONSE SHAPE
   ──────────────────────────────────────────────── */
     const result = {
       summary: {
@@ -372,6 +387,8 @@ export class StoreAnalyticsService {
         customers: Number(analyticsRow.total_customers || 0),
         conversion_rate: Number(analyticsRow.conversion_rate || 0),
         total_products: totalProducts,
+        out_of_stock_count: Number(outOfStock),
+        pending_orders_count: Number(pendingOrders),
       },
       trends: {
         monthly: monthlyTrends,

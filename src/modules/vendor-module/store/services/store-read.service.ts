@@ -386,8 +386,9 @@ export class StoreReadService {
 
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
+    const q = pagination.q;
 
-    const cacheKey = `svc:store:products:${identifier}:page:${page}:limit:${limit}`;
+    const cacheKey = `svc:store:products:${identifier}:page:${page}:limit:${limit}:q:${q || ''}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -409,7 +410,7 @@ export class StoreReadService {
       throw new NotFoundException('Store not found');
     }
 
-    const [products, total] = await this.productRepo
+    const qb = this.productRepo
       .createQueryBuilder('product')
       .leftJoin('product.category_ref', 'category')
       .select([
@@ -432,8 +433,33 @@ export class StoreReadService {
       .where('product.store_id = :storeId', { storeId: store.id })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
-      })
-      .orderBy('product.created_at', 'DESC')
+      });
+
+    if (q?.trim()) {
+      qb.addSelect(
+        `
+        (
+          ts_rank(product.search_vector, websearch_to_tsquery(:q)) * 0.7
+          + similarity(product.name, :q) * 0.5
+          + similarity(category.name, :q) * 0.3
+        )
+      `,
+        'rank',
+      );
+      qb.andWhere(
+        `(
+          product.search_vector @@ websearch_to_tsquery(:q)
+          OR similarity(product.name, :q) > 0.25
+          OR similarity(category.name, :q) > 0.25
+        )`,
+        { q },
+      );
+      qb.orderBy('rank', 'DESC');
+    } else {
+      qb.orderBy('product.created_at', 'DESC');
+    }
+
+    const [products, total] = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
