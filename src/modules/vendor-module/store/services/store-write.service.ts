@@ -12,7 +12,7 @@ import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
-import { StoreAnalyticsService } from '../../store-analytics/store-analytics.service';
+import { StoreAnalyticsService } from '../../store-analytics/services/store-analytics.service';
 import { Store } from '../entities/store.entity';
 import { CreateStoreDto } from '../dto/create-store.dto';
 import { StoreHelperService } from './store-helper.service';
@@ -114,14 +114,26 @@ export class StoreWriteService {
       'category_ids',
       'email',
       'phone_number',
-      'website',
-      'address',
+      'social_links',
+      'address_street',
+      'address_city',
+      'address_state',
+      'address_country',
+      'address_postal_code',
     ];
 
     const filtered: Partial<Store> = {};
     for (const key of allowed) {
       if (data[key] !== undefined) {
-        filtered[key] = data[key];
+        if (key === 'social_links' && typeof data[key] === 'string') {
+          try {
+            filtered[key] = JSON.parse(data[key]);
+          } catch (e) {
+            // skip invalid json
+          }
+        } else {
+          filtered[key] = data[key];
+        }
       }
     }
 

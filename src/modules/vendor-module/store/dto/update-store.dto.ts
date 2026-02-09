@@ -1,5 +1,12 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsOptional, IsString, IsArray, IsEmail } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsOptional,
+  IsString,
+  IsArray,
+  IsEmail,
+  IsObject,
+} from 'class-validator';
 
 class UpdateStoreBaseDto {
   @IsOptional()
@@ -29,6 +36,20 @@ class UpdateStoreBaseDto {
   @IsOptional()
   @IsString()
   website?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return value;
+      }
+    }
+    return value;
+  })
+  @IsObject()
+  social_links?: Record<string, string>;
 
   /* ADDRESS (COLUMN-BASED) */
   @IsOptional()
