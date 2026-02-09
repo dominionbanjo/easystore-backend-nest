@@ -13,6 +13,7 @@ import { StoreOwnerGuard } from './guards/store-owner.guard';
 import { StoreAnalyticsModule } from '../store-analytics/store-analytics.module';
 import { StoreDeliveryRate } from './entities/store-delivery-rate.entity';
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
+import { Wishlist } from 'src/modules/commerce-module/wishlist/entities/wishlist.entity';
 import { StoreDeliveryRateController } from './controllers/store-delivery-rate.controller';
 import { StoreDeliveryRateService } from 'src/modules/vendor-module/store/services/store-delivery-rate.service';
 import { StoreService } from './services/store.service';
@@ -29,6 +30,7 @@ import { StoreHelperService } from './services/store-helper.service';
       User,
       ProductCategory,
       ProductColor,
+      Wishlist,
     ]),
     CacheModule,
     CommonModule,

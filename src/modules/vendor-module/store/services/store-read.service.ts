@@ -4,13 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
 import { ProductCategory } from 'src/modules/commerce-module/product-category/entities/product-category.entity';
 import {
   Product,
   ProductStatus,
 } from 'src/modules/commerce-module/product/entities/product.entity';
+import { Wishlist } from 'src/modules/commerce-module/wishlist/entities/wishlist.entity';
 import { STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL } from 'src/modules/commerce-module/product/queries/products-grouped-by-category.store.sql';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { buildPagination } from 'src/utils/response/pagination.util';
@@ -31,6 +32,8 @@ export class StoreReadService {
 
     @InjectRepository(ProductCategory)
     private readonly categoryRepo: Repository<ProductCategory>,
+    @InjectRepository(Wishlist)
+    private readonly wishlistRepo: Repository<Wishlist>,
   ) {}
 
   async searchStores(
@@ -120,6 +123,7 @@ export class StoreReadService {
       includeCategories?: boolean;
       productPage?: number;
       productLimit?: number;
+      userId?: string;
     },
   ) {
     if (!identifier) {
@@ -128,11 +132,12 @@ export class StoreReadService {
 
     const includeProducts = options?.includeProducts ?? false;
     const includeCategories = options?.includeCategories ?? true;
+    const userId = options?.userId;
 
     const page = options?.productPage ?? 1;
     const limit = options?.productLimit ?? 20;
 
-    const cacheKey = `svc:store:one:${identifier}:products:${includeProducts}:p:${page}:l:${limit}:categories:${includeCategories}`;
+    const cacheKey = `svc:store:one:${identifier}:products:${includeProducts}:p:${page}:l:${limit}:categories:${includeCategories}:u:${userId || 'anon'}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -178,15 +183,32 @@ export class StoreReadService {
           'product.created_at',
           'product.discount_price',
           'product.on_sale',
+          'product.shipping_cost',
           'category.id',
           'category.name',
           'category.slug',
         ])
         .where('product.store_id = :storeId', { storeId: store.id })
+        .andWhere('product.status = :status', {
+          status: ProductStatus.ACTIVE,
+        })
         .orderBy('product.created_at', 'DESC')
         .skip((page - 1) * limit)
         .take(limit)
         .getManyAndCount();
+
+      // 🔗 WISHLIST CHECK
+      let wishlistedIds = new Set<string>();
+      if (userId && products.length > 0) {
+        const wishlisted = await this.wishlistRepo.find({
+          where: {
+            user_id: userId,
+            product_id: In(products.map((p) => p.id)),
+          },
+          select: ['product_id'],
+        });
+        wishlistedIds = new Set(wishlisted.map((w) => w.product_id));
+      }
 
       const items = products.map((p) => ({
         id: p.id,
@@ -196,10 +218,14 @@ export class StoreReadService {
         image: p.image?.url ?? null,
         rating_average: Number(p.rating_average),
         stock: p.stock,
+        store_name: store.store_name,
+        store_slug: store.slug,
         discount_price: p.discount_price
           ? Number(p.discount_price) / 100
           : null,
         on_sale: p.on_sale,
+        is_in_wishlist: wishlistedIds.has(p.id),
+        shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
       }));
 
       productsResult = buildPagination(items, total, page, limit);
@@ -379,6 +405,7 @@ export class StoreReadService {
   async getStoreProducts(
     identifier: string,
     pagination: PaginationDto = { page: 1, limit: 20 },
+    userId?: string,
   ) {
     if (!identifier) {
       throw new BadRequestException('Store identifier required');
@@ -388,7 +415,7 @@ export class StoreReadService {
     const limit = pagination.limit ?? 20;
     const q = pagination.q;
 
-    const cacheKey = `svc:store:products:${identifier}:page:${page}:limit:${limit}:q:${q || ''}`;
+    const cacheKey = `svc:store:products:${identifier}:page:${page}:limit:${limit}:q:${q || ''}:u:${userId || 'anon'}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -399,6 +426,7 @@ export class StoreReadService {
       select: [
         'id',
         'store_name',
+        'slug',
         'address_city',
         'address_state',
         'address_country',
@@ -426,6 +454,7 @@ export class StoreReadService {
         'product.sizes',
         'product.discount_price',
         'product.on_sale',
+        'product.shipping_cost',
         'category.id',
         'category.name',
         'category.slug',
@@ -464,6 +493,19 @@ export class StoreReadService {
       .take(limit)
       .getManyAndCount();
 
+    // 🔗 WISHLIST CHECK
+    let wishlistedIds = new Set<string>();
+    if (userId && products.length > 0) {
+      const wishlisted = await this.wishlistRepo.find({
+        where: {
+          user_id: userId,
+          product_id: In(products.map((p) => p.id)),
+        },
+        select: ['product_id'],
+      });
+      wishlistedIds = new Set(wishlisted.map((w) => w.product_id));
+    }
+
     const items = products.map((p) => ({
       id: p.id,
       name: p.name,
@@ -473,6 +515,7 @@ export class StoreReadService {
       rating_average: Number(p.rating_average),
       stock: p.stock,
       store_name: store.store_name,
+      store_slug: store.slug,
       address_city: store.address_city,
       address_state: store.address_state,
       address_country: store.address_country,
@@ -483,6 +526,8 @@ export class StoreReadService {
       sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       on_sale: p.on_sale,
+      is_in_wishlist: wishlistedIds.has(p.id),
+      shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
     }));
 
     const enriched = await this.helpers.resolveColorsForList(items);
@@ -502,6 +547,7 @@ export class StoreReadService {
     identifier: string,
     categoryId: string,
     pagination: PaginationDto = { page: 1, limit: 20 },
+    userId?: string,
   ) {
     if (!identifier) {
       throw new BadRequestException('Store identifier required');
@@ -514,7 +560,7 @@ export class StoreReadService {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
 
-    const cacheKey = `svc:store:category-products:${identifier}:${categoryId}:p:${page}:l:${limit}`;
+    const cacheKey = `svc:store:category-products:${identifier}:${categoryId}:p:${page}:l:${limit}:u:${userId || 'anon'}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -525,6 +571,7 @@ export class StoreReadService {
       select: [
         'id',
         'store_name',
+        'slug',
         'address_city',
         'address_state',
         'address_country',
@@ -560,6 +607,7 @@ export class StoreReadService {
         'product.sizes',
         'product.discount_price',
         'product.on_sale',
+        'product.shipping_cost',
         'category.id',
         'category.name',
         'category.slug',
@@ -574,6 +622,19 @@ export class StoreReadService {
       .take(limit)
       .getManyAndCount();
 
+    // 🔗 WISHLIST CHECK
+    let wishlistedIds = new Set<string>();
+    if (userId && products.length > 0) {
+      const wishlisted = await this.wishlistRepo.find({
+        where: {
+          user_id: userId,
+          product_id: In(products.map((p) => p.id)),
+        },
+        select: ['product_id'],
+      });
+      wishlistedIds = new Set(wishlisted.map((w) => w.product_id));
+    }
+
     const items = products.map((p) => ({
       id: p.id,
       name: p.name,
@@ -583,6 +644,7 @@ export class StoreReadService {
       rating_average: Number(p.rating_average),
       stock: p.stock,
       store_name: store.store_name,
+      store_slug: store.slug,
       address_city: store.address_city,
       address_state: store.address_state,
       address_country: store.address_country,
@@ -593,6 +655,8 @@ export class StoreReadService {
       sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       on_sale: p.on_sale,
+      is_in_wishlist: wishlistedIds.has(p.id),
+      shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
     }));
 
     const enriched = await this.helpers.resolveColorsForList(items);
@@ -679,6 +743,7 @@ export class StoreReadService {
         image: extractImageUrl(row.image),
         colors: row.colors || [],
         sizes: row.sizes || [],
+        shipping_cost: row.shipping_cost ? Number(row.shipping_cost) / 100 : 0,
       });
     }
 

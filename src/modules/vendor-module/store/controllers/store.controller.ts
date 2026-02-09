@@ -17,6 +17,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { StoreOwnerGuard } from '../guards/store-owner.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
@@ -62,40 +63,48 @@ export class StoreController {
 
   // GET /store/:identifier/category/:categoryId/products
   @Get(':identifier/category/:categoryId/products')
+  @UseGuards(OptionalJwtAuthGuard)
   getStoreProductsByCategory(
     @Param('identifier') identifier: string,
     @Param('categoryId') categoryId: string,
     @Query() pagination: PaginationQueryDto,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
     return this.storeService.getStoreProductsByCategory(
       identifier,
       categoryId,
       pagination,
+      user?.sub,
     );
   }
 
   // GET /store/:identifier/products
   @Get(':identifier/products')
+  @UseGuards(OptionalJwtAuthGuard)
   getStoreProducts(
     @Param('identifier') identifier: string,
     @Query() query: PaginationQueryDto,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
-    return this.storeService.getStoreProducts(identifier, query);
+    return this.storeService.getStoreProducts(identifier, query, user?.sub);
   }
   // GET /store/:identifier
   @Get(':identifier')
+  @UseGuards(OptionalJwtAuthGuard)
   findOne(
     @Param('identifier') identifier: string,
     @Query('includeProducts') includeProducts?: string,
     @Query('includeCategories') includeCategories?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
   ) {
     return this.storeService.getStore(identifier, {
       includeProducts: includeProducts === 'true',
       includeCategories: includeCategories !== 'false', // default true
       productPage: page ? Number(page) : 1,
       productLimit: limit ? Number(limit) : 20,
+      userId: user?.sub,
     });
   }
 

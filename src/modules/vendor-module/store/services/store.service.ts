@@ -39,19 +39,25 @@ export class StoreService {
     return this.readService.getTotalProductsForStore(storeId);
   }
 
-  getStoreProducts(identifier: string, pagination?: PaginationDto) {
-    return this.readService.getStoreProducts(identifier, pagination);
+  getStoreProducts(
+    identifier: string,
+    pagination?: PaginationDto,
+    userId?: string,
+  ) {
+    return this.readService.getStoreProducts(identifier, pagination, userId);
   }
 
   getStoreProductsByCategory(
     identifier: string,
     categoryId: string,
     pagination?: PaginationDto,
+    userId?: string,
   ) {
     return this.readService.getStoreProductsByCategory(
       identifier,
       categoryId,
       pagination,
+      userId,
     );
   }
 
