@@ -181,6 +181,12 @@ export class CartService {
 
     if (existing) {
       existing.quantity += payload.quantity;
+      // Refresh prices to current state
+      existing.price = Number(product.price);
+      existing.discount_price =
+        product.on_sale && product.discount_price
+          ? Number(product.discount_price)
+          : null;
     } else {
       // Resolve color name if ID provided
       let colorDisplay = payload.color ?? null;
@@ -202,9 +208,10 @@ export class CartService {
         name: product.name,
         slug: product.slug,
         price: Number(product.price),
-        discount_price: product.discount_price
-          ? Number(product.discount_price)
-          : null,
+        discount_price:
+          product.on_sale && product.discount_price
+            ? Number(product.discount_price)
+            : null,
         image: product.image?.url ?? null,
         quantity: payload.quantity,
         size: payload.size ?? null,

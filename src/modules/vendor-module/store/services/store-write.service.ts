@@ -120,6 +120,11 @@ export class StoreWriteService {
       'address_state',
       'address_country',
       'address_postal_code',
+      // Allow direct URL updates if uploaded from frontend
+      'logo',
+      'logo_public_id',
+      'cover_image',
+      'cover_image_public_id',
     ];
 
     const filtered: Partial<Store> = {};
@@ -137,6 +142,8 @@ export class StoreWriteService {
       }
     }
 
+    // Handle file uploads ONLY if provided (backward compatibility)
+    // If frontend sent a file, upload it. If frontend sent a string URL (in data), it's already in filtered.
     const logoFile = files?.logo?.[0];
     if (logoFile) {
       const up = await this.upload.uploadSingle(
