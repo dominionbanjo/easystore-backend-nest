@@ -22,10 +22,10 @@ import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current
 
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
-import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
-import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
+import { Permission } from 'src/common/permissions/permissions';
+import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
+import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
 import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
-import { SetProductDeliveryRateDto } from '../../../vendor-module/store/dto/store-delivery-rate.dto';
 
 @Controller('vendor/products')
 export class VendorProductController {
@@ -36,8 +36,8 @@ export class VendorProductController {
      GET /vendor/products
   ──────────────────────────────────────────────── */
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.VIEW_PRODUCT)
   getAllProducts(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Query() query: ProductSearchDto,
@@ -53,8 +53,8 @@ export class VendorProductController {
      GET /vendor/products/store/me/search
   ──────────────────────────────────────────────── */
   @Get('store/me/search')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.VIEW_PRODUCT)
   searchMyStoreProducts(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Query() query: ProductSearchDto,
@@ -85,8 +85,8 @@ export class VendorProductController {
      POST /vendor/products
   ──────────────────────────────────────────────── */
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.CREATE_PRODUCT)
   createWithCloudinary(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() dto: CreateProductCloudinaryDto,
@@ -99,8 +99,8 @@ export class VendorProductController {
      PATCH /vendor/products/:id
   ──────────────────────────────────────────────── */
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.UPDATE_PRODUCT)
   updateWithCloudinary(
     @Param('id') productId: string,
     @Body() dto: UpdateProductCloudinaryDto,
@@ -113,8 +113,8 @@ export class VendorProductController {
      PATCH /vendor/products/:id/status
   ──────────────────────────────────────────────── */
   @Patch(':id/status')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.UPDATE_PRODUCT)
   updateProductStatus(
     @Param('id') productId: string,
     @Body('status') status: ProductStatus,
@@ -127,8 +127,8 @@ export class VendorProductController {
      PATCH /vendor/products/:id/on-sale
   ──────────────────────────────────────────────── */
   @Patch(':id/on-sale')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.UPDATE_PRODUCT)
   updateProductOnSale(
     @Param('id') productId: string,
     @Body('on_sale') onSale: boolean,
@@ -141,8 +141,8 @@ export class VendorProductController {
      DELETE /vendor/products/:id
   ──────────────────────────────────────────────── */
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.DELETE_PRODUCT)
   removeProduct(@Param('id') productId: string) {
     return this.productService.remove(productId);
   }

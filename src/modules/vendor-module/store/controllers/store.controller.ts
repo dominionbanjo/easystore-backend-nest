@@ -15,13 +15,14 @@ import { UpdateStoreDto } from '../dto/update-store.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
-import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
-import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { StoreOwnerGuard } from '../guards/store-owner.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { StoreService } from '../services/store.service';
+import { Permission } from 'src/common/permissions/permissions';
+import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
+import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
 
 @Controller('store')
 export class StoreController {
@@ -124,8 +125,8 @@ export class StoreController {
      UPDATE / DELETE STORE
   ──────────────────────────────────────────────── */
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.MANAGE_STORE)
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'logo', maxCount: 1 },
@@ -146,8 +147,8 @@ export class StoreController {
 
   // DELETE /store/:id
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.MANAGE_SETTINGS) // Only high-level or admin can delete
   remove(@Param('id') id: string) {
     return this.storeService.deleteStore(id);
   }
@@ -158,8 +159,8 @@ export class StoreController {
 
   // POST /store/:id/bank
   @Post(':id/bank')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MANAGE_STORE)
   registerBank(
     @Param('id') storeId: string,
     @Body('bank_code') bank_code: string,
@@ -176,8 +177,8 @@ export class StoreController {
 
   // PATCH /store/:id/bank
   @Patch(':id/bank')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MANAGE_STORE)
   updateBank(
     @Param('id') storeId: string,
     @Body()
@@ -192,8 +193,8 @@ export class StoreController {
 
   // DELETE /store/:id/bank
   @Delete(':id/bank')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('vendor', 'admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.MANAGE_STORE)
   removeBank(@Param('id') storeId: string) {
     return this.storeService.deleteBankAccount(storeId);
   }

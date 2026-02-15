@@ -10,6 +10,7 @@ import { Cart } from './entities/cart.entity';
 import { ICartItem } from './types/types';
 import { Product } from '../product/entities/product.entity';
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
+import { PaystackService } from 'src/common/services/paystack.service';
 
 @Injectable()
 export class CartService {
@@ -22,6 +23,8 @@ export class CartService {
 
     @InjectRepository(ProductColor)
     private readonly colorRepo: Repository<ProductColor>,
+
+    private readonly paystackService: PaystackService,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -101,13 +104,28 @@ export class CartService {
       (sum, fee) => sum + fee,
       0,
     );
-    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
-    const totalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
+
+    // Platform fee (Fixed 2%)
+    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
+
+    // Base amount that we apply Paystack fee on
+    const baseAmountBeforePaystack =
+      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
+
+    // Calculate Paystack fee on the base amount
+    const paystackFeeKobo = this.paystackService.calculateTransactionFee(
+      baseAmountBeforePaystack,
+    );
+
+    // Consolidate both fees into "Service Charge"
+    const serviceChargeKobo = platformFee2PercentKobo + paystackFeeKobo;
+
+    const totalKobo = baseAmountBeforePaystack + paystackFeeKobo;
 
     return {
       subtotalKobo,
       shippingKobo: totalShippingKobo,
-      platformFeeKobo,
+      serviceChargeKobo,
       totalKobo,
     };
   }
@@ -136,7 +154,7 @@ export class CartService {
         })),
         subtotal: totals.subtotalKobo / 100,
         shipping: totals.shippingKobo / 100,
-        platform_fee: totals.platformFeeKobo / 100,
+        platform_fee: totals.serviceChargeKobo / 100,
         total: totals.totalKobo / 100,
       },
     };
