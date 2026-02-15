@@ -187,7 +187,19 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const match = await comparePassword(dto.password, user.password!);
+    // ⭐ Handle users without passwords (e.g. Google Signups)
+    if (!user.password) {
+      if (user.signup_medium === 'google') {
+        throw new BadRequestException(
+          'This account was created using Google. Please use "Continue with Google" or reset your password to set a new one.',
+        );
+      }
+      throw new BadRequestException(
+        'Password not set for this account. Please use "Forgot Password" to set one.',
+      );
+    }
+
+    const match = await comparePassword(dto.password, user.password);
     if (!match) {
       throw new UnauthorizedException('Invalid credentials');
     }
