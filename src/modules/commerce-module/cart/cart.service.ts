@@ -10,7 +10,6 @@ import { Cart } from './entities/cart.entity';
 import { ICartItem } from './types/types';
 import { Product } from '../product/entities/product.entity';
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
-
 import { PaystackService } from 'src/common/services/paystack.service';
 
 @Injectable()
@@ -25,7 +24,7 @@ export class CartService {
     @InjectRepository(ProductColor)
     private readonly colorRepo: Repository<ProductColor>,
 
-    private readonly paystack: PaystackService,
+    private readonly paystackService: PaystackService,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -106,21 +105,22 @@ export class CartService {
       0,
     );
 
-    // 1. Platform Fee (2%)
-    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
+    // Platform fee (Fixed 2%)
+    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
 
-    // 2. Paystack Fee (Calculated on Subtotal + Shipping + Platform Fee)
-    const baseAmountForPaystack =
-      subtotalKobo + totalShippingKobo + platformFeeKobo;
-    const paystackFeeKobo = this.paystack.calculateTransactionFee(
-      baseAmountForPaystack,
+    // Base amount that we apply Paystack fee on
+    const baseAmountBeforePaystack =
+      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
+
+    // Calculate Paystack fee on the base amount
+    const paystackFeeKobo = this.paystackService.calculateTransactionFee(
+      baseAmountBeforePaystack,
     );
 
-    // 3. Combined Service Charge
-    const serviceChargeKobo = platformFeeKobo + paystackFeeKobo;
+    // Consolidate both fees into "Service Charge"
+    const serviceChargeKobo = platformFee2PercentKobo + paystackFeeKobo;
 
-    // 4. Final Total
-    const totalKobo = baseAmountForPaystack + paystackFeeKobo;
+    const totalKobo = baseAmountBeforePaystack + paystackFeeKobo;
 
     return {
       subtotalKobo,
@@ -154,7 +154,7 @@ export class CartService {
         })),
         subtotal: totals.subtotalKobo / 100,
         shipping: totals.shippingKobo / 100,
-        service_charge: totals.serviceChargeKobo / 100,
+        platform_fee: totals.serviceChargeKobo / 100,
         total: totals.totalKobo / 100,
       },
     };

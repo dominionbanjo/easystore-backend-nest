@@ -17,6 +17,37 @@ export class PaystackService {
     }
   }
 
+  /**
+   * Calculates the transaction fee Paystack would charge for a given amount.
+   * Formula handles the 1.5% + NGN 100 fee structure and NGN 2,000 cap.
+   * @param amountKobo The amount in kobo the merchant wants to receive
+   */
+  calculateTransactionFee(amountKobo: number): number {
+    const amountNaira = amountKobo / 100;
+    let flatFee = 0;
+    const percent = 0.015; // 1.5%
+    const cap = 2000; // 2000 NGN
+
+    if (amountNaira >= 2500) {
+      flatFee = 100;
+    }
+
+    // Formula to ensure merchant receives exactly `amountNaira`:
+    // total = (amount + flat) / (1 - percent)
+    let totalNaira = (amountNaira + flatFee) / (1 - percent);
+
+    // Initial fee calculation
+    let feeNaira = totalNaira - amountNaira;
+
+    // Apply cap
+    if (feeNaira > cap) {
+      feeNaira = cap;
+    }
+
+    // Round up to nearest kobo
+    return Math.ceil(feeNaira * 100);
+  }
+
   /* ────────────────────────────────────────────────
      INTERNAL ERROR HANDLER
   ──────────────────────────────────────────────── */
