@@ -358,8 +358,14 @@ export class OrderCreationService {
       totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
-    const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
+    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
+    const baseAmountBeforePaystack =
+      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
+    const paystackFeeKobo = this.paystack.calculateTransactionFee(
+      baseAmountBeforePaystack,
+    );
+    const totalServiceChargeKobo = platformFee2PercentKobo + paystackFeeKobo;
+    const grandTotalKobo = baseAmountBeforePaystack + paystackFeeKobo;
 
     /* PREPARE PAYSTACK METADATA */
     const paystackMetadata = {
@@ -375,20 +381,25 @@ export class OrderCreationService {
         subtotal: vendorSubtotals[vId],
         shipping: vendorShippingFees[vId],
       })),
-      platform_fee: platformFeeKobo,
+      platform_fee: platformFee2PercentKobo,
+      paystack_fee: paystackFeeKobo,
+      total_service_charge: totalServiceChargeKobo,
       order_type: 'escrow_order',
     };
 
     /* INIT SINGLE PAYSTACK PAYMENT */
+    // Note: initializePayment internally adds the fee again if we pass the base amount.
+    // However, my initializePayment logic is: T = (A + Flat) / (1 - P).
+    // If I pass baseAmountBeforePaystack, the customer is charged grandTotalKobo.
     const payment = await this.paystack.initializePayment(
       email,
-      grandTotalKobo,
+      baseAmountBeforePaystack,
       { metadata: paystackMetadata },
     );
     const reference = payment.reference;
 
     const orders: Order[] = [];
-    let distributedPlatformFeeKobo = 0;
+    let distributedServiceChargeKobo = 0;
 
     /* CREATE ORDERS + ESCROWS */
     const vendorIds = Object.keys(groups);
@@ -398,18 +409,19 @@ export class OrderCreationService {
       const vendorSubtotalKobo = vendorSubtotals[vendor_id];
       const vendorShippingFeeKobo = vendorShippingFees[vendor_id];
 
-      let vendorPlatformFeeKobo: number;
+      let vendorServiceChargeKobo: number;
       if (i === vendorIds.length - 1) {
-        vendorPlatformFeeKobo = platformFeeKobo - distributedPlatformFeeKobo;
+        vendorServiceChargeKobo =
+          totalServiceChargeKobo - distributedServiceChargeKobo;
       } else {
-        vendorPlatformFeeKobo = Math.round(
-          (vendorSubtotalKobo / (subtotalKobo || 1)) * platformFeeKobo,
+        vendorServiceChargeKobo = Math.round(
+          (vendorSubtotalKobo / (subtotalKobo || 1)) * totalServiceChargeKobo,
         );
-        distributedPlatformFeeKobo += vendorPlatformFeeKobo;
+        distributedServiceChargeKobo += vendorServiceChargeKobo;
       }
 
       const vendorTotalKobo =
-        vendorSubtotalKobo + vendorShippingFeeKobo + vendorPlatformFeeKobo;
+        vendorSubtotalKobo + vendorShippingFeeKobo + vendorServiceChargeKobo;
 
       const order = this.orderRepo.create({
         id: uuidv4(),
@@ -418,7 +430,7 @@ export class OrderCreationService {
         order_items: items,
         subtotal: vendorSubtotalKobo,
         shipping_fee: vendorShippingFeeKobo,
-        platform_fee: vendorPlatformFeeKobo,
+        platform_fee: vendorServiceChargeKobo,
         total: vendorTotalKobo,
         payment_method: 'online',
         payment_reference: reference, // 🔥 SAME FOR ALL
@@ -429,7 +441,7 @@ export class OrderCreationService {
         notes: JSON.stringify({
           subtotal_kobo: vendorSubtotalKobo,
           shipping_fee_kobo: vendorShippingFeeKobo,
-          platform_fee_kobo: vendorPlatformFeeKobo,
+          service_charge_kobo: vendorServiceChargeKobo,
           total_kobo: vendorTotalKobo,
         }),
       });
@@ -517,8 +529,14 @@ export class OrderCreationService {
       totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
-    const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
+    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
+    const baseAmountBeforePaystack =
+      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
+    const paystackFeeKobo = this.paystack.calculateTransactionFee(
+      baseAmountBeforePaystack,
+    );
+    const totalServiceChargeKobo = platformFee2PercentKobo + paystackFeeKobo;
+    const grandTotalKobo = baseAmountBeforePaystack + paystackFeeKobo;
     const reference = `ref_${uuidv4().replace(/-/g, '')}`;
 
     /* PREPARE PAYSTACK OPTIONS (SPLIT) */
@@ -536,7 +554,9 @@ export class OrderCreationService {
           subtotal: vendorSubtotals[vId],
           shipping: vendorShippingFees[vId],
         })),
-        platform_fee: platformFeeKobo,
+        platform_fee: platformFee2PercentKobo,
+        paystack_fee: paystackFeeKobo,
+        total_service_charge: totalServiceChargeKobo,
         order_type: 'direct_order',
       },
     };
@@ -551,7 +571,7 @@ export class OrderCreationService {
         );
       }
 
-      // Calculate what vendor gets: Subtotal + Shipping (Platform keeps 2%)
+      // Calculate what vendor gets: Subtotal + Shipping (Platform keeps the rest)
       const vendorShare =
         vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
 
@@ -606,35 +626,34 @@ export class OrderCreationService {
     /* INIT SINGLE PAYSTACK PAYMENT */
     const payment = await this.paystack.initializePayment(
       email,
-      grandTotalKobo,
+      baseAmountBeforePaystack,
       { ...paystackOptions, reference },
     );
 
     const orders: Order[] = [];
-    let distributedPlatformFeeKobo = 0;
+    let distributedServiceChargeKobo = 0;
 
-    // Distribute platform fee proportionally across vendors
+    // Distribute service charge proportionally across vendors
     for (let i = 0; i < vendorIds.length; i++) {
       const vendor_id = vendorIds[i];
       const items = groups[vendor_id];
       const vendorSubtotalKobo = vendorSubtotals[vendor_id];
       const vendorShippingFeeKobo = vendorShippingFees[vendor_id];
 
-      let vendorPlatformFeeKobo: number;
+      let vendorServiceChargeKobo: number;
 
       if (i === vendorIds.length - 1) {
-        // Last vendor gets remaining fee to ensure exact match
-        vendorPlatformFeeKobo = platformFeeKobo - distributedPlatformFeeKobo;
+        vendorServiceChargeKobo =
+          totalServiceChargeKobo - distributedServiceChargeKobo;
       } else {
-        // Proportional distribution
-        vendorPlatformFeeKobo = Math.round(
-          (vendorSubtotalKobo / (subtotalKobo || 1)) * platformFeeKobo,
+        vendorServiceChargeKobo = Math.round(
+          (vendorSubtotalKobo / (subtotalKobo || 1)) * totalServiceChargeKobo,
         );
-        distributedPlatformFeeKobo += vendorPlatformFeeKobo;
+        distributedServiceChargeKobo += vendorServiceChargeKobo;
       }
 
       const vendorTotalKobo =
-        vendorSubtotalKobo + vendorShippingFeeKobo + vendorPlatformFeeKobo;
+        vendorSubtotalKobo + vendorShippingFeeKobo + vendorServiceChargeKobo;
 
       const order = this.orderRepo.create({
         id: uuidv4(),
@@ -642,7 +661,7 @@ export class OrderCreationService {
         vendor_id,
         subtotal: vendorSubtotalKobo,
         shipping_fee: vendorShippingFeeKobo,
-        platform_fee: vendorPlatformFeeKobo,
+        platform_fee: vendorServiceChargeKobo,
         total: vendorTotalKobo,
         payment_method: 'online',
         payment_reference: reference,
@@ -653,9 +672,8 @@ export class OrderCreationService {
         order_items: items,
         escrow_id: null,
         notes: JSON.stringify({
-          platform_fee_kobo: vendorPlatformFeeKobo,
+          service_charge_kobo: vendorServiceChargeKobo,
           shipping_fee_kobo: vendorShippingFeeKobo,
-          fee_percentage: 2,
           subtotal_kobo: vendorSubtotalKobo,
           total_kobo: vendorTotalKobo,
         }),

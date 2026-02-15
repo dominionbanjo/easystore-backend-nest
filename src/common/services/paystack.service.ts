@@ -140,7 +140,12 @@ export class PaystackService {
      Formula: (Amount + Flat) / (1 - Percent)
      Paystack NG: 1.5% + NGN 100 (if > 2500), Cap NGN 2000
   ──────────────────────────────────────────────── */
-  private calculateTotalAmountWithFees(amountKobo: number): number {
+  /* ────────────────────────────────────────────────
+     HELPER: CALCULATE TOTAL WITH FEES (PASS TO CUSTOMER)
+     Formula: (Amount + Flat) / (1 - Percent)
+     Paystack NG: 1.5% + NGN 100 (if > 2500), Cap NGN 2000
+  ──────────────────────────────────────────────── */
+  calculateTotalAmountWithFees(amountKobo: number): number {
     let flatFee = 0;
     let percent = 0.015; // 1.5%
     let cap = 200000; // 2000 NGN
@@ -161,6 +166,11 @@ export class PaystackService {
     }
 
     return Math.ceil(total);
+  }
+
+  calculateTransactionFee(amountKobo: number): number {
+    const total = this.calculateTotalAmountWithFees(amountKobo);
+    return total - amountKobo;
   }
 
   async initializePayment(
