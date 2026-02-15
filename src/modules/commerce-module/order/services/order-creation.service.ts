@@ -545,24 +545,49 @@ export class OrderCreationService {
       const vendorId = vendorIds[0];
       const store = await this.storeService.getStoreByUser(vendorId);
 
-      if (store && store.paystack_subaccount_code) {
-        paystackOptions.subaccount = store.paystack_subaccount_code;
-        paystackOptions.bearer = 'subaccount'; // Store pays Paystack fees
+      if (!store || !store.paystack_subaccount_code) {
+        throw new BadRequestException(
+          'Vendor not verified for online payments',
+        );
       }
+
+      // Calculate what vendor gets: Subtotal + Shipping (Platform keeps 2%)
+      const vendorShare =
+        vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
+
+      const splitData = await this.paystack.createSplit({
+        name: `Marketplace Split - ${reference}`,
+        type: 'flat',
+        currency: 'NGN',
+        subaccounts: [
+          {
+            subaccount: store.paystack_subaccount_code,
+            share: vendorShare,
+          },
+        ],
+        bearer_type: 'account', // Platform pays Paystack fees from its share
+      });
+
+      paystackOptions.split_code = splitData.split_code;
     } else {
       // MULTI-VENDOR SPLIT
       const splitSubaccounts: { subaccount: string; share: number }[] = [];
       for (const vendorId of vendorIds) {
         const store = await this.storeService.getStoreByUser(vendorId);
-        if (store && store.paystack_subaccount_code) {
-          // Calculate what vendor gets: Subtotal + Shipping (platform keeps fee)
-          const vendorShare =
-            vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
-          splitSubaccounts.push({
-            subaccount: store.paystack_subaccount_code,
-            share: vendorShare,
-          });
+
+        if (!store || !store.paystack_subaccount_code) {
+          throw new BadRequestException(
+            'One or more vendors not verified for online payments',
+          );
         }
+
+        // Calculate what vendor gets: Subtotal + Shipping (platform keeps fee)
+        const vendorShare =
+          vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
+        splitSubaccounts.push({
+          subaccount: store.paystack_subaccount_code,
+          share: vendorShare,
+        });
       }
 
       if (splitSubaccounts.length > 0) {
