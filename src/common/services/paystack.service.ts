@@ -166,39 +166,6 @@ export class PaystackService {
      PAYMENTS
   ──────────────────────────────────────────────── */
 
-  /* ────────────────────────────────────────────────
-     HELPER: CALCULATE TOTAL WITH FEES (PASS TO CUSTOMER)
-     Formula: (Amount + Flat) / (1 - Percent)
-     Paystack NG: 1.5% + NGN 100 (if > 2500), Cap NGN 2000
-  ──────────────────────────────────────────────── */
-  /* ────────────────────────────────────────────────
-     HELPER: CALCULATE TOTAL WITH FEES (PASS TO CUSTOMER)
-     Formula: (Amount + Flat) / (1 - Percent)
-     Paystack NG: 1.5% + NGN 100 (if > 2500), Cap NGN 2000
-  ──────────────────────────────────────────────── */
-  calculateTotalAmountWithFees(amountKobo: number): number {
-    let flatFee = 0;
-    let percent = 0.015; // 1.5%
-    let cap = 200000; // 2000 NGN
-
-    // If amount is large enough to trigger the 100 naira fee
-    // We assume if Amount > ~2400 it will likely cross 2500 with fees
-    if (amountKobo >= 250000) {
-      flatFee = 10000; // 100 NGN
-    }
-
-    // Try formula: T = (A + Flat) / (1 - P)
-    let total = (amountKobo + flatFee) / (1 - percent);
-
-    // Check fee cap
-    let fee = total - amountKobo;
-    if (fee > cap) {
-      total = amountKobo + cap;
-    }
-
-    return Math.ceil(total);
-  }
-
   async initializePayment(
     email: string,
     amountKobo: number,
@@ -213,12 +180,9 @@ export class PaystackService {
     },
   ) {
     try {
-      // 🔥 Calculate Gross Amount (Customer pays fees)
-      const amountToCharge = this.calculateTotalAmountWithFees(amountKobo);
-
       const payload: any = {
         email,
-        amount: amountToCharge, // Charge customer (Amount + Fee)
+        amount: Math.round(amountKobo), // ALREADY IN KOBO
         currency: 'NGN',
         callback_url:
           options?.callback_url ||
