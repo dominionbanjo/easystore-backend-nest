@@ -18,34 +18,31 @@ export class PaystackService {
   }
 
   /**
-   * Calculates the transaction fee Paystack would charge for a given amount.
-   * Formula handles the 1.5% + NGN 100 fee structure and NGN 2,000 cap.
-   * @param amountKobo The amount in kobo the merchant wants to receive
+   * Calculates the transaction fee Paystack would charge so that the
+   * merchant receives exactly `amountKobo`.
+   * Standard Paystack NG Fee: 1.5% + NGN 100 (if >= 2500), Capped at NGN 2000.
    */
   calculateTransactionFee(amountKobo: number): number {
     const amountNaira = amountKobo / 100;
     let flatFee = 0;
     const percent = 0.015; // 1.5%
-    const cap = 2000; // 2000 NGN
+    const capKobo = 200000; // 2000 NGN in Kobo
 
     if (amountNaira >= 2500) {
       flatFee = 100;
     }
 
-    // Formula to ensure merchant receives exactly `amountNaira`:
+    // Formula to GROSS UP so you receive exactly `amountNaira`:
     // total = (amount + flat) / (1 - percent)
-    let totalNaira = (amountNaira + flatFee) / (1 - percent);
+    const totalNaira = (amountNaira + flatFee) / (1 - percent);
+    let feeKobo = Math.round((totalNaira - amountNaira) * 100);
 
-    // Initial fee calculation
-    let feeNaira = totalNaira - amountNaira;
-
-    // Apply cap
-    if (feeNaira > cap) {
-      feeNaira = cap;
+    // Apply the Paystack NGN 2,000 fee cap
+    if (feeKobo > capKobo) {
+      feeKobo = capKobo;
     }
 
-    // Round up to nearest kobo
-    return Math.ceil(feeNaira * 100);
+    return feeKobo;
   }
 
   /* ────────────────────────────────────────────────
@@ -83,9 +80,10 @@ export class PaystackService {
 
     throw new BadRequestException(`${context} failed: ${message}`);
   }
+
   /* ────────────────────────────────────────────────
-   GET NIGERIAN BANKS
-──────────────────────────────────────────────── */
+     GET NIGERIAN BANKS
+  ──────────────────────────────────────────────── */
   async getBanksNigeria() {
     try {
       const res = await axios.get(`${this.baseUrl}/bank`, {
@@ -107,10 +105,6 @@ export class PaystackService {
       this.handleError(error, 'Fetching Nigerian banks');
     }
   }
-
-  /* ────────────────────────────────────────────────
-    PAYMENTS
-  ──────────────────────────────────────────────── */
 
   /* ────────────────────────────────────────────────
      SUBACCOUNTS (SPLIT PAYMENTS)
@@ -163,12 +157,11 @@ export class PaystackService {
   }
 
   /* ────────────────────────────────────────────────
-     PAYMENTS
+     PAYMENTS: INITIALIZATION
   ──────────────────────────────────────────────── */
-
   async initializePayment(
     email: string,
-    amountKobo: number,
+    amountKobo: number, // Net amount expected (Price + Shipping + Platform Fee)
     options?: {
       subaccount?: string;
       split_code?: string;
@@ -180,9 +173,13 @@ export class PaystackService {
     },
   ) {
     try {
+      // 🔥 Calculate Gross: Charge customer exactly (Net Amount + Paystack Fee)
+      const paystackFee = this.calculateTransactionFee(amountKobo);
+      const amountToCharge = Math.round(amountKobo + paystackFee);
+
       const payload: any = {
         email,
-        amount: Math.round(amountKobo), // ALREADY IN KOBO
+        amount: amountToCharge,
         currency: 'NGN',
         callback_url:
           options?.callback_url ||
@@ -238,23 +235,18 @@ export class PaystackService {
 
   async verifyBankAccount(account_number: string, bank_code: string) {
     try {
-      // Resolve account
       const res = await axios.get(`${this.baseUrl}/bank/resolve`, {
         headers: this.headers,
         params: { account_number, bank_code },
       });
 
       const data = res.data?.data;
-
-      if (!data?.account_name) {
+      if (!data?.account_name)
         throw new BadRequestException('Invalid bank details');
-      }
 
-      // Fetch bank name
       const banksRes = await axios.get(`${this.baseUrl}/bank`, {
         headers: this.headers,
       });
-
       const bank = banksRes.data?.data?.find((b: any) => b.code === bank_code);
 
       return {
@@ -269,7 +261,7 @@ export class PaystackService {
   }
 
   /* ────────────────────────────────────────────────
-     TRANSFER RECIPIENT
+     TRANSFERS & RECIPIENTS
   ──────────────────────────────────────────────── */
 
   async createTransferRecipient({
@@ -295,20 +287,14 @@ export class PaystackService {
       );
 
       if (!res.data?.data?.recipient_code) {
-        throw new BadRequestException(
-          'Unable to create Paystack transfer recipient',
-        );
+        throw new BadRequestException('Recipient creation failed');
       }
 
       return res.data.data.recipient_code;
     } catch (error) {
-      this.handleError(error, 'Transfer recipient creation');
+      this.handleError(error, 'Recipient creation');
     }
   }
-
-  /* ────────────────────────────────────────────────
-     TRANSFERS
-  ──────────────────────────────────────────────── */
 
   async initiateTransfer({
     recipient_code,
@@ -319,10 +305,8 @@ export class PaystackService {
     amountKobo: number;
     reason: string;
   }) {
-    if (!recipient_code) {
-      throw new BadRequestException('Recipient code is required');
-    }
-
+    if (!recipient_code)
+      throw new BadRequestException('Recipient code required');
     const reference = `pay_${uuidv4().replace(/-/g, '')}`;
 
     try {
@@ -331,24 +315,19 @@ export class PaystackService {
         {
           source: 'balance',
           recipient: recipient_code,
-          amount: Math.round(amountKobo), // ALREADY IN KOBO
+          amount: Math.round(amountKobo),
           reason,
           reference,
         },
         { headers: this.headers },
       );
 
-      return {
-        ok: true,
-        reference,
-        ...res.data.data,
-      };
+      return { ok: true, reference, ...res.data.data };
     } catch (error: any) {
       return {
         ok: false,
         reference,
-        error:
-          error.response?.data || error.message || 'Unknown transfer error',
+        error: error.response?.data || error.message,
       };
     }
   }
