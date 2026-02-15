@@ -71,6 +71,22 @@ class UpdateStoreBaseDto {
   @IsOptional()
   @IsString()
   address_postal_code?: string | null;
+
+  @IsOptional()
+  @IsString()
+  cover_image?: string | null;
+
+  @IsOptional()
+  @IsString()
+  cover_image_public_id?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logo?: string | null;
+
+  @IsOptional()
+  @IsString()
+  logo_public_id?: string | null;
 }
 
 export class UpdateStoreDto extends PartialType(UpdateStoreBaseDto) {}
