@@ -199,11 +199,6 @@ export class PaystackService {
     return Math.ceil(total);
   }
 
-  calculateTransactionFee(amountKobo: number): number {
-    const total = this.calculateTotalAmountWithFees(amountKobo);
-    return total - amountKobo;
-  }
-
   async initializePayment(
     email: string,
     amountKobo: number,
