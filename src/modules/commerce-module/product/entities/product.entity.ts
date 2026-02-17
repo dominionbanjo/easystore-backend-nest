@@ -140,6 +140,11 @@ export class Product {
   @Column({ type: 'text', array: true, nullable: true })
   sizes: string[] | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  variants:
+    | { size: string; price: number; stock: number; discount_price?: number }[]
+    | null;
+
   /* ────────────────────────────────────────────────
      SHIPPING DETAILS
   ───────────────────────────────────────────────── */

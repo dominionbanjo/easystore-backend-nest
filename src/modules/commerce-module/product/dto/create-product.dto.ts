@@ -86,6 +86,15 @@ export class CreateProductDto {
   @IsOptional()
   sizes?: string[];
 
+  @IsArray()
+  @IsOptional()
+  variants?: {
+    size: string;
+    price: number;
+    stock: number;
+    discount_price?: number;
+  }[];
+
   /* ───────────────── SHIPPING ───────────────── */
 
   @IsString()

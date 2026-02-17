@@ -108,9 +108,49 @@ export class ProductWriteService {
       );
     }
 
+    const processVariants = (dto: any) => {
+      if (dto.variants && dto.variants.length > 0) {
+        let minPrice = Infinity;
+        let totalStock = 0;
+        const processedVariants = dto.variants.map((v) => {
+          const price = Math.round(Number(v.price) * 100);
+          const discountPrice = v.discount_price
+            ? Math.round(Number(v.discount_price) * 100)
+            : undefined;
+
+          // Use discount price for min price calculation if available and on sale?
+          // Usually "from" price is base price. Let's stick to base price for minPrice or check business logic.
+          // User said "show the price of the first size".
+          // Let's just calculate min base price for the main 'price' column.
+          if (price < minPrice) minPrice = price;
+          totalStock += Number(v.stock);
+
+          return { ...v, price, discount_price: discountPrice };
+        });
+
+        return {
+          variants: processedVariants,
+          price:
+            minPrice !== Infinity
+              ? minPrice
+              : Math.round(Number(dto.price) * 100),
+          stock: totalStock,
+        };
+      }
+      return {
+        variants: null,
+        price: Math.round(Number(dto.price) * 100),
+        stock: Number(dto.stock),
+      };
+    };
+
+    const { variants, price, stock } = processVariants(dto);
+
     const product = this.productRepo.create({
       ...dto,
-      price: Math.round(Number(dto.price) * 100),
+      price,
+      stock,
+      variants,
       discount_price: dto.discount_price
         ? Math.round(Number(dto.discount_price) * 100)
         : null,
@@ -148,9 +188,45 @@ export class ProductWriteService {
       throw new BadRequestException('Product with same name exists');
     }
 
+    const processVariants = (dto: any) => {
+      if (dto.variants && dto.variants.length > 0) {
+        let minPrice = Infinity;
+        let totalStock = 0;
+        const processedVariants = dto.variants.map((v) => {
+          const price = Math.round(Number(v.price) * 100);
+          const discountPrice = v.discount_price
+            ? Math.round(Number(v.discount_price) * 100)
+            : undefined;
+
+          if (price < minPrice) minPrice = price;
+          totalStock += Number(v.stock);
+
+          return { ...v, price, discount_price: discountPrice };
+        });
+
+        return {
+          variants: processedVariants,
+          price:
+            minPrice !== Infinity
+              ? minPrice
+              : Math.round(Number(dto.price) * 100),
+          stock: totalStock,
+        };
+      }
+      return {
+        variants: null,
+        price: Math.round(Number(dto.price) * 100),
+        stock: Number(dto.stock),
+      };
+    };
+
+    const { variants, price, stock } = processVariants(dto);
+
     const product = this.productRepo.create({
       ...dto,
-      price: Math.round(Number(dto.price) * 100),
+      price,
+      stock,
+      variants,
       discount_price: dto.discount_price
         ? Math.round(Number(dto.discount_price) * 100)
         : null,
@@ -212,19 +288,46 @@ export class ProductWriteService {
     }
 
     const products = this.productRepo.create(
-      dtos.map((dto) => ({
-        ...dto,
-        price: Math.round(Number(dto.price) * 100),
-        discount_price: dto.discount_price
-          ? Math.round(Number(dto.discount_price) * 100)
-          : null,
-        shipping_cost: dto.shipping_cost
-          ? Math.round(Number(dto.shipping_cost) * 100)
-          : null,
-        vendor_id: user.sub,
-        store_id: user.store_id,
-        slug: slugify(dto.name, { lower: true, strict: true }),
-      })),
+      dtos.map((dto) => {
+        let price = Math.round(Number(dto.price) * 100);
+        let stock = Number(dto.stock);
+        let variants = null;
+
+        if (dto.variants && dto.variants.length > 0) {
+          let minPrice = Infinity;
+          let totalStock = 0;
+          const processedVariants = dto.variants.map((v) => {
+            const vPrice = Math.round(Number(v.price) * 100);
+            const vDiscountPrice = v.discount_price
+              ? Math.round(Number(v.discount_price) * 100)
+              : undefined;
+
+            if (vPrice < minPrice) minPrice = vPrice;
+            totalStock += Number(v.stock);
+
+            return { ...v, price: vPrice, discount_price: vDiscountPrice };
+          });
+          variants = processedVariants as any; // Cast to any to avoid TS error
+          price = minPrice;
+          stock = totalStock;
+        }
+
+        return {
+          ...dto,
+          price,
+          stock,
+          variants,
+          discount_price: dto.discount_price
+            ? Math.round(Number(dto.discount_price) * 100)
+            : null,
+          shipping_cost: dto.shipping_cost
+            ? Math.round(Number(dto.shipping_cost) * 100)
+            : null,
+          vendor_id: user.sub,
+          store_id: user.store_id,
+          slug: slugify(dto.name, { lower: true, strict: true }),
+        };
+      }),
     );
 
     const saved = await this.productRepo.save(products);
@@ -249,12 +352,44 @@ export class ProductWriteService {
       product.slug = slugify(dto.name, { lower: true, strict: true });
     }
 
+    let price = product.price;
+    let stock = product.stock;
+    let variants = product.variants;
+
+    if (dto.variants && dto.variants.length > 0) {
+      let minPrice = Infinity;
+      let totalStock = 0;
+      const processedVariants = dto.variants.map((v) => {
+        const vPrice = Math.round(Number(v.price) * 100);
+        const vDiscountPrice = v.discount_price
+          ? Math.round(Number(v.discount_price) * 100)
+          : undefined;
+
+        if (vPrice < minPrice) minPrice = vPrice;
+        totalStock += Number(v.stock);
+
+        return { ...v, price: vPrice, discount_price: vDiscountPrice };
+      });
+      variants = processedVariants;
+      price = minPrice;
+      stock = totalStock;
+    } else if (dto.variants === null && dto.price) {
+      // If explicitly clearing variants, revert to normal price/stock logic?
+      // Or just update price/stock if provided
+      price = Math.round(Number(dto.price) * 100);
+      stock = dto.stock !== undefined ? dto.stock : stock;
+      variants = null;
+    } else {
+      // No new variants provided
+      if (dto.price !== undefined) price = Math.round(Number(dto.price) * 100);
+      if (dto.stock !== undefined) stock = dto.stock;
+    }
+
     Object.assign(product, {
       ...dto,
-      price:
-        dto.price !== undefined
-          ? Math.round(Number(dto.price) * 100)
-          : product.price,
+      price,
+      stock,
+      variants,
       discount_price:
         dto.discount_price !== undefined
           ? dto.discount_price
@@ -306,12 +441,41 @@ export class ProductWriteService {
       product.gallery = dto.gallery;
     }
 
+    let price = product.price;
+    let stock = product.stock;
+    let variants = product.variants;
+
+    if (dto.variants && dto.variants.length > 0) {
+      let minPrice = Infinity;
+      let totalStock = 0;
+      const processedVariants = dto.variants.map((v) => {
+        const vPrice = Math.round(Number(v.price) * 100);
+        const vDiscountPrice = v.discount_price
+          ? Math.round(Number(v.discount_price) * 100)
+          : undefined;
+
+        if (vPrice < minPrice) minPrice = vPrice;
+        totalStock += Number(v.stock);
+
+        return { ...v, price: vPrice, discount_price: vDiscountPrice };
+      });
+      variants = processedVariants;
+      price = minPrice;
+      stock = totalStock;
+    } else if (dto.variants === null && dto.price) {
+      price = Math.round(Number(dto.price) * 100);
+      stock = dto.stock !== undefined ? dto.stock : stock;
+      variants = null;
+    } else {
+      if (dto.price !== undefined) price = Math.round(Number(dto.price) * 100);
+      if (dto.stock !== undefined) stock = dto.stock;
+    }
+
     Object.assign(product, {
       ...dto,
-      price:
-        dto.price !== undefined
-          ? Math.round(Number(dto.price) * 100)
-          : product.price,
+      price,
+      stock,
+      variants,
       discount_price:
         dto.discount_price !== undefined
           ? dto.discount_price

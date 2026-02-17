@@ -38,7 +38,8 @@ export class CreateProductCloudinaryDto {
   /* ───────────── PRICING ───────────── */
   @IsNumber()
   @Min(0)
-  price: number;
+  @IsOptional()
+  price?: number;
 
   @IsNumber()
   @Min(0)
@@ -47,7 +48,8 @@ export class CreateProductCloudinaryDto {
 
   @IsInt()
   @Min(0)
-  stock: number;
+  @IsOptional()
+  stock?: number;
 
   /* ───────────── LOCATION (FIXED) ───────────── */
   // @IsString()
@@ -112,5 +114,28 @@ export class CreateProductCloudinaryDto {
   @IsOptional()
   sizes?: string[];
 
-  // delivery_rates?: SetProductDeliveryRateDto[];
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
+  variants?: ProductVariantDto[];
+}
+
+export class ProductVariantDto {
+  @IsString()
+  @IsNotEmpty()
+  size: string;
+
+  @IsNumber()
+  @Min(0)
+  price: number;
+
+  @IsInt()
+  @Min(0)
+  stock: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  discount_price?: number;
 }

@@ -184,8 +184,32 @@ export class CartService {
       throw new NotFoundException('Product not found');
     }
 
-    if (product.stock < payload.quantity) {
-      throw new BadRequestException('Insufficient stock');
+    let finalPrice = Number(product.price);
+    let finalDiscountPrice =
+      product.on_sale && product.discount_price
+        ? Number(product.discount_price)
+        : null;
+    let availableStock = product.stock;
+
+    // Check Variants
+    if (payload.size && product.variants?.length) {
+      const variant = product.variants.find((v) => v.size === payload.size);
+      if (!variant) {
+        throw new BadRequestException(
+          `Size ${payload.size} not available for this product`,
+        );
+      }
+      finalPrice = Number(variant.price);
+      finalDiscountPrice = variant.discount_price
+        ? Number(variant.discount_price)
+        : null;
+      availableStock = variant.stock;
+    }
+
+    if (availableStock < payload.quantity) {
+      throw new BadRequestException(
+        `Insufficient stock (Available: ${availableStock})`,
+      );
     }
 
     const cart = await this.getOrCreateCart(userId);
@@ -199,12 +223,16 @@ export class CartService {
 
     if (existing) {
       existing.quantity += payload.quantity;
+
+      if (existing.quantity > availableStock) {
+        throw new BadRequestException(
+          `Cannot add more items. Max available: ${availableStock}`,
+        );
+      }
+
       // Refresh prices to current state
-      existing.price = Number(product.price);
-      existing.discount_price =
-        product.on_sale && product.discount_price
-          ? Number(product.discount_price)
-          : null;
+      existing.price = finalPrice;
+      existing.discount_price = finalDiscountPrice;
     } else {
       // Resolve color name if ID provided
       let colorDisplay = payload.color ?? null;
@@ -225,11 +253,8 @@ export class CartService {
         vendor_id: product.vendor_id,
         name: product.name,
         slug: product.slug,
-        price: Number(product.price),
-        discount_price:
-          product.on_sale && product.discount_price
-            ? Number(product.discount_price)
-            : null,
+        price: finalPrice,
+        discount_price: finalDiscountPrice,
         image: product.image?.url ?? null,
         quantity: payload.quantity,
         size: payload.size ?? null,

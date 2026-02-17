@@ -61,8 +61,10 @@ export class ProductReadService {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        price: Number(row.price),
-        discount_price: row.discount_price ? Number(row.discount_price) : null,
+        price: Number(row.price) / 100,
+        discount_price: row.discount_price
+          ? Number(row.discount_price) / 100
+          : null,
         on_sale: row.on_sale,
         stock: row.stock,
         rating_average: Number(row.rating_average),
@@ -145,8 +147,10 @@ export class ProductReadService {
       id: p.product_id,
       name: p.product_name,
       slug: p.product_slug,
-      price: p.product_price,
-      discount_price: p.product_discount_price,
+      price: Number(p.product_price) / 100,
+      discount_price: p.product_discount_price
+        ? Number(p.product_discount_price) / 100
+        : null,
       on_sale: p.product_on_sale,
       stock: p.product_stock,
       rating_average: p.product_rating_average,
@@ -225,7 +229,7 @@ export class ProductReadService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
+      price: Number(p.price) / 100,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
@@ -315,7 +319,7 @@ export class ProductReadService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
+      price: Number(p.price) / 100,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
@@ -478,6 +482,13 @@ export class ProductReadService {
           shipping_cost: product.shipping_cost
             ? Number(product.shipping_cost) / 100
             : null,
+          variants: product.variants?.map((v) => ({
+            ...v,
+            price: Number(v.price) / 100,
+            discount_price: v.discount_price
+              ? Number(v.discount_price) / 100
+              : null,
+          })),
           colors: resolvedColors,
           is_in_wishlist: wishlistSet.has(product.id),
         },
@@ -507,8 +518,8 @@ export class ProductReadService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      price: Number(p.price) / 100,
+      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       on_sale: p.on_sale,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),

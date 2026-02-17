@@ -31,25 +31,49 @@ export class OrderValidationService {
         );
       }
 
-      if (item.quantity < 1 || item.quantity > product.stock) {
-        throw new BadRequestException(
-          `${product.name} is out of stock or less than order quantity, Update cart`,
-        );
+      let finalBasePrice = Number(product.price);
+      let finalDiscountPrice = product.on_sale
+        ? Number(product.discount_price)
+        : null;
+
+      // 📏 Check variants if size is selected
+      if (item.size && product.variants?.length) {
+        const variant = product.variants.find((v) => v.size === item.size);
+        if (!variant) {
+          throw new BadRequestException(
+            `Size ${item.size} not found for product ${product.name}`,
+          );
+        }
+
+        if (item.quantity > variant.stock) {
+          throw new BadRequestException(
+            `Size ${item.size} of ${product.name} is out of stock (only ${variant.stock} left)`,
+          );
+        }
+
+        finalBasePrice = Number(variant.price);
+        finalDiscountPrice = variant.discount_price
+          ? Number(variant.discount_price)
+          : null;
+      } else {
+        // Fallback or normal check
+        if (item.quantity < 1 || item.quantity > product.stock) {
+          throw new BadRequestException(
+            `${product.name} is out of stock or less than order quantity, Update cart`,
+          );
+        }
       }
 
-      const price =
-        product.on_sale && product.discount_price
-          ? Number(product.discount_price)
-          : Number(product.price);
-      subtotal += price * item.quantity;
+      const effectivePrice = finalDiscountPrice ?? finalBasePrice;
+      subtotal += effectivePrice * item.quantity;
 
       validated.push({
         product_id: product.id,
         vendor_id: product.vendor_id,
         name: product.name,
         slug: product.slug,
-        price: Number(product.price),
-        discount_price: product.on_sale ? Number(product.discount_price) : null,
+        price: finalBasePrice,
+        discount_price: finalDiscountPrice,
         image: product.image?.url ?? null,
         quantity: item.quantity,
         size: item.size ?? null,
