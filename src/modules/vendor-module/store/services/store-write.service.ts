@@ -120,11 +120,11 @@ export class StoreWriteService {
       'address_state',
       'address_country',
       'address_postal_code',
-      // Allow direct URL updates if uploaded from frontend
       'logo',
       'logo_public_id',
       'cover_image',
       'cover_image_public_id',
+      'setup_stage',
     ];
 
     const filtered: Partial<Store> = {};
@@ -249,6 +249,16 @@ export class StoreWriteService {
     const store = await this.storeRepo.findOne({ where: { id: storeId } });
     if (!store) throw new NotFoundException('Store not found');
 
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    if (
+      store.last_bank_update &&
+      Date.now() - store.last_bank_update.getTime() < THREE_DAYS_MS
+    ) {
+      throw new BadRequestException(
+        'Bank account can only be updated once every 3 days.',
+      );
+    }
+
     const verified = await this.paystack.verifyBankAccount(
       account_number,
       bank_code,
@@ -278,6 +288,8 @@ export class StoreWriteService {
       paystack_subaccount_code: subaccount_code,
       settlement_email: settlement_email || store.settlement_email,
       payout_verified: true,
+      setup_stage: store.setup_stage < 4 ? 4 : store.setup_stage,
+      last_bank_update: new Date(),
       updated_at: new Date(),
     });
 
@@ -301,6 +313,16 @@ export class StoreWriteService {
   ) {
     const store = await this.storeRepo.findOne({ where: { id: storeId } });
     if (!store) throw new NotFoundException('Store not found');
+
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    if (
+      store.last_bank_update &&
+      Date.now() - store.last_bank_update.getTime() < THREE_DAYS_MS
+    ) {
+      throw new BadRequestException(
+        'Bank account can only be updated once every 3 days.',
+      );
+    }
 
     const { account_number, bank_code, settlement_email } = updates;
 
@@ -353,6 +375,7 @@ export class StoreWriteService {
         store.paystack_subaccount_code,
       payout_verified: true,
       settlement_email: settlement_email ?? store.settlement_email,
+      last_bank_update: new Date(),
       updated_at: new Date(),
     });
 

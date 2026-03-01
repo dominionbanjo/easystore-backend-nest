@@ -5,6 +5,7 @@ import { OrderMailService } from './services/order-mail.service';
 import { DeliveryMailService } from './services/delivery-mail.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { EscrowMailService } from './services/escrow-mail.service';
+import { WelcomeMailService } from './services/welcome-mail.service';
 import { ResetPasswordMailService } from './services/reset-password-mail.service';
 
 @Module({
@@ -17,6 +18,7 @@ import { ResetPasswordMailService } from './services/reset-password-mail.service
     DeliveryMailService,
     EscrowMailService,
     EmailVerificationService,
+    WelcomeMailService,
     ResetPasswordMailService,
   ],
 
@@ -29,6 +31,7 @@ import { ResetPasswordMailService } from './services/reset-password-mail.service
     DeliveryMailService,
     EscrowMailService,
     EmailVerificationService,
+    WelcomeMailService,
     ResetPasswordMailService,
   ],
 })

@@ -204,6 +204,13 @@ export class Store {
   @Column({ type: 'varchar', length: 20, nullable: true })
   address_postal_code: string | null;
 
+  /* SETUP STAGE */
+  @Column({ type: 'int', default: 1 })
+  setup_stage: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_bank_update: Date | null;
+
   /* TIMESTAMPS */
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

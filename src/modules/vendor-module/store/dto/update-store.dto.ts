@@ -6,6 +6,7 @@ import {
   IsArray,
   IsEmail,
   IsObject,
+  IsNumber,
 } from 'class-validator';
 
 class UpdateStoreBaseDto {
@@ -87,6 +88,11 @@ class UpdateStoreBaseDto {
   @IsOptional()
   @IsString()
   logo_public_id?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsNumber()
+  setup_stage?: number;
 }
 
 export class UpdateStoreDto extends PartialType(UpdateStoreBaseDto) {}

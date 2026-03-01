@@ -23,6 +23,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { EmailVerificationService } from 'src/modules/shared-module/email/services/email-verification.service';
 import { ResetPasswordMailService } from 'src/modules/shared-module/email/services/reset-password-mail.service';
+import { WelcomeMailService } from 'src/modules/shared-module/email/services/welcome-mail.service';
 import { SalesChannel, User } from '../users/entities/user.entity';
 import { toUTCDate } from 'src/utils/time/toUTCDate';
 import { comparePassword, hashPassword } from 'src/utils/auth/passwordUtil';
@@ -39,6 +40,7 @@ export class AuthService implements OnModuleInit {
     private readonly jwt: JwtService,
     private readonly storeService: StoreService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly welcomeMail: WelcomeMailService,
     private readonly resetPasswordVerification: ResetPasswordMailService,
     private readonly dataSource: DataSource,
   ) {}
@@ -162,8 +164,15 @@ export class AuthService implements OnModuleInit {
         email: dto.email,
         otp,
       });
+
+      // Send Welcome Email
+      await this.welcomeMail.sendWelcomeEmail({
+        name: dto.first_name,
+        email: dto.email,
+        role: dto.account_type as 'user' | 'vendor',
+      });
     } catch (error) {
-      console.error('Failed to send verification email cleanup:', error);
+      console.error('Failed to send onboarding emails:', error);
     }
 
     // ---------------------------
