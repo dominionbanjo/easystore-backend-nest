@@ -12,6 +12,12 @@ WITH ranked_products AS (
     p.image,
     p.colors,
     p.sizes,
+    p.options,
+    (
+      SELECT jsonb_agg(v)
+      FROM product_variants v
+      WHERE v.product_id = p.id
+    ) AS variants,
     p.on_sale,
     p.shipping_cost,
 

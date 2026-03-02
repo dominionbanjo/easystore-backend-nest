@@ -119,13 +119,23 @@ export class OrderPaymentVerificationService {
           },
         });
 
-        // 5. Adjust Stock (REDUCE)
+        // 5. Adjust Stock (REDUCE) — variant-aware
         for (const item of order.order_items) {
-          await this.productService.adjustStock(
-            item.product_id,
-            -Number(item.quantity),
-            manager,
-          );
+          if (item.variant_id) {
+            // Deduct from the specific variant AND keep product aggregate in sync
+            await this.productService.adjustVariantStock(
+              item.variant_id,
+              -Number(item.quantity),
+              manager,
+            );
+          } else {
+            // Legacy: no variant — deduct from product stock directly
+            await this.productService.adjustStock(
+              item.product_id,
+              -Number(item.quantity),
+              manager,
+            );
+          }
         }
       }
 

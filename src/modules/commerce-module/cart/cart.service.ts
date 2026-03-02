@@ -87,7 +87,7 @@ export class CartService {
     const vendorShippingFees: Record<string, number> = {};
 
     for (const item of cartItems) {
-      const priceKobo = item.discount_price ?? item.price;
+      const priceKobo = item.unit_price;
       subtotalKobo += priceKobo * item.quantity;
 
       // Group by vendor and take the maximum shipping cost for that vendor
@@ -170,6 +170,7 @@ export class CartService {
       quantity: number;
       size?: string | null;
       color?: string | null;
+      variant_id?: string | null;
     },
   ) {
     if (payload.quantity < 1) {
@@ -178,6 +179,7 @@ export class CartService {
 
     const product = await this.productRepo.findOne({
       where: { id: payload.product_id },
+      relations: ['variants'],
     });
 
     if (!product) {
@@ -193,6 +195,7 @@ export class CartService {
     const existing = cart.cart_items.find(
       (i) =>
         i.product_id === product.id &&
+        (i.variant_id ?? null) === (payload.variant_id ?? null) &&
         (i.size ?? null) === (payload.size ?? null) &&
         (i.color ?? null) === (payload.color ?? null),
     );
@@ -200,11 +203,26 @@ export class CartService {
     if (existing) {
       existing.quantity += payload.quantity;
       // Refresh prices to current state
-      existing.price = Number(product.price);
-      existing.discount_price =
+      let activePrice = Number(product.price);
+      let activeDiscount =
         product.on_sale && product.discount_price
           ? Number(product.discount_price)
           : null;
+      if (payload.variant_id && product.variants?.length) {
+        const variant = product.variants.find(
+          (v) => v.id === payload.variant_id,
+        );
+        if (variant) {
+          activePrice = Number(variant.price);
+          activeDiscount =
+            product.on_sale && variant.discount_price
+              ? Number(variant.discount_price)
+              : null;
+        }
+      }
+      existing.price = activePrice;
+      existing.discount_price = activeDiscount;
+      existing.unit_price = activeDiscount ?? activePrice;
     } else {
       // Resolve color name if ID provided
       let colorDisplay = payload.color ?? null;
@@ -220,18 +238,49 @@ export class CartService {
         }
       }
 
+      let activePrice = Number(product.price);
+      let activeDiscount =
+        product.on_sale && product.discount_price
+          ? Number(product.discount_price)
+          : null;
+      let activeStock = product.stock;
+      let variantOptions: Record<string, string> | null = null;
+      let activeImage = product.image?.url ?? null;
+
+      if (payload.variant_id && product.variants?.length) {
+        const variant = product.variants.find(
+          (v) => v.id === payload.variant_id,
+        );
+        if (variant) {
+          activePrice = Number(variant.price);
+          activeDiscount =
+            product.on_sale && variant.discount_price
+              ? Number(variant.discount_price)
+              : null;
+          activeStock = variant.stock;
+          variantOptions = variant.combinations;
+          if (variant.image_url) activeImage = variant.image_url;
+        }
+      }
+
+      if (activeStock < payload.quantity) {
+        throw new BadRequestException(
+          'Insufficient stock for selected variant',
+        );
+      }
+
       const item: ICartItem = {
         product_id: product.id,
         vendor_id: product.vendor_id,
         name: product.name,
         slug: product.slug,
-        price: Number(product.price),
-        discount_price:
-          product.on_sale && product.discount_price
-            ? Number(product.discount_price)
-            : null,
-        image: product.image?.url ?? null,
+        price: activePrice,
+        discount_price: activeDiscount,
+        unit_price: activeDiscount ?? activePrice, // resolved effective price in kobo
+        image: activeImage,
         quantity: payload.quantity,
+        variant_id: payload.variant_id ?? null,
+        variant_options: variantOptions,
         size: payload.size ?? null,
         color: colorDisplay,
         color_hex: colorHex,
@@ -258,6 +307,7 @@ export class CartService {
       quantity?: number;
       size?: string | null;
       color?: string | null;
+      variant_id?: string | null;
     },
   ) {
     const cart = await this.getOrCreateCart(userId);
@@ -265,6 +315,7 @@ export class CartService {
     const item = cart.cart_items.find(
       (i) =>
         i.product_id === productId &&
+        (i.variant_id ?? null) === (payload.variant_id ?? null) &&
         (i.size ?? null) === (payload.size ?? null) &&
         (i.color ?? null) === (payload.color ?? null),
     );
@@ -280,10 +331,17 @@ export class CartService {
 
       const product = await this.productRepo.findOne({
         where: { id: productId },
-        select: ['stock'],
+        relations: ['variants'],
+        select: ['id', 'stock'],
       });
 
-      if (!product || product.stock < payload.quantity) {
+      let stock = product?.stock ?? 0;
+      if (payload.variant_id && product?.variants?.length) {
+        const v = product.variants.find((v) => v.id === payload.variant_id);
+        if (v) stock = v.stock;
+      }
+
+      if (!product || stock < payload.quantity) {
         throw new BadRequestException('Insufficient stock');
       }
 
@@ -306,6 +364,7 @@ export class CartService {
     productId: string,
     size?: string | null,
     color?: string | null,
+    variantId?: string | null,
   ) {
     const cart = await this.getOrCreateCart(userId);
 
@@ -313,6 +372,7 @@ export class CartService {
       (i) =>
         !(
           i.product_id === productId &&
+          (i.variant_id ?? null) === (variantId ?? null) &&
           (i.size ?? null) === (size ?? null) &&
           (i.color ?? null) === (color ?? null)
         ),

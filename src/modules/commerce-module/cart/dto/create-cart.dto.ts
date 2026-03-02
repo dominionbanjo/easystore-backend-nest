@@ -11,6 +11,10 @@ export class CreateCartDto {
   @IsUUID()
   product_id: string;
 
+  @IsOptional()
+  @IsUUID()
+  variant_id?: string;
+
   @IsInt()
   @Min(1)
   quantity: number;

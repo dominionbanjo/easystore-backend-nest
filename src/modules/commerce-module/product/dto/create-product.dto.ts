@@ -9,7 +9,10 @@ import {
   IsObject,
   Min,
   IsNotEmpty,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ProductOptionDto, ProductVariantDto } from './product-variants.dto';
 
 export class CreateProductDto {
   /* ───────────────── IDs ───────────────── */
@@ -31,7 +34,8 @@ export class CreateProductDto {
 
   @IsNumber()
   @Min(0)
-  price: number;
+  @IsOptional()
+  price?: number;
 
   @IsNumber()
   @Min(0)
@@ -40,7 +44,8 @@ export class CreateProductDto {
 
   @IsInt()
   @Min(0)
-  stock: number;
+  @IsOptional()
+  stock?: number;
 
   /* ───────────────── TAGS ───────────────── */
 
@@ -77,14 +82,16 @@ export class CreateProductDto {
   specs?: Record<string, string>;
 
   @IsArray()
-  @IsString({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => ProductOptionDto)
   @IsOptional()
-  colors?: string[];
+  options?: ProductOptionDto[];
 
   @IsArray()
-  @IsString({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
   @IsOptional()
-  sizes?: string[];
+  variants?: ProductVariantDto[];
 
   /* ───────────────── SHIPPING ───────────────── */
 

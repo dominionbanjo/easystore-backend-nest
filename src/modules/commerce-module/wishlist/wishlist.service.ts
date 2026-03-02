@@ -63,7 +63,7 @@ export class WishlistService {
 
     const wishlist = await this.wishlistRepo.find({
       where: { user_id: userId },
-      relations: ['product'],
+      relations: ['product', 'product.variants'],
       order: { created_at: 'DESC' },
     });
 

@@ -80,8 +80,15 @@ export class CartController {
     @Param('productId') productId: string,
     @Query('size') size?: string,
     @Query('color') color?: string,
+    @Query('variant_id') variantId?: string,
   ) {
-    return this.cartService.removeItem(user.sub, productId, size, color);
+    return this.cartService.removeItem(
+      user.sub,
+      productId,
+      size,
+      color,
+      variantId,
+    );
   }
 
   /* ────────────────────────────────────────────────

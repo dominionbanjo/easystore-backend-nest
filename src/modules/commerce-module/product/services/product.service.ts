@@ -125,4 +125,8 @@ export class ProductService {
   adjustStock(productId: string, adjustment: number, manager?: any) {
     return this.writeService.adjustStock(productId, adjustment, manager);
   }
+
+  adjustVariantStock(variantId: string, adjustment: number, manager?: any) {
+    return this.writeService.adjustVariantStock(variantId, adjustment, manager);
+  }
 }

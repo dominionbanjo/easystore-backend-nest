@@ -24,11 +24,13 @@ export class PaystackService {
    */
   calculateTransactionFee(amountKobo: number): number {
     const amountNaira = amountKobo / 100;
-    let flatFee = 0;
     const percent = 0.015; // 1.5%
     const cap = 2000; // 2000 NGN
 
-    if (amountNaira >= 2500) {
+    const thresholdNaira = 2462.5;
+    let flatFee = 0;
+
+    if (amountNaira >= thresholdNaira) {
       flatFee = 100;
     }
 

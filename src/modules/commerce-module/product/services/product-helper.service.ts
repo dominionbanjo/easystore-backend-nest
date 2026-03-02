@@ -22,24 +22,17 @@ export class ProductHelperService {
       }
     });
 
-    if (allColorIds.size === 0) return items;
-
-    const colors = await this.colorRepo.find({
-      where: { id: In([...allColorIds]) },
-      select: ['id', 'name', 'hex'],
-    });
-
-    const colorMap = new Map(colors.map((c) => [c.id, c]));
+    const colorMap = new Map();
+    if (allColorIds.size > 0) {
+      const colors = await this.colorRepo.find({
+        where: { id: In([...allColorIds]) },
+        select: ['id', 'name', 'hex'],
+      });
+      colors.forEach((c) => colorMap.set(c.id, c));
+    }
 
     return items.map((item) => ({
       ...item,
-      price: Number(item.price) / 100,
-      discount_price: item.discount_price
-        ? Number(item.discount_price) / 100
-        : null,
-      shipping_cost: item.shipping_cost
-        ? Number(item.shipping_cost) / 100
-        : null,
       colors: Array.isArray(item.colors)
         ? item.colors.map((id: string) => colorMap.get(id)).filter(Boolean)
         : [],

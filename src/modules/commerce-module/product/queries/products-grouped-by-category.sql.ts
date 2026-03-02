@@ -13,6 +13,20 @@ WITH ranked_products AS (
     p.colors,
     p.sizes,
     p.on_sale,
+    p.options,
+    (
+      SELECT json_agg(json_build_object(
+        'id', v.id,
+        'sku', v.sku,
+        'combinations', v.combinations,
+        'price', v.price,
+        'stock', v.stock,
+        'discount_price', v.discount_price,
+        'image_url', v.image_url
+      ))
+      FROM product_variants v
+      WHERE v.product_id = p.id
+    ) as variants,
 
     s.store_name,
     s.address_city,

@@ -12,6 +12,7 @@ import {
   ProductImage,
   ProductGalleryItem,
 } from '../entities/product.entity';
+import { ProductVariant } from '../entities/product-variant.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
@@ -27,6 +28,9 @@ export class ProductWriteService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+
+    @InjectRepository(ProductVariant)
+    private readonly variantRepo: Repository<ProductVariant>,
 
     private readonly upload: UploadService,
     private readonly wishlistService: WishlistService,
@@ -65,6 +69,41 @@ export class ProductWriteService {
         manager,
       );
     }
+  }
+
+  private resolveRootPriceAndStock(dto: any) {
+    let { price, stock } = dto;
+    const variants = dto.variants || [];
+
+    if (variants.length > 0) {
+      if (price === undefined || price === null) {
+        // Find minimum variant price
+        price = Math.min(...variants.map((v: any) => v.price || 0));
+      }
+      if (stock === undefined || stock === null) {
+        // Sum variant stocks
+        stock = variants.reduce(
+          (sum: number, v: any) => sum + (v.stock || 0),
+          0,
+        );
+      }
+    }
+
+    return {
+      price: price || 0,
+      stock: stock || 0,
+    };
+  }
+
+  private formatVariants(variants?: any[]) {
+    if (!variants) return variants;
+    return variants.map((v) => ({
+      ...v,
+      price: Math.round(Number(v.price) * 100),
+      discount_price: v.discount_price
+        ? Math.round(Number(v.discount_price) * 100)
+        : null,
+    }));
   }
 
   async create(
@@ -108,9 +147,12 @@ export class ProductWriteService {
       );
     }
 
+    const { price, stock } = this.resolveRootPriceAndStock(dto);
+
     const product = this.productRepo.create({
       ...dto,
-      price: Math.round(Number(dto.price) * 100),
+      price: Math.round(Number(price) * 100),
+      stock,
       discount_price: dto.discount_price
         ? Math.round(Number(dto.discount_price) * 100)
         : null,
@@ -122,6 +164,8 @@ export class ProductWriteService {
       slug,
       image,
       gallery,
+      options: dto.options ?? null,
+      variants: dto.variants ? this.formatVariants(dto.variants) : [],
     });
 
     const saved = await this.productRepo.save(product);
@@ -148,9 +192,12 @@ export class ProductWriteService {
       throw new BadRequestException('Product with same name exists');
     }
 
+    const { price, stock } = this.resolveRootPriceAndStock(dto);
+
     const product = this.productRepo.create({
       ...dto,
-      price: Math.round(Number(dto.price) * 100),
+      price: Math.round(Number(price) * 100),
+      stock,
       discount_price: dto.discount_price
         ? Math.round(Number(dto.discount_price) * 100)
         : null,
@@ -163,6 +210,8 @@ export class ProductWriteService {
       image: dto.image ?? null,
       gallery: dto.gallery ?? null,
       status: ProductStatus.ACTIVE,
+      options: dto.options ?? null,
+      variants: dto.variants ? this.formatVariants(dto.variants) : [],
     });
 
     const saved = await this.productRepo.save(product);
@@ -212,19 +261,25 @@ export class ProductWriteService {
     }
 
     const products = this.productRepo.create(
-      dtos.map((dto) => ({
-        ...dto,
-        price: Math.round(Number(dto.price) * 100),
-        discount_price: dto.discount_price
-          ? Math.round(Number(dto.discount_price) * 100)
-          : null,
-        shipping_cost: dto.shipping_cost
-          ? Math.round(Number(dto.shipping_cost) * 100)
-          : null,
-        vendor_id: user.sub,
-        store_id: user.store_id,
-        slug: slugify(dto.name, { lower: true, strict: true }),
-      })),
+      dtos.map((dto) => {
+        const { price, stock } = this.resolveRootPriceAndStock(dto);
+        return {
+          ...dto,
+          price: Math.round(Number(price) * 100),
+          stock,
+          discount_price: dto.discount_price
+            ? Math.round(Number(dto.discount_price) * 100)
+            : null,
+          shipping_cost: dto.shipping_cost
+            ? Math.round(Number(dto.shipping_cost) * 100)
+            : null,
+          vendor_id: user.sub,
+          store_id: user.store_id,
+          slug: slugify(dto.name, { lower: true, strict: true }),
+          options: dto.options ?? null,
+          variants: dto.variants ? this.formatVariants(dto.variants) : [],
+        };
+      }),
     );
 
     const saved = await this.productRepo.save(products);
@@ -249,12 +304,16 @@ export class ProductWriteService {
       product.slug = slugify(dto.name, { lower: true, strict: true });
     }
 
+    const { price, stock } = this.resolveRootPriceAndStock({
+      ...dto,
+      price: dto.price !== undefined ? dto.price : product.price / 100,
+      stock: dto.stock !== undefined ? dto.stock : product.stock,
+      variants: dto.variants !== undefined ? dto.variants : product.variants,
+    });
+
     Object.assign(product, {
       ...dto,
-      price:
-        dto.price !== undefined
-          ? Math.round(Number(dto.price) * 100)
-          : product.price,
+      price: Math.round(Number(price) * 100),
       discount_price:
         dto.discount_price !== undefined
           ? dto.discount_price
@@ -267,7 +326,21 @@ export class ProductWriteService {
             ? Math.round(Number(dto.shipping_cost) * 100)
             : null
           : product.shipping_cost,
+      stock,
+      options: dto.options !== undefined ? dto.options : product.options,
+      variants:
+        dto.variants !== undefined
+          ? this.formatVariants(dto.variants)
+          : product.variants,
     });
+
+    // To ensure TypeORM doesn't just attempt to update orphaned variants we can clear existing and rebuild
+    if (dto.variants) {
+      const existingVariants = await this.productRepo.manager.query(
+        'DELETE FROM product_variants WHERE product_id = $1 RETURNING id',
+        [product.id],
+      );
+    }
 
     const updated = await this.productRepo.save(product);
 
@@ -306,12 +379,16 @@ export class ProductWriteService {
       product.gallery = dto.gallery;
     }
 
+    const { price, stock } = this.resolveRootPriceAndStock({
+      ...dto,
+      price: dto.price !== undefined ? dto.price : product.price / 100,
+      stock: dto.stock !== undefined ? dto.stock : product.stock,
+      variants: dto.variants !== undefined ? dto.variants : product.variants,
+    });
+
     Object.assign(product, {
       ...dto,
-      price:
-        dto.price !== undefined
-          ? Math.round(Number(dto.price) * 100)
-          : product.price,
+      price: Math.round(Number(price) * 100),
       discount_price:
         dto.discount_price !== undefined
           ? dto.discount_price
@@ -324,9 +401,22 @@ export class ProductWriteService {
             ? Math.round(Number(dto.shipping_cost) * 100)
             : null
           : product.shipping_cost,
+      stock,
       image: product.image,
       gallery: product.gallery,
+      options: dto.options !== undefined ? dto.options : product.options,
+      variants:
+        dto.variants !== undefined
+          ? this.formatVariants(dto.variants)
+          : product.variants,
     });
+
+    if (dto.variants) {
+      await this.productRepo.manager.query(
+        'DELETE FROM product_variants WHERE product_id = $1',
+        [product.id],
+      );
+    }
 
     const updated = await this.productRepo.save(product);
 
@@ -460,6 +550,58 @@ export class ProductWriteService {
       });
       if (p && p.stock <= 0) {
         await this.handleOutOfStock(productId, manager);
+      }
+    }
+
+    await this.cache.clearPrefix('svc:product');
+  }
+
+  /**
+   * Adjust stock for a specific product variant.
+   * Also adjusts the parent product's stock to keep aggregate in sync.
+   * Pass a positive adjustment to restore stock, negative to deduct.
+   */
+  async adjustVariantStock(
+    variantId: string,
+    adjustment: number,
+    manager?: EntityManager,
+  ) {
+    const variantRepo = manager
+      ? manager.getRepository(ProductVariant)
+      : this.variantRepo;
+    const productRepo = manager
+      ? manager.getRepository(Product)
+      : this.productRepo;
+
+    const variant = await variantRepo.findOne({ where: { id: variantId } });
+    if (!variant) return; // Variant may have been deleted; skip gracefully
+
+    const abs = Math.abs(adjustment);
+
+    if (adjustment > 0) {
+      await variantRepo.increment({ id: variantId }, 'stock', abs);
+      await productRepo.increment({ id: variant.product_id }, 'stock', abs);
+      await productRepo.decrement(
+        { id: variant.product_id },
+        'total_sold',
+        abs,
+      );
+    } else if (adjustment < 0) {
+      await variantRepo.decrement({ id: variantId }, 'stock', abs);
+      await productRepo.decrement({ id: variant.product_id }, 'stock', abs);
+      await productRepo.increment(
+        { id: variant.product_id },
+        'total_sold',
+        abs,
+      );
+
+      // Handle product-level out-of-stock (checks aggregate product stock)
+      const p = await productRepo.findOne({
+        where: { id: variant.product_id },
+        select: ['stock'],
+      });
+      if (p && p.stock <= 0) {
+        await this.handleOutOfStock(variant.product_id, manager);
       }
     }
 

@@ -14,6 +14,10 @@ import {
 import { Wishlist } from 'src/modules/commerce-module/wishlist/entities/wishlist.entity';
 import { STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL } from 'src/modules/commerce-module/product/queries/products-grouped-by-category.store.sql';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
+import {
+  addProductCardSelects,
+  mapToProductCardData,
+} from 'src/modules/commerce-module/product/utils/product-card.util';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { Store } from '../entities/store.entity';
 import { StoreHelperService } from './store-helper.service';
@@ -169,29 +173,15 @@ export class StoreReadService {
     let productsResult: ReturnType<typeof buildPagination> | null = null;
 
     if (includeProducts) {
-      const [products, total] = await this.productRepo
-        .createQueryBuilder('product')
-        .leftJoin('product.category_ref', 'category')
-        .select([
-          'product.id',
-          'product.name',
-          'product.slug',
-          'product.price',
-          'product.image',
-          'product.rating_average',
-          'product.stock',
-          'product.created_at',
-          'product.discount_price',
-          'product.on_sale',
-          'product.shipping_cost',
-          'category.id',
-          'category.name',
-          'category.slug',
-        ])
+      const qb = addProductCardSelects(
+        this.productRepo.createQueryBuilder('product'),
+      )
         .where('product.store_id = :storeId', { storeId: store.id })
         .andWhere('product.status = :status', {
           status: ProductStatus.ACTIVE,
-        })
+        });
+
+      const [products, total] = await qb
         .orderBy('product.created_at', 'DESC')
         .skip((page - 1) * limit)
         .take(limit)
@@ -210,25 +200,18 @@ export class StoreReadService {
         wishlistedIds = new Set(wishlisted.map((w) => w.product_id));
       }
 
-      const items = products.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        price: Number(p.price) / 100,
-        image: p.image?.url ?? null,
-        rating_average: Number(p.rating_average),
-        stock: p.stock,
-        store_name: store.store_name,
-        store_slug: store.slug,
-        discount_price: p.discount_price
-          ? Number(p.discount_price) / 100
-          : null,
-        on_sale: p.on_sale,
-        is_in_wishlist: wishlistedIds.has(p.id),
-        shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
-      }));
+      const items = products.map((p) =>
+        mapToProductCardData(p, {
+          wishlistSet: wishlistedIds,
+          extra: {
+            store_name: store.store_name,
+            store_slug: store.slug,
+          },
+        }),
+      );
 
-      productsResult = buildPagination(items, total, page, limit);
+      const enriched = await this.helpers.resolveColorsForList(items);
+      productsResult = buildPagination(enriched, total, page, limit);
     }
 
     let categories: ProductCategory[] = [];
@@ -438,27 +421,9 @@ export class StoreReadService {
       throw new NotFoundException('Store not found');
     }
 
-    const qb = this.productRepo
-      .createQueryBuilder('product')
-      .leftJoin('product.category_ref', 'category')
-      .select([
-        'product.id',
-        'product.name',
-        'product.slug',
-        'product.price',
-        'product.image',
-        'product.rating_average',
-        'product.stock',
-        'product.created_at',
-        'product.colors',
-        'product.sizes',
-        'product.discount_price',
-        'product.on_sale',
-        'product.shipping_cost',
-        'category.id',
-        'category.name',
-        'category.slug',
-      ])
+    const qb = addProductCardSelects(
+      this.productRepo.createQueryBuilder('product'),
+    )
       .where('product.store_id = :storeId', { storeId: store.id })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
@@ -506,29 +471,19 @@ export class StoreReadService {
       wishlistedIds = new Set(wishlisted.map((w) => w.product_id));
     }
 
-    const items = products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: Number(p.price) / 100,
-      image: p.image?.url ?? null,
-      rating_average: Number(p.rating_average),
-      stock: p.stock,
-      store_name: store.store_name,
-      store_slug: store.slug,
-      address_city: store.address_city,
-      address_state: store.address_state,
-      address_country: store.address_country,
-      address_postal_code: store.address_postal_code,
-      created_at: p.created_at,
-      category: p.category_ref?.name,
-      colors: p.colors || [],
-      sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
-      on_sale: p.on_sale,
-      is_in_wishlist: wishlistedIds.has(p.id),
-      shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
-    }));
+    const items = products.map((p) =>
+      mapToProductCardData(p, {
+        wishlistSet: wishlistedIds,
+        extra: {
+          store_name: store.store_name,
+          store_slug: store.slug,
+          address_city: store.address_city,
+          address_state: store.address_state,
+          address_country: store.address_country,
+          address_postal_code: store.address_postal_code,
+        },
+      }),
+    );
 
     const enriched = await this.helpers.resolveColorsForList(items);
 
@@ -591,28 +546,11 @@ export class StoreReadService {
       throw new NotFoundException('Category not found');
     }
 
-    const [products, total] = await this.productRepo
-      .createQueryBuilder('product')
-      .leftJoin('product.category_ref', 'category')
-      .select([
-        'product.id',
-        'product.name',
-        'product.slug',
-        'product.price',
-        'product.image',
-        'product.rating_average',
-        'product.stock',
-        'product.created_at',
-        'product.colors',
-        'product.sizes',
-        'product.discount_price',
-        'product.on_sale',
-        'product.shipping_cost',
-        'category.id',
-        'category.name',
-        'category.slug',
-      ])
-      .where('product.store_id = :storeId', { storeId: store.id })
+    const qb = addProductCardSelects(
+      this.productRepo.createQueryBuilder('product'),
+    );
+
+    const [products, total] = await qb
       .andWhere('product.category_id = :categoryId', { categoryId })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
@@ -635,29 +573,19 @@ export class StoreReadService {
       wishlistedIds = new Set(wishlisted.map((w) => w.product_id));
     }
 
-    const items = products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: Number(p.price) / 100,
-      image: p.image?.url ?? null,
-      rating_average: Number(p.rating_average),
-      stock: p.stock,
-      store_name: store.store_name,
-      store_slug: store.slug,
-      address_city: store.address_city,
-      address_state: store.address_state,
-      address_country: store.address_country,
-      address_postal_code: store.address_postal_code,
-      created_at: p.created_at,
-      category: p.category_ref?.name,
-      colors: p.colors || [],
-      sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
-      on_sale: p.on_sale,
-      is_in_wishlist: wishlistedIds.has(p.id),
-      shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
-    }));
+    const items = products.map((p) =>
+      mapToProductCardData(p, {
+        wishlistSet: wishlistedIds,
+        extra: {
+          store_name: store.store_name,
+          store_slug: store.slug,
+          address_city: store.address_city,
+          address_state: store.address_state,
+          address_country: store.address_country,
+          address_postal_code: store.address_postal_code,
+        },
+      }),
+    );
 
     const enriched = await this.helpers.resolveColorsForList(items);
 
@@ -743,6 +671,14 @@ export class StoreReadService {
         image: extractImageUrl(row.image),
         colors: row.colors || [],
         sizes: row.sizes || [],
+        options: row.options || [],
+        variants: (row.variants || []).map((v: any) => ({
+          ...v,
+          price: v.price ? Number(v.price) / 100 : 0,
+          discount_price: v.discount_price
+            ? Number(v.discount_price) / 100
+            : null,
+        })),
         shipping_cost: row.shipping_cost ? Number(row.shipping_cost) / 100 : 0,
       });
     }

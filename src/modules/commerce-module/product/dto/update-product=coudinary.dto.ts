@@ -11,6 +11,7 @@ import {
   IsObject,
 } from 'class-validator';
 import { CloudinaryAssetDto } from './create-product-cloudinary.dto';
+import { ProductOptionDto, ProductVariantDto } from './product-variants.dto';
 
 export class UpdateProductCloudinaryDto {
   @IsUUID()
@@ -93,12 +94,14 @@ export class UpdateProductCloudinaryDto {
   specs?: Record<string, string>;
 
   @IsArray()
-  @IsString({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => ProductOptionDto)
   @IsOptional()
-  colors?: string[];
+  options?: ProductOptionDto[];
 
   @IsArray()
-  @IsString({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
   @IsOptional()
-  sizes?: string[];
+  variants?: ProductVariantDto[];
 }

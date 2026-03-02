@@ -13,13 +13,20 @@ import { StoreModule } from 'src/modules/vendor-module/store/store.module';
 import { ProductCategory } from '../product-category/entities/product-category.entity';
 import { ReviewModule } from '../review/review.module';
 import { WishlistModule } from '../wishlist/wishlist.module';
+import { ProductVariant } from './entities/product-variant.entity';
 import { VendorProductController } from './controllers/vendor-product.controller';
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 import { CartModule } from '../cart/cart.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product, ProductCategory, Store, ProductColor]),
+    TypeOrmModule.forFeature([
+      Product,
+      ProductVariant,
+      ProductCategory,
+      Store,
+      ProductColor,
+    ]),
     ReviewModule,
     CommonModule,
     CartModule,

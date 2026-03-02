@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { ProductCategory } from '../../product-category/entities/product-category.entity';
 import { ProductReview } from '../../review/entities/review.entity';
+import { ProductVariant } from './product-variant.entity';
 
 export interface ProductImage {
   url: string;
@@ -81,6 +82,12 @@ export class Product {
 
   @OneToMany(() => ProductReview, (review) => review.product)
   reviews: ProductReview[];
+
+  @OneToMany(() => ProductVariant, (variant) => variant.product, {
+    cascade: true,
+    orphanedRowAction: 'delete',
+  })
+  variants: ProductVariant[];
   /* ────────────────────────────────────────────────
      BASIC PRODUCT FIELDS
   ───────────────────────────────────────────────── */
@@ -133,6 +140,9 @@ export class Product {
 
   @Column({ type: 'jsonb', nullable: true })
   specs: Record<string, string> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  options: { name: string; values: string[] }[] | null;
 
   @Column({ type: 'text', array: true, nullable: true })
   colors: string[] | null;

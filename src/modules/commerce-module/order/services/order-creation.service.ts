@@ -77,8 +77,7 @@ export class OrderCreationService {
       /* CALCULATE SUBTOTAL (IN KOBO) */
       let subtotalKobo = 0;
       for (const item of items) {
-        subtotalKobo +=
-          Number(item.discount_price ?? item.price) * item.quantity;
+        subtotalKobo += item.unit_price * item.quantity;
       }
 
       /* INIT PANDASCROW ESCROW */
@@ -254,7 +253,7 @@ export class OrderCreationService {
 
       let subtotalKobo = 0;
       for (const i of vendorItems) {
-        subtotalKobo += Number(i.discount_price ?? i.price) * i.quantity;
+        subtotalKobo += i.unit_price * i.quantity;
       }
 
       const taxKobo = tax;
@@ -341,8 +340,7 @@ export class OrderCreationService {
       let vendorMaxShippingKobo = 0;
 
       for (const item of groups[vendor_id]) {
-        const priceKobo = Number(item.discount_price ?? item.price);
-        vendorSubtotalKobo += priceKobo * item.quantity;
+        vendorSubtotalKobo += item.unit_price * item.quantity;
 
         const itemShippingKobo = item.shipping_cost
           ? Number(item.shipping_cost)
@@ -358,8 +356,16 @@ export class OrderCreationService {
       totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
-    const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
+    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
+    const baseAmountBeforePaystack =
+      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
+    const paystackFeeKobo = this.paystack.calculateTransactionFee(
+      baseAmountBeforePaystack,
+    );
+
+    // The final platform fee includes what Paystack will deduct, so the platform net stays >= 0
+    const platformFeeKobo = platformFee2PercentKobo + paystackFeeKobo;
+    const grandTotalKobo = baseAmountBeforePaystack + paystackFeeKobo;
 
     /* PREPARE PAYSTACK METADATA */
     const paystackMetadata = {
@@ -368,7 +374,7 @@ export class OrderCreationService {
         name: item.name,
         vendor: item.vendor_id,
         qty: item.quantity,
-        price: item.price,
+        price: item.unit_price,
       })),
       vendors: Object.keys(groups).map((vId) => ({
         vendor_id: vId,
@@ -442,7 +448,7 @@ export class OrderCreationService {
         order_id: savedOrder.id,
         buyer_id,
         vendor_id,
-        amount: subtotalKobo, // STORE IN KOBO
+        amount: vendorSubtotalKobo, // STORE IN KOBO — per-vendor, not global
       });
 
       await this.orderRepo.update(savedOrder.id, {
@@ -498,9 +504,7 @@ export class OrderCreationService {
       let vendorMaxShippingKobo = 0;
 
       for (const item of groups[vendor_id]) {
-        // ProductService returns Kobo (bigint)
-        const priceKobo = Number(item.discount_price ?? item.price);
-        vendorSubtotalKobo += priceKobo * item.quantity;
+        vendorSubtotalKobo += item.unit_price * item.quantity;
 
         // Take the max shipping cost in the group for this vendor
         const itemShippingKobo = item.shipping_cost
@@ -517,8 +521,16 @@ export class OrderCreationService {
       totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    const platformFeeKobo = Math.round(subtotalKobo * 0.02);
-    const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
+    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
+    const baseAmountBeforePaystack =
+      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
+    const paystackFeeKobo = this.paystack.calculateTransactionFee(
+      baseAmountBeforePaystack,
+    );
+
+    // The final platform fee includes what Paystack will deduct, protecting the platform share length
+    const platformFeeKobo = platformFee2PercentKobo + paystackFeeKobo;
+    const grandTotalKobo = baseAmountBeforePaystack + paystackFeeKobo;
     const reference = `ref_${uuidv4().replace(/-/g, '')}`;
 
     /* PREPARE PAYSTACK OPTIONS (SPLIT) */
@@ -529,7 +541,7 @@ export class OrderCreationService {
           name: item.name,
           vendor: item.vendor_id,
           qty: item.quantity,
-          price: item.price,
+          price: item.unit_price,
         })),
         vendors: vendorIds.map((vId) => ({
           vendor_id: vId,

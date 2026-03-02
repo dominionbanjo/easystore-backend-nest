@@ -32,18 +32,22 @@ export class OrderItemsBuilder {
         throw new BadRequestException(`Invalid quantity for ${product.name}`);
       }
 
-      const price = product.discount_price ?? product.price;
-      subtotal += price * item.quantity;
+      const activePrice = Number(product.price);
+      const activeDiscount =
+        product.on_sale && product.discount_price
+          ? Number(product.discount_price)
+          : null;
+      const unitPrice = activeDiscount ?? activePrice;
+      subtotal += unitPrice * item.quantity;
 
       validated.push({
         product_id: product.id,
         vendor_id: product.vendor_id,
         name: product.name,
         slug: product.slug,
-        price: Number(product.price),
-        discount_price: product.discount_price
-          ? Number(product.discount_price)
-          : null,
+        price: activePrice,
+        discount_price: activeDiscount,
+        unit_price: unitPrice,
         image: product.image?.url ?? null,
         quantity: item.quantity,
         size: item.size ?? null,

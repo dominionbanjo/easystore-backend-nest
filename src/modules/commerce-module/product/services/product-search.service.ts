@@ -6,6 +6,10 @@ import { ProductSearchDto } from '../dto/product-search.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { WishlistService } from '../../wishlist/wishlist.service';
 import { buildPagination } from 'src/utils/response/pagination.util';
+import {
+  addProductCardSelects,
+  mapToProductCardData,
+} from '../utils/product-card.util';
 import { ProductHelperService } from './product-helper.service';
 
 @Injectable()
@@ -43,30 +47,10 @@ export class ProductSearchService {
       matchedColorIds = await this.helpers.resolveColorIds(colors);
     }
 
-    const qb = this.productRepo
-      .createQueryBuilder('product')
-      .leftJoin('product.category_ref', 'category')
-      .leftJoin('product.store', 'store')
-      .select([
-        'product.id',
-        'product.name',
-        'product.slug',
-        'product.price',
-        'product.discount_price',
-        'product.on_sale',
-        'product.stock',
-        'product.image',
-        'product.rating_average',
-        'product.created_at',
-        'product.colors',
-        'product.sizes',
-        'store.store_name',
-        'store.address_city',
-        'store.address_state',
-        'store.address_country',
-        'store.slug',
-        'category.name',
-      ])
+    const qb = addProductCardSelects(
+      this.productRepo.createQueryBuilder('product'),
+      { withStore: true },
+    )
       .addSelect(
         `
       (
@@ -147,25 +131,13 @@ export class ProductSearchService {
 
     const [products, total] = await qb.getManyAndCount();
 
-    const items = products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: Number(p.price),
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
-      on_sale: p.on_sale,
-      stock: p.stock,
-      rating_average: Number(p.rating_average),
-      image: p.image?.url ?? null,
-      store_name: p.store?.store_name,
-      store_slug: p.store?.slug,
-      address_city: p.store?.address_city,
-      address_state: p.store?.address_state,
-      address_country: p.store?.address_country,
-      category: p.category_ref?.name,
-      colors: p.colors || [],
-      sizes: p.sizes || [],
-    }));
+    const items = products.map((p) =>
+      mapToProductCardData(p, {
+        extra: {
+          category: p.category_ref?.name,
+        },
+      }),
+    );
 
     const enriched = await this.helpers.resolveColorsForList(items);
 
@@ -206,31 +178,10 @@ export class ProductSearchService {
       .map((w) => `${w}:*`)
       .join(' & ');
 
-    const qb = this.productRepo
-      .createQueryBuilder('product')
-      .leftJoin('product.store', 'store')
-      .select([
-        'product.id',
-        'product.name',
-        'product.slug',
-        'product.price',
-        'product.image',
-        'product.rating_average',
-        'product.stock',
-        'product.created_at',
-        'product.colors',
-        'product.sizes',
-        'product.discount_price',
-        'product.on_sale',
-        'product.is_out_of_stock',
-        'store.id',
-        'store.store_name',
-        'store.address_city',
-        'store.address_state',
-        'store.address_country',
-        'store.address_postal_code',
-        'store.slug',
-      ])
+    const qb = addProductCardSelects(
+      this.productRepo.createQueryBuilder('product'),
+      { withStore: true },
+    )
       .addSelect(
         `ts_rank(product.search_vector, to_tsquery('english', :tsQuery))`,
         'rank',
@@ -278,27 +229,11 @@ export class ProductSearchService {
       .take(limit)
       .getManyAndCount();
 
-    const items = products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: Number(p.price),
-      image: p.image?.url ?? null,
-      rating_average: Number(p.rating_average ?? 0),
-      stock: p.stock,
-      store_slug: p.store?.slug,
-      store_name: p.store?.store_name,
-      address_city: p.store?.address_city,
-      address_state: p.store?.address_state,
-      address_country: p.store?.address_country,
-      address_postal_code: p.store?.address_postal_code,
-      is_in_wishlist: wishlistSet.has(p.id),
-      colors: p.colors || [],
-      sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
-      on_sale: p.on_sale,
-      is_out_of_stock: p.is_out_of_stock,
-    }));
+    const items = products.map((p) =>
+      mapToProductCardData(p, {
+        wishlistSet,
+      }),
+    );
 
     const enriched = await this.helpers.resolveColorsForList(items);
 
@@ -340,6 +275,7 @@ export class ProductSearchService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category_ref', 'category')
       .leftJoinAndSelect('product.store', 'store')
+      .leftJoinAndSelect('product.variants', 'variants')
       .where(`product.search_vector @@ to_tsquery('english', :tsQuery)`, {
         tsQuery,
       })
@@ -402,6 +338,8 @@ export class ProductSearchService {
         address_postal_code: store?.address_postal_code,
         colors: product.colors || [],
         sizes: product.sizes || [],
+        options: product.options || [],
+        variants: product.variants || [],
       };
     });
 
@@ -432,6 +370,7 @@ export class ProductSearchService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category_ref', 'category')
       .leftJoinAndSelect('product.store', 'store')
+      .leftJoinAndSelect('product.variants', 'variants')
       .where('product.store_id = :storeId', { storeId });
 
     if (q?.trim()) {
@@ -540,6 +479,8 @@ export class ProductSearchService {
         shipping_note: product.shipping_note,
         returns_note: product.returns_note,
         status: product.status,
+        options: product.options || [],
+        variants: product.variants || [],
         shipping_cost: Number(product.shipping_cost) / 100,
         rating_average: Number(product.rating_average),
         rating_count: product.rating_count,
