@@ -76,23 +76,12 @@ export class ProductWriteService {
     let price = dto.price;
     let stock = dto.stock;
 
-    console.log(
-      `[resolveRootPriceAndStock] Variants count: ${variants.length}`,
-    );
-
     if (variants.length > 0) {
       // Force recalculation from variants if they exist
       price = Math.min(...variants.map((v: any) => Number(v.price) || 0));
       stock = variants.reduce(
         (sum: number, v: any) => sum + (Number(v.stock) || 0),
         0,
-      );
-      console.log(
-        `[resolveRootPriceAndStock] Calculated from variants - Price: ${price}, Stock: ${stock}`,
-      );
-    } else {
-      console.log(
-        `[resolveRootPriceAndStock] Using root values - Price: ${price}, Stock: ${stock}`,
       );
     }
 
@@ -127,10 +116,6 @@ export class ProductWriteService {
       .set({ stock: totalStock })
       .where('id = :productId', { productId })
       .execute();
-
-    console.log(
-      `[recalculateStockFromVariants] productId=${productId} → stock=${totalStock}`,
-    );
 
     return totalStock;
   }
@@ -333,7 +318,6 @@ export class ProductWriteService {
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    console.log(`[ProductUpdate] Starting update for: ${id}`);
     return this.productRepo.manager.transaction(async (manager) => {
       const product = await manager.findOne(Product, {
         where: { id },
@@ -343,11 +327,6 @@ export class ProductWriteService {
       if (!product) {
         throw new NotFoundException('Product not found');
       }
-
-      console.log(
-        '[ProductUpdate] Current variants in DB:',
-        product.variants?.length,
-      );
 
       const { price: rootPrice, stock: rootStock } =
         this.resolveRootPriceAndStock({
@@ -398,7 +377,6 @@ export class ProductWriteService {
 
       // 2. Sync variants manually
       if (dto.variants) {
-        console.log('[ProductUpdate] Syncing variants manually...');
         const formatted = this.formatVariants(dto.variants);
         const incomingIds = formatted.map((v) => v.id).filter(Boolean);
 
@@ -411,11 +389,9 @@ export class ProductWriteService {
         // Upsert variants individually
         for (const v of formatted) {
           if (v.id) {
-            console.log(`[ProductUpdate] Updating variant: ${v.id}`);
             const { id: _vId, created_at, updated_at, ...rest } = v;
             await manager.update(ProductVariant, v.id, rest);
           } else {
-            console.log('[ProductUpdate] Inserting new variant.');
             const { id: _vId, created_at, updated_at, ...rest } = v;
             await manager.insert(ProductVariant, {
               ...rest,
@@ -427,11 +403,8 @@ export class ProductWriteService {
         // Subscribers do NOT fire on QueryBuilder calls. Recalculate explicitly.
         await this.recalculateStockFromVariants(id, manager);
       } else if (dto.variants === null) {
-        console.log('[ProductUpdate] Clearing all variants.');
         await manager.delete(ProductVariant, { product_id: id });
       }
-
-      console.log('[ProductUpdate] Result complete.');
 
       const updated = await manager.findOne(Product, {
         where: { id },
@@ -450,7 +423,6 @@ export class ProductWriteService {
   }
 
   async updateWithCloudinary(id: string, dto: UpdateProductCloudinaryDto) {
-    console.log(`[ProductUpdateCloudinary] Starting update for: ${id}`);
     return this.productRepo.manager.transaction(async (manager) => {
       const product = await manager.findOne(Product, {
         where: { id },
@@ -513,7 +485,6 @@ export class ProductWriteService {
 
       // 2. Sync variants manually
       if (dto.variants) {
-        console.log('[ProductUpdateCloudinary] Syncing variants manually...');
         const formatted = this.formatVariants(dto.variants);
         const incomingIds = formatted.map((v) => v.id).filter(Boolean);
 
@@ -540,8 +511,6 @@ export class ProductWriteService {
       } else if (dto.variants === null) {
         await manager.delete(ProductVariant, { product_id: id });
       }
-
-      console.log('[ProductUpdateCloudinary] Save complete.');
 
       const updated = await manager.findOne(Product, {
         where: { id },
