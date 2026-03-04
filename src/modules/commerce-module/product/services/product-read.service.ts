@@ -65,8 +65,10 @@ export class ProductReadService {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        price: Number(row.price),
-        discount_price: row.discount_price ? Number(row.discount_price) : null,
+        price: Number(row.price) / 100,
+        discount_price: row.discount_price
+          ? Number(row.discount_price) / 100
+          : null,
         on_sale: row.on_sale,
         stock: row.stock,
         rating_average: Number(row.rating_average),
@@ -80,8 +82,15 @@ export class ProductReadService {
         is_in_wishlist: wishlistSet.has(row.id),
         colors: row.colors || [],
         sizes: row.sizes || [],
+        shipping_cost: row.shipping_cost ? Number(row.shipping_cost) / 100 : 0,
         options: row.options || [],
-        variants: row.variants || [],
+        variants: (row.variants || []).map((v: any) => ({
+          ...v,
+          price: Number(v.price) / 100,
+          discount_price: v.discount_price
+            ? Number(v.discount_price) / 100
+            : null,
+        })),
       });
     }
 
@@ -229,7 +238,7 @@ export class ProductReadService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
+      price: Number(p.price) / 100,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
       stock: p.stock,
@@ -243,10 +252,16 @@ export class ProductReadService {
       category: category.name,
       colors: p.colors || [],
       sizes: p.sizes || [],
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       on_sale: p.on_sale,
       options: p.options || [],
-      variants: p.variants || [],
+      variants: (p.variants || []).map((v: any) => ({
+        ...v,
+        price: Number(v.price) / 100,
+        discount_price: v.discount_price
+          ? Number(v.discount_price) / 100
+          : null,
+      })),
     }));
 
     const items = await this.helpers.resolveColorsForList(data);
@@ -421,8 +436,8 @@ export class ProductReadService {
       id: p.id,
       name: p.name,
       slug: p.slug,
-      price: Number(p.price),
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
+      price: Number(p.price) / 100,
+      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       on_sale: p.on_sale,
       image: p.image?.url ?? null,
       rating_average: Number(p.rating_average),
@@ -438,7 +453,14 @@ export class ProductReadService {
       colors: p.colors || [],
       sizes: p.sizes || [],
       options: p.options || [],
-      variants: p.variants || [],
+      shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
+      variants: (p.variants || []).map((v: any) => ({
+        ...v,
+        price: Number(v.price) / 100,
+        discount_price: v.discount_price
+          ? Number(v.discount_price) / 100
+          : null,
+      })),
     }));
 
     const enriched = await this.helpers.resolveColorsForList(items);

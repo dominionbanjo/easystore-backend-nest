@@ -6,14 +6,18 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
+  Check,
 } from 'typeorm';
 import { Product } from './product.entity';
 
 @Entity({ name: 'product_variants' })
+@Check('variant_stock_non_negative', 'stock >= 0')
 export class ProductVariant {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index('IDX_VARIANT_PRODUCT_ID')
   @Column({ type: 'uuid' })
   product_id: string;
 

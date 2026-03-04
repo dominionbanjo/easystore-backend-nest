@@ -10,6 +10,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  Check,
 } from 'typeorm';
 import { ProductCategory } from '../../product-category/entities/product-category.entity';
 import { ProductReview } from '../../review/entities/review.entity';
@@ -35,6 +36,7 @@ export enum ProductStatus {
 }
 
 @Entity({ name: 'products' })
+@Check('stock_non_negative', 'stock >= 0')
 export class Product {
   /* ────────────────────────────────────────────────
      PRIMARY KEY

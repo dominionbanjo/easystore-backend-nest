@@ -195,10 +195,10 @@ export class ProductSearchService {
       });
 
     if (minPrice !== undefined) {
-      qb.andWhere('product.price >= :minPrice', { minPrice });
+      qb.andWhere('product.price >= :minPrice', { minPrice: minPrice * 100 });
     }
     if (maxPrice !== undefined) {
-      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+      qb.andWhere('product.price <= :maxPrice', { maxPrice: maxPrice * 100 });
     }
     if (rating !== undefined) {
       qb.andWhere('product.rating_average >= :rating', { rating });
@@ -285,10 +285,10 @@ export class ProductSearchService {
       });
 
     if (minPrice !== undefined) {
-      qb.andWhere('product.price >= :minPrice', { minPrice });
+      qb.andWhere('product.price >= :minPrice', { minPrice: minPrice * 100 });
     }
     if (maxPrice !== undefined) {
-      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+      qb.andWhere('product.price <= :maxPrice', { maxPrice: maxPrice * 100 });
     }
     if (rating !== undefined) {
       qb.andWhere('product.rating_average >= :rating', { rating });
@@ -322,12 +322,12 @@ export class ProductSearchService {
       const { category_ref, store, ...rest } = product;
       return {
         ...rest,
-        price: Number(product.price),
+        price: Number(product.price) / 100,
         discount_price: product.discount_price
-          ? Number(product.discount_price)
+          ? Number(product.discount_price) / 100
           : null,
         shipping_cost: product.shipping_cost
-          ? Number(product.shipping_cost)
+          ? Number(product.shipping_cost) / 100
           : null,
         category_ref,
         store_slug: store?.slug,
@@ -339,7 +339,13 @@ export class ProductSearchService {
         colors: product.colors || [],
         sizes: product.sizes || [],
         options: product.options || [],
-        variants: product.variants || [],
+        variants: (product.variants || []).map((v: any) => ({
+          ...v,
+          price: Number(v.price) / 100,
+          discount_price: v.discount_price
+            ? Number(v.discount_price) / 100
+            : null,
+        })),
       };
     });
 
@@ -393,10 +399,10 @@ export class ProductSearchService {
     }
 
     if (minPrice !== undefined) {
-      qb.andWhere('product.price >= :minPrice', { minPrice });
+      qb.andWhere('product.price >= :minPrice', { minPrice: minPrice * 100 });
     }
     if (maxPrice !== undefined) {
-      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+      qb.andWhere('product.price <= :maxPrice', { maxPrice: maxPrice * 100 });
     }
     if (rating !== undefined) {
       qb.andWhere('product.rating_average >= :rating', { rating });

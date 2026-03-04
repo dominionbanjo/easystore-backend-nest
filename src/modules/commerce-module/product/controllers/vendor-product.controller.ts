@@ -15,7 +15,6 @@ import { ProductService } from '../services/product.service';
 import { ProductStatus } from '../entities/product.entity';
 import { ProductSearchDto } from '../dto/product-search.dto';
 import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
-import { UpdateProductCloudinaryDto } from '../dto/update-product=coudinary.dto';
 
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
@@ -26,6 +25,7 @@ import { Permission } from 'src/common/permissions/permissions';
 import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
 import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
 import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
+import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
 
 @Controller('vendor/products')
 export class VendorProductController {

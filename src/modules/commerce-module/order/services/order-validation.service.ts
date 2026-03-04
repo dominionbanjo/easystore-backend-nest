@@ -104,9 +104,9 @@ export class OrderValidationService {
       }
 
       /* ─── Stock check ─── */
-      if (item.quantity < 1 || item.quantity > activeStock) {
+      if (activeStock < 1 || item.quantity > activeStock) {
         throw new BadRequestException(
-          `"${product.name}" is out of stock or quantity exceeds available stock (${activeStock}). Please update your cart.`,
+          `"${product.name}" ${variant ? `(${Object.values(variantOptions || {}).join(', ')})` : ''} is out of stock or quantity exceeds available stock (${activeStock < 0 ? 0 : activeStock}). Please update your cart.`,
         );
       }
 

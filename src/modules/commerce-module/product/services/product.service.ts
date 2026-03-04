@@ -8,7 +8,7 @@ import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductSearchDto } from '../dto/product-search.dto';
 import { ProductStatus } from '../entities/product.entity';
 import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
-import { UpdateProductCloudinaryDto } from '../dto/update-product=coudinary.dto';
+import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
 
 @Injectable()
 export class ProductService {

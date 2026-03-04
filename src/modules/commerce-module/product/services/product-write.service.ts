@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, In, Not } from 'typeorm';
 import slugify from 'slugify';
 import {
   Product,
@@ -16,7 +16,7 @@ import { ProductVariant } from '../entities/product-variant.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
-import { UpdateProductCloudinaryDto } from '../dto/update-product=coudinary.dto';
+import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
 import { UploadService } from 'src/common/services/upload.service';
 import { WishlistService } from '../../wishlist/wishlist.service';
 import { CartService } from '../../cart/cart.service';
@@ -72,21 +72,28 @@ export class ProductWriteService {
   }
 
   private resolveRootPriceAndStock(dto: any) {
-    let { price, stock } = dto;
     const variants = dto.variants || [];
+    let price = dto.price;
+    let stock = dto.stock;
+
+    console.log(
+      `[resolveRootPriceAndStock] Variants count: ${variants.length}`,
+    );
 
     if (variants.length > 0) {
-      if (price === undefined || price === null) {
-        // Find minimum variant price
-        price = Math.min(...variants.map((v: any) => v.price || 0));
-      }
-      if (stock === undefined || stock === null) {
-        // Sum variant stocks
-        stock = variants.reduce(
-          (sum: number, v: any) => sum + (v.stock || 0),
-          0,
-        );
-      }
+      // Force recalculation from variants if they exist
+      price = Math.min(...variants.map((v: any) => Number(v.price) || 0));
+      stock = variants.reduce(
+        (sum: number, v: any) => sum + (Number(v.stock) || 0),
+        0,
+      );
+      console.log(
+        `[resolveRootPriceAndStock] Calculated from variants - Price: ${price}, Stock: ${stock}`,
+      );
+    } else {
+      console.log(
+        `[resolveRootPriceAndStock] Using root values - Price: ${price}, Stock: ${stock}`,
+      );
     }
 
     return {
@@ -95,14 +102,48 @@ export class ProductWriteService {
     };
   }
 
-  private formatVariants(variants?: any[]) {
-    if (!variants) return variants;
+  /**
+   * Explicitly recalculate the product's aggregate stock from its variants.
+   * This is required because TypeORM subscribers do NOT fire on raw
+   * QueryBuilder .update() / .insert() calls – only on .save().
+   * We call this manually after every variant upsert in update flows.
+   */
+  private async recalculateStockFromVariants(
+    productId: string,
+    manager: EntityManager,
+  ) {
+    const result = await manager
+      .createQueryBuilder()
+      .select('COALESCE(SUM(v.stock), 0)', 'total')
+      .from(ProductVariant, 'v')
+      .where('v.product_id = :productId', { productId })
+      .getRawOne();
+
+    const totalStock = Number(result?.total ?? 0);
+
+    await manager
+      .createQueryBuilder()
+      .update(Product)
+      .set({ stock: totalStock })
+      .where('id = :productId', { productId })
+      .execute();
+
+    console.log(
+      `[recalculateStockFromVariants] productId=${productId} → stock=${totalStock}`,
+    );
+
+    return totalStock;
+  }
+
+  private formatVariants(variants: any[]): any[] {
     return variants.map((v) => ({
       ...v,
       price: Math.round(Number(v.price) * 100),
       discount_price: v.discount_price
         ? Math.round(Number(v.discount_price) * 100)
         : null,
+      stock: Number(v.stock) || 0,
+      sku: v.sku || null,
     }));
   }
 
@@ -292,142 +333,230 @@ export class ProductWriteService {
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    const product = await this.productRepo.findOne({
-      where: { id },
-    });
+    console.log(`[ProductUpdate] Starting update for: ${id}`);
+    return this.productRepo.manager.transaction(async (manager) => {
+      const product = await manager.findOne(Product, {
+        where: { id },
+        relations: ['variants'],
+      });
 
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
 
-    if (dto.name && dto.name !== product.name) {
-      product.slug = slugify(dto.name, { lower: true, strict: true });
-    }
-
-    const { price, stock } = this.resolveRootPriceAndStock({
-      ...dto,
-      price: dto.price !== undefined ? dto.price : product.price / 100,
-      stock: dto.stock !== undefined ? dto.stock : product.stock,
-      variants: dto.variants !== undefined ? dto.variants : product.variants,
-    });
-
-    Object.assign(product, {
-      ...dto,
-      price: Math.round(Number(price) * 100),
-      discount_price:
-        dto.discount_price !== undefined
-          ? dto.discount_price
-            ? Math.round(Number(dto.discount_price) * 100)
-            : null
-          : product.discount_price,
-      shipping_cost:
-        dto.shipping_cost !== undefined
-          ? dto.shipping_cost
-            ? Math.round(Number(dto.shipping_cost) * 100)
-            : null
-          : product.shipping_cost,
-      stock,
-      options: dto.options !== undefined ? dto.options : product.options,
-      variants:
-        dto.variants !== undefined
-          ? this.formatVariants(dto.variants)
-          : product.variants,
-    });
-
-    // To ensure TypeORM doesn't just attempt to update orphaned variants we can clear existing and rebuild
-    if (dto.variants) {
-      const existingVariants = await this.productRepo.manager.query(
-        'DELETE FROM product_variants WHERE product_id = $1 RETURNING id',
-        [product.id],
+      console.log(
+        '[ProductUpdate] Current variants in DB:',
+        product.variants?.length,
       );
-    }
 
-    const updated = await this.productRepo.save(product);
+      const { price: rootPrice, stock: rootStock } =
+        this.resolveRootPriceAndStock({
+          ...dto,
+          variants: dto.variants ?? [],
+        });
 
-    if (updated.stock <= 0) {
-      await this.handleOutOfStock(updated.id);
-    }
+      // Prepare explicit update object for the root product
+      const updateData: any = {
+        price: Math.round(Number(rootPrice) * 100),
+        updated_at: new Date(),
+      };
 
-    return {
-      message: 'Product updated successfully',
-      product: updated,
-    };
+      // ONLY manually set stock if there are NO variants provided.
+      // If variants exist, the subscriber handles Product.stock synchronization.
+      if (!dto.variants || dto.variants.length === 0) {
+        updateData.stock = Number(rootStock);
+      }
+
+      if (dto.name && dto.name !== product.name) {
+        updateData.name = dto.name;
+        updateData.slug = slugify(dto.name, { lower: true, strict: true });
+      }
+      if (dto.description !== undefined)
+        updateData.description = dto.description;
+      if (dto.category_id !== undefined)
+        updateData.category_id = dto.category_id;
+      if (dto.discount_price !== undefined) {
+        updateData.discount_price = dto.discount_price
+          ? Math.round(Number(dto.discount_price) * 100)
+          : null;
+      }
+      if (dto.shipping_cost !== undefined) {
+        updateData.shipping_cost = dto.shipping_cost
+          ? Math.round(Number(dto.shipping_cost) * 100)
+          : null;
+      }
+
+      updateData.shipping_note = dto.shipping_note ?? product.shipping_note;
+      updateData.returns_note = dto.returns_note ?? product.returns_note;
+      updateData.options = dto.options ?? product.options;
+      updateData.tags = dto.tags ?? product.tags;
+      updateData.highlights = dto.highlights ?? product.highlights;
+      updateData.specs = dto.specs ?? product.specs;
+
+      // 1. Update root product (Directly to bypass cascade stalls)
+      await manager.update(Product, id, updateData);
+
+      // 2. Sync variants manually
+      if (dto.variants) {
+        console.log('[ProductUpdate] Syncing variants manually...');
+        const formatted = this.formatVariants(dto.variants);
+        const incomingIds = formatted.map((v) => v.id).filter(Boolean);
+
+        // Delete orphans
+        await manager.delete(ProductVariant, {
+          product_id: id,
+          id: Not(In(incomingIds)),
+        });
+
+        // Upsert variants individually
+        for (const v of formatted) {
+          if (v.id) {
+            console.log(`[ProductUpdate] Updating variant: ${v.id}`);
+            const { id: _vId, created_at, updated_at, ...rest } = v;
+            await manager.update(ProductVariant, v.id, rest);
+          } else {
+            console.log('[ProductUpdate] Inserting new variant.');
+            const { id: _vId, created_at, updated_at, ...rest } = v;
+            await manager.insert(ProductVariant, {
+              ...rest,
+              product_id: id,
+            });
+          }
+        }
+
+        // Subscribers do NOT fire on QueryBuilder calls. Recalculate explicitly.
+        await this.recalculateStockFromVariants(id, manager);
+      } else if (dto.variants === null) {
+        console.log('[ProductUpdate] Clearing all variants.');
+        await manager.delete(ProductVariant, { product_id: id });
+      }
+
+      console.log('[ProductUpdate] Result complete.');
+
+      const updated = await manager.findOne(Product, {
+        where: { id },
+        relations: ['variants'],
+      });
+
+      if (updated && updated.stock <= 0) {
+        await this.handleOutOfStock(id, manager);
+      }
+
+      return {
+        message: 'Product updated successfully',
+        product: updated,
+      };
+    });
   }
 
   async updateWithCloudinary(id: string, dto: UpdateProductCloudinaryDto) {
-    const product = await this.productRepo.findOne({
-      where: { id },
+    console.log(`[ProductUpdateCloudinary] Starting update for: ${id}`);
+    return this.productRepo.manager.transaction(async (manager) => {
+      const product = await manager.findOne(Product, {
+        where: { id },
+        relations: ['variants'],
+      });
+
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
+
+      const { price: rootPrice, stock: rootStock } =
+        this.resolveRootPriceAndStock({
+          ...dto,
+          variants: dto.variants ?? [],
+        });
+
+      const updateData: any = {
+        price: Math.round(Number(rootPrice) * 100),
+        updated_at: new Date(),
+      };
+
+      // ONLY manually set stock if there are NO variants provided.
+      // If variants exist, the subscriber handles Product.stock synchronization.
+      if (!dto.variants || dto.variants.length === 0) {
+        updateData.stock = Number(rootStock);
+      }
+
+      if (dto.category_id && dto.category_id !== product.category_id) {
+        await this.helpers.ensureCategoryExists(dto.category_id);
+        updateData.category_id = dto.category_id;
+      }
+      if (dto.name && dto.name !== product.name) {
+        updateData.name = dto.name;
+        updateData.slug = slugify(dto.name, { lower: true, strict: true });
+      }
+
+      if (dto.image !== undefined) updateData.image = dto.image;
+      if (dto.gallery !== undefined) updateData.gallery = dto.gallery;
+      if (dto.description !== undefined)
+        updateData.description = dto.description;
+      if (dto.discount_price !== undefined) {
+        updateData.discount_price = dto.discount_price
+          ? Math.round(Number(dto.discount_price) * 100)
+          : null;
+      }
+      if (dto.shipping_cost !== undefined) {
+        updateData.shipping_cost = dto.shipping_cost
+          ? Math.round(Number(dto.shipping_cost) * 100)
+          : null;
+      }
+      updateData.shipping_note = dto.shipping_note ?? product.shipping_note;
+      updateData.returns_note = dto.returns_note ?? product.returns_note;
+      updateData.options = dto.options ?? product.options;
+      updateData.tags = dto.tags ?? product.tags;
+      updateData.highlights = dto.highlights ?? product.highlights;
+      updateData.specs = dto.specs ?? product.specs;
+
+      // 1. Update root product
+      await manager.update(Product, id, updateData);
+
+      // 2. Sync variants manually
+      if (dto.variants) {
+        console.log('[ProductUpdateCloudinary] Syncing variants manually...');
+        const formatted = this.formatVariants(dto.variants);
+        const incomingIds = formatted.map((v) => v.id).filter(Boolean);
+
+        await manager.delete(ProductVariant, {
+          product_id: id,
+          id: Not(In(incomingIds)),
+        });
+
+        for (const v of formatted) {
+          if (v.id) {
+            const { id: _vId, created_at, updated_at, ...rest } = v;
+            await manager.update(ProductVariant, v.id, rest);
+          } else {
+            const { id: _vId, created_at, updated_at, ...rest } = v;
+            await manager.insert(ProductVariant, {
+              ...rest,
+              product_id: id,
+            });
+          }
+        }
+
+        // Subscribers do NOT fire on QueryBuilder calls. Recalculate explicitly.
+        await this.recalculateStockFromVariants(id, manager);
+      } else if (dto.variants === null) {
+        await manager.delete(ProductVariant, { product_id: id });
+      }
+
+      console.log('[ProductUpdateCloudinary] Save complete.');
+
+      const updated = await manager.findOne(Product, {
+        where: { id },
+        relations: ['variants'],
+      });
+
+      if (updated && updated.stock <= 0) {
+        await this.handleOutOfStock(id, manager);
+      }
+
+      return {
+        message: 'Product updated successfully',
+        product: updated,
+      };
     });
-
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
-
-    if (dto.category_id && dto.category_id !== product.category_id) {
-      await this.helpers.ensureCategoryExists(dto.category_id);
-    }
-
-    if (dto.name && dto.name !== product.name) {
-      product.slug = slugify(dto.name, { lower: true, strict: true });
-    }
-
-    if (dto.image !== undefined) {
-      product.image = dto.image;
-    }
-
-    if (dto.gallery !== undefined) {
-      product.gallery = dto.gallery;
-    }
-
-    const { price, stock } = this.resolveRootPriceAndStock({
-      ...dto,
-      price: dto.price !== undefined ? dto.price : product.price / 100,
-      stock: dto.stock !== undefined ? dto.stock : product.stock,
-      variants: dto.variants !== undefined ? dto.variants : product.variants,
-    });
-
-    Object.assign(product, {
-      ...dto,
-      price: Math.round(Number(price) * 100),
-      discount_price:
-        dto.discount_price !== undefined
-          ? dto.discount_price
-            ? Math.round(Number(dto.discount_price) * 100)
-            : null
-          : product.discount_price,
-      shipping_cost:
-        dto.shipping_cost !== undefined
-          ? dto.shipping_cost
-            ? Math.round(Number(dto.shipping_cost) * 100)
-            : null
-          : product.shipping_cost,
-      stock,
-      image: product.image,
-      gallery: product.gallery,
-      options: dto.options !== undefined ? dto.options : product.options,
-      variants:
-        dto.variants !== undefined
-          ? this.formatVariants(dto.variants)
-          : product.variants,
-    });
-
-    if (dto.variants) {
-      await this.productRepo.manager.query(
-        'DELETE FROM product_variants WHERE product_id = $1',
-        [product.id],
-      );
-    }
-
-    const updated = await this.productRepo.save(product);
-
-    if (updated.stock <= 0) {
-      await this.handleOutOfStock(updated.id);
-    }
-
-    return {
-      message: 'Product updated successfully',
-      product: updated,
-    };
   }
 
   async updateStatus(productId: string, status: ProductStatus) {
@@ -536,12 +665,15 @@ export class ProductWriteService {
       await repo.increment({ id: productId }, 'stock', adjustment);
       await repo.decrement({ id: productId }, 'total_sold', adjustment);
     } else if (adjustment < 0) {
-      await repo.decrement({ id: productId }, 'stock', Math.abs(adjustment));
-      await repo.increment(
-        { id: productId },
-        'total_sold',
-        Math.abs(adjustment),
-      );
+      await repo
+        .createQueryBuilder()
+        .update(Product)
+        .set({
+          stock: () => `GREATEST(0, stock - ${Math.abs(adjustment)})`,
+          total_sold: () => `total_sold + ${Math.abs(adjustment)}`,
+        })
+        .where('id = :productId', { productId })
+        .execute();
 
       // Check if stock is now 0 or less
       const p = await repo.findOne({
@@ -580,22 +712,31 @@ export class ProductWriteService {
 
     if (adjustment > 0) {
       await variantRepo.increment({ id: variantId }, 'stock', abs);
-      await productRepo.increment({ id: variant.product_id }, 'stock', abs);
       await productRepo.decrement(
         { id: variant.product_id },
         'total_sold',
         abs,
       );
     } else if (adjustment < 0) {
-      await variantRepo.decrement({ id: variantId }, 'stock', abs);
-      await productRepo.decrement({ id: variant.product_id }, 'stock', abs);
-      await productRepo.increment(
-        { id: variant.product_id },
-        'total_sold',
-        abs,
-      );
+      await variantRepo
+        .createQueryBuilder()
+        .update(ProductVariant)
+        .set({
+          stock: () => `GREATEST(0, stock - ${abs})`,
+        })
+        .where('id = :variantId', { variantId })
+        .execute();
 
-      // Handle product-level out-of-stock (checks aggregate product stock)
+      await productRepo
+        .createQueryBuilder()
+        .update(Product)
+        .set({
+          total_sold: () => `total_sold + ${abs}`,
+        })
+        .where('id = :productId', { productId: variant.product_id })
+        .execute();
+
+      // Handle product-level out-of-stock
       const p = await productRepo.findOne({
         where: { id: variant.product_id },
         select: ['stock'],

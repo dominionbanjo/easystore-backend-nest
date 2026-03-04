@@ -74,11 +74,19 @@ export class OrderManagementService {
 
       // Reduce stock
       for (const item of order.order_items) {
-        await this.productService.adjustStock(
-          item.product_id,
-          -Number(item.quantity),
-          manager,
-        );
+        if (item.variant_id) {
+          await this.productService.adjustVariantStock(
+            item.variant_id,
+            -Number(item.quantity),
+            manager,
+          );
+        } else {
+          await this.productService.adjustStock(
+            item.product_id,
+            -Number(item.quantity),
+            manager,
+          );
+        }
       }
     });
 
@@ -128,11 +136,19 @@ export class OrderManagementService {
 
       if (isPaidState && isNegativeState) {
         for (const item of order.order_items) {
-          await this.productService.adjustStock(
-            item.product_id,
-            Number(item.quantity),
-            manager,
-          );
+          if (item.variant_id) {
+            await this.productService.adjustVariantStock(
+              item.variant_id,
+              Number(item.quantity),
+              manager,
+            );
+          } else {
+            await this.productService.adjustStock(
+              item.product_id,
+              Number(item.quantity),
+              manager,
+            );
+          }
         }
       }
     });
@@ -171,11 +187,19 @@ export class OrderManagementService {
 
       if (isPaidState) {
         for (const item of order.order_items) {
-          await this.productService.adjustStock(
-            item.product_id,
-            Number(item.quantity),
-            manager,
-          );
+          if (item.variant_id) {
+            await this.productService.adjustVariantStock(
+              item.variant_id,
+              Number(item.quantity),
+              manager,
+            );
+          } else {
+            await this.productService.adjustStock(
+              item.product_id,
+              Number(item.quantity),
+              manager,
+            );
+          }
         }
       }
     });
