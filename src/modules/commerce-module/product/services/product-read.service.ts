@@ -420,48 +420,35 @@ export class ProductReadService {
   async getByStore(
     storeId: string,
     pagination: PaginationQueryDto = { page: 1, limit: 20 },
+    userId?: string,
   ) {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
 
-    const [products, total] = await this.productRepo.findAndCount({
-      where: { store: { id: storeId } },
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { created_at: 'DESC' },
-      relations: ['category_ref', 'store', 'variants'],
-    });
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set<string>();
 
-    const items = products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: Number(p.price) / 100,
-      discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
-      on_sale: p.on_sale,
-      image: p.image?.url ?? null,
-      rating_average: Number(p.rating_average),
-      stock: p.stock,
-      store_name: p.store?.store_name,
-      store_slug: p.store?.slug,
-      address_city: p.store?.address_city,
-      address_state: p.store?.address_state,
-      address_country: p.store?.address_country,
-      address_postal_code: p.store?.address_postal_code,
-      created_at: p.created_at,
-      category: p.category_ref?.name,
-      colors: p.colors || [],
-      sizes: p.sizes || [],
-      options: p.options || [],
-      shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
-      variants: (p.variants || []).map((v: any) => ({
-        ...v,
-        price: Number(v.price) / 100,
-        discount_price: v.discount_price
-          ? Number(v.discount_price) / 100
-          : null,
-      })),
-    }));
+    const qb = addProductCardSelects(
+      this.productRepo.createQueryBuilder('product'),
+      { withStore: true },
+    )
+      .where('product.store_id = :storeId', { storeId })
+      .orderBy('product.created_at', 'DESC');
+
+    const [products, total] = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const items = products.map((p) =>
+      mapToProductCardData(p, {
+        wishlistSet,
+        extra: {
+          category: p.category_ref?.name,
+        },
+      }),
+    );
 
     const enriched = await this.helpers.resolveColorsForList(items);
 

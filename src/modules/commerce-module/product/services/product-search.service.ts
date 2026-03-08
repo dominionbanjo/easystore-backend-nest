@@ -22,7 +22,7 @@ export class ProductSearchService {
     private readonly helpers: ProductHelperService,
   ) {}
 
-  async search(params: ProductSearchDto) {
+  async search(params: ProductSearchDto, userId?: string) {
     const {
       q,
       page = 1,
@@ -41,6 +41,10 @@ export class ProductSearchService {
     if (!q?.trim()) {
       throw new BadRequestException('Search query is required');
     }
+
+    const wishlistSet = userId
+      ? await this.wishlistService.getWishlistProductIds(userId)
+      : new Set<string>();
 
     let matchedColorIds: string[] = [];
     if (colors.length > 0) {
@@ -133,6 +137,7 @@ export class ProductSearchService {
 
     const items = products.map((p) =>
       mapToProductCardData(p, {
+        wishlistSet,
         extra: {
           category: p.category_ref?.name,
         },

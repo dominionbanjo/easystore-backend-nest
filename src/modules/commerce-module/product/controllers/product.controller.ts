@@ -59,8 +59,11 @@ export class ProductController {
   //     whitelist: true,
   //   }),
   // )
-  search(@Query() query: ProductSearchDto) {
-    return this.productService.search(query);
+  search(
+    @Query() query: ProductSearchDto,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productService.search(query, user?.sub);
   }
 
   /**
@@ -92,7 +95,7 @@ export class ProductController {
     if (!user.store_id) {
       throw new NotFoundException('User does not own a store');
     }
-    return this.productService.getByStore(user.store_id, pagination);
+    return this.productService.getByStore(user.store_id, pagination, user.sub);
   }
   /**
    * 4️⃣ Products by store
@@ -101,16 +104,20 @@ export class ProductController {
   getProductsByStore(
     @Param('storeId') storeId: string,
     @Query() pagination: PaginationQueryDto,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
   ) {
-    return this.productService.getByStore(storeId, pagination);
+    return this.productService.getByStore(storeId, pagination, user?.sub);
   }
 
   /**
    * 5️⃣ All products (flat list)
    */
   @Get()
-  getAllProducts(@Query() pagination: PaginationQueryDto) {
-    return this.productService.getAllProducts(pagination);
+  getAllProducts(
+    @Query() pagination: PaginationQueryDto,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productService.getAllProducts(pagination, user?.sub);
   }
 
   /**

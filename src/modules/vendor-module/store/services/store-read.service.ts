@@ -608,6 +608,7 @@ export class StoreReadService {
   async getStoreProductsGroupedByCategory(
     identifier: string,
     pagination: PaginationDto = { limit: 10 },
+    userId?: string,
   ) {
     if (!identifier) {
       throw new BadRequestException('Store identifier required');
@@ -629,6 +630,18 @@ export class StoreReadService {
       STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL,
       [store.id, perCategoryLimit],
     );
+
+    const wishlistSet = new Set<string>();
+    if (userId && rows.length > 0) {
+      const wishlisted = await this.wishlistRepo.find({
+        where: {
+          user_id: userId,
+          product_id: In(rows.map((r: any) => r.id)),
+        },
+        select: ['product_id'],
+      });
+      wishlisted.forEach((w) => wishlistSet.add(w.product_id));
+    }
 
     const parents = await this.categoryRepo.find({
       where: { parent_id: IsNull() },
@@ -669,6 +682,7 @@ export class StoreReadService {
         stock: row.stock,
         rating_average: Number(row.rating_average),
         image: extractImageUrl(row.image),
+        is_in_wishlist: wishlistSet.has(row.id),
         colors: row.colors || [],
         sizes: row.sizes || [],
         options: row.options || [],

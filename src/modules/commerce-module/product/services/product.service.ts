@@ -52,15 +52,19 @@ export class ProductService {
     return this.readService.getSingle(identifier, userId);
   }
 
-  getByStore(storeId: string, pagination?: PaginationQueryDto) {
-    return this.readService.getByStore(storeId, pagination);
+  getByStore(
+    storeId: string,
+    pagination?: PaginationQueryDto,
+    userId?: string,
+  ) {
+    return this.readService.getByStore(storeId, pagination, userId);
   }
 
   /* ────────────────────────────────────────────────
      SEARCH OPERATIONS
   ──────────────────────────────────────────────── */
-  search(params: ProductSearchDto) {
-    return this.searchService.search(params);
+  search(params: ProductSearchDto, userId?: string) {
+    return this.searchService.search(params, userId);
   }
 
   searchStoreProducts(

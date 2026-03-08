@@ -64,10 +64,12 @@ export class StoreService {
   getStoreProductsGroupedByCategory(
     identifier: string,
     pagination?: PaginationDto,
+    userId?: string,
   ) {
     return this.readService.getStoreProductsGroupedByCategory(
       identifier,
       pagination,
+      userId,
     );
   }
 

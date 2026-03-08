@@ -69,7 +69,7 @@ export class StoreController {
     @Param('identifier') identifier: string,
     @Param('categoryId') categoryId: string,
     @Query() pagination: PaginationQueryDto,
-    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
   ) {
     return this.storeService.getStoreProductsByCategory(
       identifier,
@@ -85,7 +85,7 @@ export class StoreController {
   getStoreProducts(
     @Param('identifier') identifier: string,
     @Query() query: PaginationQueryDto,
-    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
   ) {
     return this.storeService.getStoreProducts(identifier, query, user?.sub);
   }
@@ -111,13 +111,16 @@ export class StoreController {
 
   // GET /store/:identifier/products/grouped-by-category
   @Get(':identifier/products/grouped-by-category')
+  @UseGuards(OptionalJwtAuthGuard)
   getStoreProductsGroupedByCategory(
     @Param('identifier') identifier: string,
     @Query() pagination: PaginationQueryDto,
+    @CurrentUser() user?: jwtStrategy.JwtAuthUser,
   ) {
     return this.storeService.getStoreProductsGroupedByCategory(
       identifier,
       pagination,
+      user?.sub,
     );
   }
 
