@@ -135,6 +135,7 @@ export class AuthService implements OnModuleInit {
           otp_expiration,
           email_verified: false,
           signup_medium: 'signed',
+          account_status: dto.account_type === 'vendor' ? 'pending' : 'active',
         },
         manager,
       );
@@ -196,6 +197,12 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.account_status === 'banned') {
+      throw new UnauthorizedException(
+        'Your account has been banned. Please contact support.',
+      );
+    }
+
     // ⭐ Handle users without passwords (e.g. Google Signups)
     if (!user.password) {
       if (user.signup_medium === 'google') {
@@ -231,6 +238,7 @@ export class AuthService implements OnModuleInit {
         sub: user.id,
         email: user.email,
         role: user.account_type,
+        status: user.account_status,
         token_version: user.token_version,
       }),
     };
@@ -292,8 +300,15 @@ export class AuthService implements OnModuleInit {
         email_verified,
         avatar: picture,
         signup_medium: 'google',
+        account_status: 'active',
         google_id: sub,
       });
+    }
+
+    if (user.account_status === 'banned') {
+      throw new UnauthorizedException(
+        'Your account has been banned. Please contact support.',
+      );
     }
 
     const { access_token } = this.generateJwt(user);

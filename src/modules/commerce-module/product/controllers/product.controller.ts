@@ -11,6 +11,7 @@ import {
   UploadedFiles,
   UseGuards,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ProductService } from '../services/product.service';
 import { CreateProductDto } from '../dto/create-product.dto';
@@ -175,15 +176,25 @@ export class ProductController {
       gallery?: Express.Multer.File[];
     },
   ) {
+    if (user.status === 'restricted') {
+      throw new BadRequestException(
+        'Your account is restricted from adding new products.',
+      );
+    }
     return this.productService.create(user, dto, files);
   }
 
   @Post('bulk')
   @UseGuards(JwtAuthGuard, StoreOwnerGuard)
   createMany(
-    @CurrentUser() user: { sub: string; store_id: string | null },
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() dto: CreateManyProductsDto,
   ) {
+    if (user.status === 'restricted') {
+      throw new BadRequestException(
+        'Your account is restricted from adding new products.',
+      );
+    }
     return this.productService.createMany(user, dto.products);
   }
   /**

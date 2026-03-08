@@ -23,7 +23,9 @@ export class RolesGuard implements CanActivate {
     const user: JwtAuthUser = req.user;
 
     if (!user || !requiredRoles.includes(user.role)) {
-      throw new ForbiddenException('You do not have permission');
+      throw new ForbiddenException(
+        `Insufficient permissions. Required: [${requiredRoles.join(', ')}]. User Role: ${user?.role || 'none'}`,
+      );
     }
 
     return true;

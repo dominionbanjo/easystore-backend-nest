@@ -123,9 +123,15 @@ export class ProductReadService {
       this.productRepo.createQueryBuilder('product'),
       { withStore: true },
     )
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = product.vendor_id AND user.account_status = :status',
+        { status: 'active' },
+      )
       .where('product.featured = :featured', { featured: true })
-      .andWhere('product.status = :status', {
-        status: ProductStatus.ACTIVE,
+      .andWhere('product.status = :status_prod', {
+        status_prod: ProductStatus.ACTIVE,
       });
 
     const [products, total] = await queryBuilder

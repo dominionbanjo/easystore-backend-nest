@@ -138,7 +138,7 @@ export class UsersService {
   async getForJwtValidation(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'account_type', 'token_version'],
+      select: ['id', 'account_type', 'token_version', 'account_status'],
       relations: ['store'],
     });
 
@@ -147,6 +147,7 @@ export class UsersService {
     return {
       id: user.id,
       account_type: user.account_type,
+      account_status: user.account_status,
       token_version: user.token_version,
       store_id: user.store?.id ?? null,
     };

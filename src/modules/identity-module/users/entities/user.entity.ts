@@ -17,6 +17,7 @@ import {
 
 /* ENUMS */
 export type AccountType = 'user' | 'vendor' | 'admin';
+export type AccountStatus = 'active' | 'pending' | 'restricted' | 'banned';
 export type SalesChannel =
   | 'whatsapp'
   | 'instagram'
@@ -64,6 +65,13 @@ export class User {
     default: 'user',
   })
   account_type: AccountType;
+
+  @Column({
+    type: 'enum',
+    enum: ['active', 'pending', 'restricted', 'banned'],
+    default: 'active',
+  })
+  account_status: AccountStatus;
 
   @OneToOne(() => Store, (store) => store.user)
   store: Store | null;

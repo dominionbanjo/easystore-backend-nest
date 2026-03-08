@@ -22,6 +22,7 @@ import { ColorsModule } from './modules/shared-module/colors/colors.module';
 import { EmailModule } from './modules/shared-module/email/email.module';
 import { StoreAnalyticsModule } from './modules/vendor-module/store-analytics/store-analytics.module';
 import { StoreModule } from './modules/vendor-module/store/store.module';
+import { AdminModule } from './modules/admin-module/admin-module.module';
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { StoreModule } from './modules/vendor-module/store/store.module';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
-      synchronize: false, // ❌ never true in production
+      synchronize: true, // ❌ never true in production
       ssl: {
         rejectUnauthorized: false, // required for Neon / managed PG
       },
@@ -81,6 +82,7 @@ import { StoreModule } from './modules/vendor-module/store/store.module';
     // 📧 / ⚡ INFRA
     EmailModule,
     CacheModule,
+    AdminModule,
   ],
 
   controllers: [AppController],

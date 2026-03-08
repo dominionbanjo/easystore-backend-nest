@@ -270,6 +270,12 @@ export class StoreReadService {
 
     const qb = this.storeRepo
       .createQueryBuilder('store')
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = store.user_id AND user.account_status = :status',
+        { status: 'active' },
+      )
       .select([
         'store.id',
         'store.store_name',

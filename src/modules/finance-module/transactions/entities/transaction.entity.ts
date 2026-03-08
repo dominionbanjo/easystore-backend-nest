@@ -5,7 +5,10 @@ import {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { User } from 'src/modules/identity-module/users/entities/user.entity';
 
 export type TransactionType =
   | 'payment'
@@ -48,9 +51,17 @@ export class Transaction {
   @Column({ type: 'uuid', nullable: true })
   user_id: string | null;
 
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'user_id' })
+  user: User | null;
+
   @Index('IDX_TRANSACTION_VENDOR_ID')
   @Column({ type: 'uuid', nullable: true })
   vendor_id: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'vendor_id' })
+  vendor: User | null;
 
   /* NOTE:
     TypeORM does NOT include ON DELETE in the column definition.

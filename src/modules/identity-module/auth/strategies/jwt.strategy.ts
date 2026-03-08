@@ -28,6 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     return {
       sub: user.id,
       role: user.account_type,
+      status: user.account_status,
       store_id: user.store_id,
     };
   }
@@ -36,12 +37,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 export interface JwtAuthUser {
   sub: string; // user ID
   role: string; // account_type
+  status: string; // account_status
   store_id: string | null;
 }
 
 export interface JwtPayload {
   sub: string;
   role: string;
+  status?: string;
   store_id: string | null;
   token_version: number;
   iat?: number;

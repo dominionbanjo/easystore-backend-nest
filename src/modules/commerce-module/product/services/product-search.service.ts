@@ -55,6 +55,12 @@ export class ProductSearchService {
       this.productRepo.createQueryBuilder('product'),
       { withStore: true },
     )
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = product.vendor_id AND user.account_status = :status_user',
+        { status_user: 'active' },
+      )
       .addSelect(
         `
       (
