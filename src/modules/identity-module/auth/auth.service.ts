@@ -24,6 +24,8 @@ import { CreateAccountDto } from './dto/create-account.dto';
 import { EmailVerificationService } from 'src/modules/shared-module/email/services/email-verification.service';
 import { ResetPasswordMailService } from 'src/modules/shared-module/email/services/reset-password-mail.service';
 import { WelcomeMailService } from 'src/modules/shared-module/email/services/welcome-mail.service';
+import { AdminNotifyMailService } from 'src/modules/shared-module/email/services/admin-notify-mail.service';
+import { StoreWelcomeMailService } from 'src/modules/shared-module/email/services/store-welcome-mail.service';
 import { SalesChannel, User } from '../users/entities/user.entity';
 import { toUTCDate } from 'src/utils/time/toUTCDate';
 import { comparePassword, hashPassword } from 'src/utils/auth/passwordUtil';
@@ -42,6 +44,8 @@ export class AuthService implements OnModuleInit {
     private readonly emailVerification: EmailVerificationService,
     private readonly welcomeMail: WelcomeMailService,
     private readonly resetPasswordVerification: ResetPasswordMailService,
+    private readonly adminNotifyMail: AdminNotifyMailService,
+    private readonly storeWelcomeMail: StoreWelcomeMailService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -166,12 +170,23 @@ export class AuthService implements OnModuleInit {
         otp,
       });
 
-      // Send Welcome Email
-      await this.welcomeMail.sendWelcomeEmail({
-        name: dto.first_name,
-        email: dto.email,
-        role: dto.account_type as 'user' | 'vendor',
-      });
+      // Notify Admin
+      this.adminNotifyMail
+        .notifyNewSignup({
+          name: `${dto.first_name} ${dto.last_name}`,
+          email: dto.email,
+          role: dto.account_type,
+        })
+        .catch((e) => console.error('Admin Signup Notify Error:', e.message));
+
+      if (dto.account_type === 'user') {
+        // Send regular Welcome Email
+        await this.welcomeMail.sendWelcomeEmail({
+          name: dto.first_name,
+          email: dto.email,
+          role: 'user',
+        });
+      }
     } catch (error) {
       console.error('Failed to send onboarding emails:', error);
     }
@@ -303,6 +318,26 @@ export class AuthService implements OnModuleInit {
         account_status: 'active',
         google_id: sub,
       });
+
+      // Notify Admin
+      this.adminNotifyMail
+        .notifyNewSignup({
+          name: `${first} ${last}`,
+          email,
+          role: 'user',
+        })
+        .catch((e) =>
+          console.error('Admin Google Signup Notify Error:', e.message),
+        );
+
+      // Send Welcome Email
+      this.welcomeMail
+        .sendWelcomeEmail({
+          name: first,
+          email,
+          role: 'user',
+        })
+        .catch((e) => console.error('Google Welcome Email Error:', e.message));
     }
 
     if (user.account_status === 'banned') {

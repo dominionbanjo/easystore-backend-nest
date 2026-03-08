@@ -7,12 +7,16 @@ import {
 } from 'src/modules/identity-module/users/entities/user.entity';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { buildPagination } from 'src/utils/response/pagination.util';
+import { AccountStatusMailService } from 'src/modules/shared-module/email/services/account-status-mail.service';
+import { AdminNotifyMailService } from 'src/modules/shared-module/email/services/admin-notify-mail.service';
 
 @Injectable()
 export class AdminUsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly accountStatusMail: AccountStatusMailService,
+    private readonly adminNotifyMail: AdminNotifyMailService,
   ) {}
 
   private buildBaseQuery(type?: string) {
@@ -105,7 +109,10 @@ export class AdminUsersService {
   }
 
   async updateUserStatus(userId: string, newStatus: AccountStatus) {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['store'],
+    });
     if (!user) throw new NotFoundException('User not found');
 
     const update: Partial<User> = {
@@ -118,6 +125,44 @@ export class AdminUsersService {
     }
 
     await this.userRepo.update(userId, update);
+
+    // Send Status Update Email
+    if (
+      user.account_type === 'vendor' &&
+      newStatus === 'active' &&
+      user.store
+    ) {
+      // Special case for store approval
+      this.accountStatusMail
+        .sendStoreApprovalEmail({
+          name: user.first_name,
+          email: user.email,
+          storeName: user.store.store_name,
+        })
+        .catch((e) => console.error('Store Approval Email Error:', e.message));
+    } else {
+      // General status update
+      this.accountStatusMail
+        .sendStatusUpdateEmail(
+          {
+            name: user.first_name,
+            email: user.email,
+          },
+          newStatus,
+        )
+        .catch((e) => console.error('Status Update Email Error:', e.message));
+
+      // Notify Admin about the change (as requested: "o both admin and the vendors or users")
+      this.adminNotifyMail
+        .notifyStatusUpdate(
+          {
+            name: `${user.first_name} ${user.last_name}`,
+            email: user.email,
+          },
+          newStatus,
+        )
+        .catch((e) => console.error('Admin Status Notify Error:', e.message));
+    }
 
     return {
       message: `User status changed to ${newStatus}`,

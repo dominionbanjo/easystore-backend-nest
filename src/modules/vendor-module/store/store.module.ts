@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EmailModule } from 'src/modules/shared-module/email/email.module';
 import { StoreController } from './controllers/store.controller';
 import { Store } from './entities/store.entity';
 import { CommonModule } from 'src/common/common.module';
@@ -34,7 +35,8 @@ import { StoreHelperService } from './services/store-helper.service';
     ]),
     CacheModule,
     CommonModule,
-    forwardRef(() => StoreAnalyticsModule), // ✅ ADD THIS
+    EmailModule,
+    forwardRef(() => StoreAnalyticsModule),
   ],
   controllers: [
     StoreController,

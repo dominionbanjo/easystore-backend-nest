@@ -7,6 +7,9 @@ import { EmailVerificationService } from './services/email-verification.service'
 import { EscrowMailService } from './services/escrow-mail.service';
 import { WelcomeMailService } from './services/welcome-mail.service';
 import { ResetPasswordMailService } from './services/reset-password-mail.service';
+import { AdminNotifyMailService } from './services/admin-notify-mail.service';
+import { AccountStatusMailService } from './services/account-status-mail.service';
+import { StoreWelcomeMailService } from './services/store-welcome-mail.service';
 
 @Module({
   providers: [
@@ -20,6 +23,9 @@ import { ResetPasswordMailService } from './services/reset-password-mail.service
     EmailVerificationService,
     WelcomeMailService,
     ResetPasswordMailService,
+    AdminNotifyMailService,
+    AccountStatusMailService,
+    StoreWelcomeMailService,
   ],
 
   exports: [
@@ -33,6 +39,9 @@ import { ResetPasswordMailService } from './services/reset-password-mail.service
     EmailVerificationService,
     WelcomeMailService,
     ResetPasswordMailService,
+    AdminNotifyMailService,
+    AccountStatusMailService,
+    StoreWelcomeMailService,
   ],
 })
 export class EmailModule {}

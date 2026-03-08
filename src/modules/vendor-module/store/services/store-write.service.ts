@@ -17,6 +17,8 @@ import { Store } from '../entities/store.entity';
 import { CreateStoreDto } from '../dto/create-store.dto';
 import { StoreHelperService } from './store-helper.service';
 import { VerifiedBankInfo } from '../types/store-analytics.interface';
+import { AdminNotifyMailService } from 'src/modules/shared-module/email/services/admin-notify-mail.service';
+import { StoreWelcomeMailService } from 'src/modules/shared-module/email/services/store-welcome-mail.service';
 
 @Injectable()
 export class StoreWriteService {
@@ -25,6 +27,8 @@ export class StoreWriteService {
     private readonly upload: UploadService,
     private readonly paystack: PaystackService,
     private readonly helpers: StoreHelperService,
+    private readonly adminNotifyMail: AdminNotifyMailService,
+    private readonly storeWelcomeMail: StoreWelcomeMailService,
 
     @InjectRepository(Store)
     private readonly storeRepo: Repository<Store>,
@@ -47,7 +51,7 @@ export class StoreWriteService {
 
     const user = await userRepo.findOne({
       where: { id: user_id },
-      select: ['id'],
+      select: ['id', 'first_name', 'last_name', 'email'],
     });
 
     if (!user) {
@@ -83,8 +87,29 @@ export class StoreWriteService {
 
     const saved = await storeRepo.save(store);
 
-    // Update user account type to vendor if not already
-    await userRepo.update(user_id, { account_type: 'vendor' });
+    // Update user account type to vendor and set status to pending for admin approval
+    await userRepo.update(user_id, {
+      account_type: 'vendor',
+      account_status: 'pending',
+    });
+
+    // Notify Admin about new store
+    this.adminNotifyMail
+      .notifyNewStoreCreated({
+        name: saved.store_name,
+        ownerName: `${user.first_name} ${user.last_name}`,
+        email: saved.email || user.email,
+      })
+      .catch((e) => console.error('Admin Store Notify Error:', e.message));
+
+    // Send Welcome & Setup Guide to Vendor
+    this.storeWelcomeMail
+      .sendStoreWelcomeEmail({
+        name: user.first_name,
+        email: user.email,
+        storeName: saved.store_name,
+      })
+      .catch((e) => console.error('Vendor Welcome Email Error:', e.message));
 
     await this.analyticsService.initializeAnalyticsForStore(saved.id, manager);
 
