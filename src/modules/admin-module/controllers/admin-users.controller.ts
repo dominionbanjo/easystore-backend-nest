@@ -41,4 +41,13 @@ export class AdminUsersController {
   updateUserStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.adminUsersService.updateUserStatus(id, status as any);
   }
+
+  // PATCH /admin/users/vendor/:storeId/status
+  @Patch('vendor/:storeId/status')
+  updateVendorStatus(
+    @Param('storeId') storeId: string,
+    @Body('status') status: string,
+  ) {
+    return this.adminUsersService.updateStoreStatus(storeId, status as any);
+  }
 }

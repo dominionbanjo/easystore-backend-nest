@@ -21,6 +21,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { mapToOwnerStore } from 'src/modules/vendor-module/store/utils/store-sanitizer.util';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -52,8 +53,9 @@ export class UsersController {
   // GET USER STORES
   // ------------------------------------------------------------------
   @Get('me/stores')
-  async getUserStores(@Req() req: any) {
-    return this.usersService.getStores(req.user.sub);
+  async getUserStores(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    const stores = await this.usersService.getStores(user.sub);
+    return stores.map((s) => mapToOwnerStore(s));
   }
 
   // ------------------------------------------------------------------

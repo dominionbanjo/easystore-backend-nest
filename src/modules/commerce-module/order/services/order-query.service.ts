@@ -82,6 +82,7 @@ export class OrderQueryService {
         notes: true,
         payment_method: true,
         payment_reference: true,
+        payment_url: true,
       },
     });
 

@@ -218,6 +218,12 @@ export class AuthService implements OnModuleInit {
       );
     }
 
+    if (user.account_status === 'restricted') {
+      throw new UnauthorizedException(
+        'Your account is temporarily restricted. Please contact support for more information.',
+      );
+    }
+
     // ⭐ Handle users without passwords (e.g. Google Signups)
     if (!user.password) {
       if (user.signup_medium === 'google') {
@@ -343,6 +349,12 @@ export class AuthService implements OnModuleInit {
     if (user.account_status === 'banned') {
       throw new UnauthorizedException(
         'Your account has been banned. Please contact support.',
+      );
+    }
+
+    if (user.account_status === 'restricted') {
+      throw new UnauthorizedException(
+        'Your account is temporarily restricted. Please contact support for more information.',
       );
     }
 

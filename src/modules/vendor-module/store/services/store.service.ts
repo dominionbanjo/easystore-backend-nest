@@ -4,6 +4,7 @@ import { StoreReadService } from './store-read.service';
 import { StoreWriteService } from './store-write.service';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
 import { CreateStoreDto } from '../dto/create-store.dto';
+import { UpdateThemeDto } from '../dto/update-theme.dto';
 
 @Injectable()
 export class StoreService {
@@ -82,6 +83,17 @@ export class StoreService {
   }
 
   /* ────────────────────────────────────────────────
+     THEME / TEMPLATE METHODS
+  ──────────────────────────────────────────────── */
+  getTemplates() {
+    return this.readService.getTemplates();
+  }
+
+  getStoreTheme(slug: string) {
+    return this.readService.getStoreTheme(slug);
+  }
+
+  /* ────────────────────────────────────────────────
      WRITE OPERATIONS
   ──────────────────────────────────────────────── */
   createStore(data: CreateStoreDto, manager?: EntityManager) {
@@ -112,6 +124,10 @@ export class StoreService {
       account_number,
       settlement_email,
     );
+  }
+
+  updateStoreTheme(storeId: string, userId: string, dto: UpdateThemeDto) {
+    return this.writeService.updateStoreTheme(storeId, userId, dto);
   }
 
   updateBankAccount(storeId: string, updates: any) {

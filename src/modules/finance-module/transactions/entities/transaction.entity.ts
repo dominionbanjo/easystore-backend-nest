@@ -122,6 +122,9 @@ export class Transaction {
   @Column({ type: 'jsonb', nullable: true })
   metadata: any | null;
 
+  @Column({ type: 'boolean', default: false })
+  is_flagged: boolean;
+
   /* ────────────────────────────────────────────────
      TIMESTAMPS
   ───────────────────────────────────────────────── */

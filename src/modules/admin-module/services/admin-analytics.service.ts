@@ -56,13 +56,12 @@ export class AdminAnalyticsService {
       .groupBy('u.account_status')
       .getRawMany();
 
-    // Vendor status breakdown
-    const vendorStatusBreakdown = await this.userRepo
-      .createQueryBuilder('u')
-      .select('u.account_status', 'status')
+    // Vendor status breakdown (using store.status)
+    const vendorStatusBreakdown = await this.storeRepo
+      .createQueryBuilder('s')
+      .select('s.status', 'status')
       .addSelect('COUNT(*)', 'count')
-      .where('u.account_type = :type', { type: 'vendor' })
-      .groupBy('u.account_status')
+      .groupBy('s.status')
       .getRawMany();
 
     // Revenue this month vs last month
@@ -97,9 +96,9 @@ export class AdminAnalyticsService {
       })
       .getCount();
 
-    // Pending vendor approvals
-    const pendingVendors = await this.userRepo.count({
-      where: { account_type: 'vendor', account_status: 'pending' },
+    // Pending vendor approvals (based on store.status)
+    const pendingVendors = await this.storeRepo.count({
+      where: { status: 'pending' },
     });
 
     // Transaction status breakdown

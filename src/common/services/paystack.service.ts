@@ -36,7 +36,7 @@ export class PaystackService {
 
     // Formula to ensure merchant receives exactly `amountNaira`:
     // total = (amount + flat) / (1 - percent)
-    let totalNaira = (amountNaira + flatFee) / (1 - percent);
+    const totalNaira = (amountNaira + flatFee) / (1 - percent);
 
     // Initial fee calculation
     let feeNaira = totalNaira - amountNaira;

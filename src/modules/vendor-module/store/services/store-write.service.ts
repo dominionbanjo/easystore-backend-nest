@@ -19,6 +19,8 @@ import { StoreHelperService } from './store-helper.service';
 import { VerifiedBankInfo } from '../types/store-analytics.interface';
 import { AdminNotifyMailService } from 'src/modules/shared-module/email/services/admin-notify-mail.service';
 import { StoreWelcomeMailService } from 'src/modules/shared-module/email/services/store-welcome-mail.service';
+import { ThemeSetting } from '../entities/theme-setting.entity';
+import { UpdateThemeDto } from '../dto/update-theme.dto';
 
 @Injectable()
 export class StoreWriteService {
@@ -38,6 +40,9 @@ export class StoreWriteService {
 
     @Inject(forwardRef(() => StoreAnalyticsService))
     private readonly analyticsService: StoreAnalyticsService,
+
+    @InjectRepository(ThemeSetting)
+    private readonly themeSettingRepo: Repository<ThemeSetting>,
   ) {}
 
   async createStore(data: CreateStoreDto, manager?: EntityManager) {
@@ -87,10 +92,9 @@ export class StoreWriteService {
 
     const saved = await storeRepo.save(store);
 
-    // Update user account type to vendor and set status to pending for admin approval
+    // Update user account type to vendor (keep account_status active to allow dashboard access)
     await userRepo.update(user_id, {
       account_type: 'vendor',
-      account_status: 'pending',
     });
 
     // Notify Admin about new store
@@ -436,5 +440,45 @@ export class StoreWriteService {
     await this.cache.clearPrefix('svc:store:list');
 
     return { success: true, message: 'Bank account removed', store: updated };
+  }
+
+  /* ────────────────────────────────────────────────
+     THEME / TEMPLATE WRITE METHODS
+  ──────────────────────────────────────────────── */
+
+  async updateStoreTheme(storeId: string, userId: string, dto: UpdateThemeDto) {
+    const store = await this.storeRepo.findOne({
+      where: { id: storeId, user_id: userId },
+    });
+
+    if (!store) {
+      throw new NotFoundException(
+        'Store not found or you do not have permission',
+      );
+    }
+
+    let themeSetting = await this.themeSettingRepo.findOne({
+      where: { store_id: storeId },
+    });
+
+    if (!themeSetting) {
+      themeSetting = this.themeSettingRepo.create({
+        store_id: storeId,
+        template_id: dto.template_id,
+        custom_config: dto.custom_config || {},
+      });
+    } else {
+      themeSetting.template_id = dto.template_id;
+      if (dto.custom_config !== undefined) {
+        themeSetting.custom_config = dto.custom_config;
+      }
+    }
+
+    await this.themeSettingRepo.save(themeSetting);
+
+    return {
+      message: 'Store theme updated successfully',
+      data: themeSetting,
+    };
   }
 }

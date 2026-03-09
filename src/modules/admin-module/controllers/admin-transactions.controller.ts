@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -28,5 +35,10 @@ export class AdminTransactionsController {
   @Get(':id')
   async getTransaction(@Param('id') id: string) {
     return this.adminTransactionsService.getOne(id);
+  }
+
+  @Patch(':id/flag')
+  async flagTransaction(@Param('id') id: string) {
+    return this.adminTransactionsService.flagTransaction(id);
   }
 }

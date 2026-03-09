@@ -61,6 +61,12 @@ export class ProductSearchService {
         'user.id = product.vendor_id AND user.account_status = :status_user',
         { status_user: 'active' },
       )
+      .innerJoin(
+        'stores',
+        'vendorStore',
+        'vendorStore.user_id = product.vendor_id AND vendorStore.status = :store_status',
+        { store_status: 'active' },
+      )
       .addSelect(
         `
       (

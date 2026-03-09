@@ -23,6 +23,7 @@ import { StoreService } from '../services/store.service';
 import { Permission } from 'src/common/permissions/permissions';
 import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
 import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
+import { mapToOwnerStore } from '../utils/store-sanitizer.util';
 
 @Controller('store')
 export class StoreController {
@@ -35,19 +36,21 @@ export class StoreController {
   // POST /store
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(
+  async create(
     @Body() dto: import('../dto/create-store.dto').CreateStoreDto,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
     dto.user_id = user.sub;
-    return this.storeService.createStore(dto);
+    const store = await this.storeService.createStore(dto);
+    return mapToOwnerStore(store);
   }
 
   // GET /store/me
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMyStore(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
-    return this.storeService.getStoreByUser(user.sub);
+    const store = await this.storeService.getStoreByUser(user.sub);
+    return mapToOwnerStore(store);
   }
 
   // GET /store
@@ -60,6 +63,22 @@ export class StoreController {
   @Get('search')
   searchStores(@Query('q') q: string, @Query() pagination: PaginationQueryDto) {
     return this.storeService.searchStores(q, pagination);
+  }
+
+  /* ────────────────────────────────────────────────
+     THEME / TEMPLATE PUBLIC ROUTES
+  ──────────────────────────────────────────────── */
+
+  // GET /store/templates
+  @Get('templates')
+  getTemplates() {
+    return this.storeService.getTemplates();
+  }
+
+  // GET /store/:slug/theme
+  @Get(':slug/theme')
+  getStoreTheme(@Param('slug') slug: string) {
+    return this.storeService.getStoreTheme(slug);
   }
 
   // GET /store/:identifier/category/:categoryId/products
@@ -136,7 +155,7 @@ export class StoreController {
       { name: 'cover_image', maxCount: 1 },
     ]),
   )
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateStoreDto,
     @UploadedFiles()
@@ -145,7 +164,20 @@ export class StoreController {
       cover_image?: Express.Multer.File[];
     },
   ) {
-    return this.storeService.updateStore(id, dto, files);
+    const store = await this.storeService.updateStore(id, dto, files);
+    return mapToOwnerStore(store);
+  }
+
+  // PATCH /store/:id/theme
+  @Patch(':id/theme')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.MANAGE_STORE)
+  updateStoreTheme(
+    @Param('id') id: string,
+    @Body() dto: import('../dto/update-theme.dto').UpdateThemeDto,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.storeService.updateStoreTheme(id, user.sub, dto);
   }
 
   // DELETE /store/:id

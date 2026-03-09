@@ -12,12 +12,18 @@ import {
   ProductStatus,
 } from 'src/modules/commerce-module/product/entities/product.entity';
 import { Wishlist } from 'src/modules/commerce-module/wishlist/entities/wishlist.entity';
+import { StoreTemplate } from '../entities/store-template.entity';
+import { ThemeSetting } from '../entities/theme-setting.entity';
 import { STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL } from 'src/modules/commerce-module/product/queries/products-grouped-by-category.store.sql';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import {
   addProductCardSelects,
   mapToProductCardData,
 } from 'src/modules/commerce-module/product/utils/product-card.util';
+import {
+  mapToPublicStore,
+  mapToOwnerStore,
+} from '../utils/store-sanitizer.util';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { Store } from '../entities/store.entity';
 import { StoreHelperService } from './store-helper.service';
@@ -38,6 +44,12 @@ export class StoreReadService {
     private readonly categoryRepo: Repository<ProductCategory>,
     @InjectRepository(Wishlist)
     private readonly wishlistRepo: Repository<Wishlist>,
+
+    @InjectRepository(StoreTemplate)
+    private readonly templateRepo: Repository<StoreTemplate>,
+
+    @InjectRepository(ThemeSetting)
+    private readonly themeSettingRepo: Repository<ThemeSetting>,
   ) {}
 
   async searchStores(
@@ -73,13 +85,18 @@ export class StoreReadService {
         'store.created_at',
         'store.user_id',
       ])
-      .addSelect((subQ) => {
-        return subQ
-          .select('COUNT(product.id)')
-          .from(Product, 'product')
-          .where('product.vendor_id = store.user_id');
-      }, 'total_products')
-      .where('store.store_name ILIKE :q', { q: `%${q}%` });
+      .leftJoin(Product, 'product', 'product.vendor_id = store.user_id')
+      .addSelect('COUNT(product.id)', 'total_products')
+      .groupBy('store.id')
+      .addGroupBy('user.id')
+      .where('store.store_name ILIKE :q', { q: `%${q}%` })
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = store.user_id AND user.account_status = :userStatus',
+        { userStatus: 'active' },
+      )
+      .andWhere('store.status = :storeStatus', { storeStatus: 'active' });
 
     if (pagination.state) {
       qb.andWhere('store.address_state = :state', { state: pagination.state });
@@ -152,18 +169,14 @@ export class StoreReadService {
       relations: ['user'],
     });
 
-    if (store && store.user) {
-      const { password: _, ...safeUser } = store.user as any;
-      (store as any).user = {
-        first_name: safeUser.first_name,
-        last_name: safeUser.last_name,
-        username: safeUser.username,
-        avatar: safeUser.avatar,
-      };
-    }
-
-    if (!store) {
-      throw new NotFoundException('Store not found');
+    // Strictly require store AND user account to both be active for public access.
+    // No owner bypass — pending/restricted stores are invisible to everyone on this route.
+    if (
+      !store ||
+      store.status !== 'active' ||
+      store.user?.account_status !== 'active'
+    ) {
+      throw new NotFoundException('Store not found or is inactive');
     }
 
     const totalProductsCount = await this.productRepo.count({
@@ -227,10 +240,7 @@ export class StoreReadService {
 
     const response = {
       message: 'Store retrieved successfully',
-      store: {
-        ...store,
-        total_products: totalProductsCount,
-      },
+      store: mapToPublicStore(store, totalProductsCount),
       products: productsResult,
       categories,
     };
@@ -250,6 +260,7 @@ export class StoreReadService {
 
     const store = await this.storeRepo.findOne({
       where: { user_id: userId },
+      relations: ['user'],
     });
 
     if (!store) {
@@ -273,9 +284,10 @@ export class StoreReadService {
       .innerJoin(
         'users',
         'user',
-        'user.id = store.user_id AND user.account_status = :status',
-        { status: 'active' },
+        'user.id = store.user_id AND user.account_status = :userStatus',
+        { userStatus: 'active' },
       )
+      .andWhere('store.status = :storeStatus', { storeStatus: 'active' })
       .select([
         'store.id',
         'store.store_name',
@@ -292,12 +304,10 @@ export class StoreReadService {
         'store.created_at',
         'store.user_id',
       ])
-      .addSelect((subQ) => {
-        return subQ
-          .select('COUNT(product.id)')
-          .from(Product, 'product')
-          .where('product.vendor_id = store.user_id');
-      }, 'total_products');
+      .leftJoin(Product, 'product', 'product.vendor_id = store.user_id')
+      .addSelect('COUNT(product.id)', 'total_products')
+      .groupBy('store.id')
+      .addGroupBy('user.id');
 
     if (pagination.state) {
       qb.andWhere('store.address_state = :state', { state: pagination.state });
@@ -348,12 +358,9 @@ export class StoreReadService {
 
     const qb = this.storeRepo
       .createQueryBuilder('store')
-      .addSelect((subQ) => {
-        return subQ
-          .select('COUNT(product.id)')
-          .from(Product, 'product')
-          .where('product.vendor_id = store.user_id');
-      }, 'total_products')
+      .leftJoin(Product, 'product', 'product.vendor_id = store.user_id')
+      .addSelect('COUNT(product.id)', 'total_products')
+      .groupBy('store.id')
       .orderBy('store.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -412,6 +419,7 @@ export class StoreReadService {
 
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
+      relations: ['user'],
       select: [
         'id',
         'store_name',
@@ -420,11 +428,17 @@ export class StoreReadService {
         'address_state',
         'address_country',
         'address_postal_code',
+        'user_id',
+        'status',
       ],
     });
 
-    if (!store) {
-      throw new NotFoundException('Store not found');
+    if (
+      !store ||
+      store.status !== 'active' ||
+      store.user?.account_status !== 'active'
+    ) {
+      throw new NotFoundException('Store not found or is inactive');
     }
 
     const qb = addProductCardSelects(
@@ -433,7 +447,13 @@ export class StoreReadService {
       .where('product.store_id = :storeId', { storeId: store.id })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
-      });
+      })
+      .innerJoin(
+        'product.vendor',
+        'user',
+        'user.account_status = :userStatus',
+        { userStatus: 'active' },
+      );
 
     if (q?.trim()) {
       qb.addSelect(
@@ -529,6 +549,7 @@ export class StoreReadService {
 
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
+      relations: ['user'],
       select: [
         'id',
         'store_name',
@@ -537,11 +558,17 @@ export class StoreReadService {
         'address_state',
         'address_country',
         'address_postal_code',
+        'user_id',
+        'status',
       ],
     });
 
-    if (!store) {
-      throw new NotFoundException('Store not found');
+    if (
+      !store ||
+      store.status !== 'active' ||
+      store.user?.account_status !== 'active'
+    ) {
+      throw new NotFoundException('Store not found or is inactive');
     }
 
     const categoryExists = await this.categoryRepo.exist({
@@ -556,11 +583,28 @@ export class StoreReadService {
       this.productRepo.createQueryBuilder('product'),
     );
 
-    const [products, total] = await qb
+    // Start with core required filters
+    qb.where('product.store_id = :storeId', { storeId: store.id })
       .andWhere('product.category_id = :categoryId', { categoryId })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
       })
+      .innerJoin(
+        'product.vendor',
+        'user',
+        'user.account_status = :userStatus',
+        { userStatus: 'active' },
+      );
+
+    // Add search filter if present
+    if (pagination.q?.trim()) {
+      qb.andWhere(
+        '(product.name ILIKE :q OR product.description ILIKE :q OR category.name ILIKE :q)',
+        { q: `%${pagination.q}%` },
+      );
+    }
+
+    const [products, total] = await qb
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
@@ -625,11 +669,16 @@ export class StoreReadService {
 
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
-      select: ['id', 'store_name'],
+      relations: ['user'],
+      select: ['id', 'store_name', 'user_id', 'status'],
     });
 
-    if (!store) {
-      throw new NotFoundException('Store not found');
+    if (
+      !store ||
+      store.status !== 'active' ||
+      store.user?.account_status !== 'active'
+    ) {
+      throw new NotFoundException('Store not found or is inactive');
     }
 
     const rows = await this.productRepo.query(
@@ -689,6 +738,8 @@ export class StoreReadService {
         rating_average: Number(row.rating_average),
         image: extractImageUrl(row.image),
         is_in_wishlist: wishlistSet.has(row.id),
+        store_name: store.store_name,
+        store_slug: store.slug,
         colors: row.colors || [],
         sizes: row.sizes || [],
         options: row.options || [],
@@ -764,5 +815,59 @@ export class StoreReadService {
     }
 
     return store.user_id === userId;
+  }
+
+  /* ────────────────────────────────────────────────
+     THEME / TEMPLATE METHODS
+  ──────────────────────────────────────────────── */
+
+  async getTemplates() {
+    const templates = await this.templateRepo.find({
+      order: { name: 'ASC' },
+    });
+    return {
+      message: 'Templates retrieved successfully',
+      data: templates,
+    };
+  }
+
+  async getStoreTheme(slug: string) {
+    const store = await this.storeRepo.findOne({
+      where: { slug },
+      relations: ['user', 'theme_setting', 'theme_setting.template'],
+      select: ['id', 'slug', 'user_id', 'status'],
+    });
+
+    if (
+      !store ||
+      store.status !== 'active' ||
+      (store.user?.account_status !== 'active' &&
+        store.user?.account_status !== 'pending')
+    ) {
+      throw new NotFoundException('Store not found or is inactive');
+    }
+
+    if (!store.theme_setting || !store.theme_setting.template) {
+      // Return default if no explicit setting is found
+      const defaultTemplate = await this.templateRepo.findOne({
+        where: { name: 'Default' },
+      });
+
+      return {
+        message: 'Store theme retrieved',
+        data: {
+          template: defaultTemplate,
+          custom_config: {}, // No overrides
+        },
+      };
+    }
+
+    return {
+      message: 'Store theme retrieved',
+      data: {
+        template: store.theme_setting.template,
+        custom_config: store.theme_setting.custom_config,
+      },
+    };
   }
 }

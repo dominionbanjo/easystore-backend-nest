@@ -126,13 +126,14 @@ export class ProductReadService {
       .innerJoin(
         'users',
         'user',
-        'user.id = product.vendor_id AND user.account_status = :status',
-        { status: 'active' },
+        'user.id = product.vendor_id AND user.account_status = :status_user',
+        { status_user: 'active' },
       )
-      .where('product.featured = :featured', { featured: true })
-      .andWhere('product.status = :status_prod', {
+      .where('product.status = :status_prod', {
         status_prod: ProductStatus.ACTIVE,
-      });
+      })
+      .andWhere('product.featured = :featured', { featured: true })
+      .andWhere('store.status = :store_status', { store_status: 'active' });
 
     const [products, total] = await queryBuilder
       .orderBy('product.created_at', 'DESC')
@@ -171,9 +172,17 @@ export class ProductReadService {
     const qb = addProductCardSelects(
       this.productRepo.createQueryBuilder('product'),
       { withStore: true },
-    ).where('product.status = :status', {
-      status: ProductStatus.ACTIVE,
-    });
+    )
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = product.vendor_id AND user.account_status = :status_user',
+        { status_user: 'active' },
+      )
+      .where('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      })
+      .andWhere('store.status = :store_status', { store_status: 'active' });
 
     // Apply sorting
     applyProductSort(qb, pagination.sort);
@@ -227,10 +236,17 @@ export class ProductReadService {
       this.productRepo.createQueryBuilder('product'),
       { withStore: true },
     )
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = product.vendor_id AND user.account_status = :status_user',
+        { status_user: 'active' },
+      )
       .where('product.category_id = :categoryId', { categoryId: category.id })
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
-      });
+      })
+      .andWhere('store.status = :store_status', { store_status: 'active' });
 
     // Apply sorting
     applyProductSort(qb, pagination.sort);
@@ -287,6 +303,7 @@ export class ProductReadService {
       relations: [
         'category_ref',
         'store',
+        'store.user',
         'reviews',
         'reviews.user',
         'variants',
@@ -298,8 +315,14 @@ export class ProductReadService {
       },
     });
 
-    if (!product) {
-      throw new NotFoundException('Product not found');
+    if (
+      !product ||
+      product.status !== ProductStatus.ACTIVE ||
+      !product.store ||
+      product.store.status !== 'active' ||
+      product.store.user?.account_status !== 'active'
+    ) {
+      throw new NotFoundException('Product not found or is inactive');
     }
 
     const wishlistSet = userId
@@ -361,6 +384,9 @@ export class ProductReadService {
       .where('p.category_id = :categoryId', {
         categoryId: product.category_id,
       })
+      .andWhere('p.store_id = :storeId', {
+        storeId: product.store_id,
+      })
       .andWhere('p.id != :currentId', {
         currentId: product.id,
       })
@@ -369,28 +395,14 @@ export class ProductReadService {
       .limit(10)
       .getMany();
 
-    const related_products = related.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      price: Number(p.price),
-      discount_price: p.discount_price ? Number(p.discount_price) : null,
-      on_sale: p.on_sale,
-      stock: p.stock,
-      rating_average: Number(p.rating_average),
-      image: p.image?.url ?? null,
-      colors: p.colors || [],
-      sizes: p.sizes || [],
-      options: p.options || [],
-      variants: p.variants || [],
-      store_name: p.store?.store_name,
-      store_slug: p.store?.slug,
-      address_city: p.store?.address_city,
-      address_state: p.store?.address_state,
-      address_country: p.store?.address_country,
-      category: p.category_ref?.name,
-      is_in_wishlist: wishlistSet.has(p.id),
-    }));
+    const related_products = related.map((p) =>
+      mapToProductCardData(p, {
+        wishlistSet,
+        extra: {
+          category: p.category_ref?.name,
+        },
+      }),
+    );
 
     const enriched_related =
       await this.helpers.resolveColorsForList(related_products);
@@ -415,6 +427,7 @@ export class ProductReadService {
           options: product.options || [],
           variants,
           is_in_wishlist: wishlistSet.has(product.id),
+          store_id: product.store_id || product.store?.id,
         },
         store,
         reviews,
@@ -439,7 +452,17 @@ export class ProductReadService {
       this.productRepo.createQueryBuilder('product'),
       { withStore: true },
     )
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = product.vendor_id AND user.account_status = :status_user',
+        { status_user: 'active' },
+      )
       .where('product.store_id = :storeId', { storeId })
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      })
+      .andWhere('store.status = :store_status', { store_status: 'active' })
       .orderBy('product.created_at', 'DESC');
 
     const [products, total] = await qb

@@ -58,11 +58,10 @@ export class ResponseInterceptor implements NestInterceptor {
             total: payload[1],
           };
         } else if (
-
-        /**
-         * CASE 2: buildPagination()
-         * { data: [], pagination: {} }
-         */
+          /**
+           * CASE 2: buildPagination()
+           * { data: [], pagination: {} }
+           */
           payload &&
           typeof payload === 'object' &&
           Array.isArray(payload.data) &&

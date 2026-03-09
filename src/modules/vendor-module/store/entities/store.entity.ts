@@ -1,6 +1,7 @@
 import { StoreDeliveryRate } from 'src/modules/vendor-module/store/entities/store-delivery-rate.entity';
 import { Product } from 'src/modules/commerce-module/product/entities/product.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { ThemeSetting } from 'src/modules/vendor-module/store/entities/theme-setting.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -12,18 +13,6 @@ import {
   OneToMany,
   OneToOne,
 } from 'typeorm';
-
-/* ────────────────────────────────────────────────
-   JSON / INTERFACES
-──────────────────────────────────────────────── */
-
-// export interface IStoreAddress {
-//   street?: string | null;
-//   city?: string | null;
-//   state?: string | null;
-//   country?: string | null;
-//   postal_code?: string | null;
-// }
 
 export interface IStoreCustomer {
   id: string;
@@ -65,12 +54,22 @@ export interface IAnalytics {
 /* ────────────────────────────────────────────────
    STORE ENTITY
 ──────────────────────────────────────────────── */
+export type StoreStatus = 'active' | 'pending' | 'restricted' | 'banned';
 
 @Entity({ name: 'stores' })
 export class Store {
   /* PRIMARY KEY */
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /* STATUS */
+  @Index('IDX_STORE_STATUS')
+  @Column({
+    type: 'enum',
+    enum: ['active', 'pending', 'restricted', 'banned'],
+    default: 'pending',
+  })
+  status: StoreStatus;
 
   @Index('IDX_STORE_USER_ID', { unique: true })
   @Column({ type: 'uuid' })
@@ -167,25 +166,6 @@ export class Store {
   @Column({ type: 'varchar', length: 100, nullable: true })
   paystack_subaccount_code: string | null;
 
-  // /* ANALYTICS (PRE-COMPUTED, NOT CALCULATED ON READ) */
-  // @Column({
-  //   type: 'jsonb',
-  //   nullable: true,
-  //   default: () => `'{"sales":[],"orders":[],"customers":[]}'`,
-  // })
-  // analytics: IAnalytics | null;
-
-  // @Column({
-  //   type: 'jsonb',
-  //   nullable: true,
-  //   default: () => `'[]'`,
-  // })
-  // customers: IStoreCustomer[] | null;
-
-  // /* ADDRESS */
-  // @Column({ type: 'jsonb', nullable: true })
-  // address: IStoreAddress | null;
-
   /* ADDRESS */
   @Column({ type: 'varchar', length: 255, nullable: true })
   address_street: string | null;
@@ -223,4 +203,7 @@ export class Store {
 
   @OneToMany(() => StoreDeliveryRate, (rate) => rate.store)
   delivery_rates: StoreDeliveryRate[];
+
+  @OneToOne(() => ThemeSetting, (themeSetting) => themeSetting.store)
+  theme_setting: ThemeSetting;
 }

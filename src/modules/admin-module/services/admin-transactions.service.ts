@@ -63,4 +63,17 @@ export class AdminTransactionsService {
     if (!tx) throw new NotFoundException('Transaction not found');
     return { message: 'Transaction retrieved', data: tx };
   }
+
+  async flagTransaction(id: string) {
+    const tx = await this.transactionRepo.findOne({ where: { id } });
+    if (!tx) throw new NotFoundException('Transaction not found');
+
+    tx.is_flagged = true;
+    await this.transactionRepo.save(tx);
+
+    return {
+      message: 'Transaction flagged for review',
+      data: { id, is_flagged: true },
+    };
+  }
 }

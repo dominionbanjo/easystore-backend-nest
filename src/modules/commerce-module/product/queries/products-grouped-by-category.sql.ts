@@ -44,7 +44,11 @@ WITH ranked_products AS (
   FROM products p
   JOIN product_categories c ON c.id = p.category_id
   LEFT JOIN product_categories pc ON pc.id = c.parent_id
-  LEFT JOIN stores s ON s.id = p.store_id
+  JOIN stores s ON s.id = p.store_id
+  JOIN users u ON u.id = p.vendor_id
+  WHERE p.status = 'active'
+    AND s.status = 'active'
+    AND u.account_status = 'active'
 )
 SELECT *
 FROM ranked_products

@@ -1,6 +1,6 @@
-import multer from "multer";
-import DatauriParser from "datauri/parser.js";
-import path from "path";
+import multer from 'multer';
+import DatauriParser from 'datauri/parser.js';
+import path from 'path';
 
 const storage = multer.memoryStorage();
 
@@ -11,9 +11,9 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5 MB max
   },
   fileFilter: (_req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.mimetype)) {
-      return cb(new Error("Only JPG, PNG, or WEBP files are allowed"));
+      return cb(new Error('Only JPG, PNG, or WEBP files are allowed'));
     }
     cb(null, true);
   },

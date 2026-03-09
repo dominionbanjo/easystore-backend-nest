@@ -9,12 +9,18 @@ import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { AccountStatusMailService } from 'src/modules/shared-module/email/services/account-status-mail.service';
 import { AdminNotifyMailService } from 'src/modules/shared-module/email/services/admin-notify-mail.service';
+import {
+  Store,
+  StoreStatus,
+} from 'src/modules/vendor-module/store/entities/store.entity';
 
 @Injectable()
 export class AdminUsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Store)
+    private readonly storeRepo: Repository<Store>,
     private readonly accountStatusMail: AccountStatusMailService,
     private readonly adminNotifyMail: AdminNotifyMailService,
   ) {}
@@ -78,7 +84,7 @@ export class AdminUsersService {
       .take(limit);
 
     if (query.status && query.status !== 'all') {
-      qb.andWhere('user.account_status = :status', { status: query.status });
+      qb.andWhere('store.status = :status', { status: query.status });
     }
 
     if (query.search) {
@@ -167,6 +173,48 @@ export class AdminUsersService {
     return {
       message: `User status changed to ${newStatus}`,
       user: { id: user.id, account_status: newStatus },
+    };
+  }
+
+  async updateStoreStatus(storeId: string, newStatus: StoreStatus) {
+    const store = await this.storeRepo.findOne({
+      where: { id: storeId },
+      relations: ['user'],
+    });
+
+    if (!store) throw new NotFoundException('Store not found');
+
+    await this.storeRepo.update(storeId, {
+      status: newStatus,
+      updated_at: new Date(),
+    });
+
+    // If approved, send special email
+    if (newStatus === 'active' && store.user) {
+      this.accountStatusMail
+        .sendStoreApprovalEmail({
+          name: store.user.first_name,
+          email: store.user.email,
+          storeName: store.store_name,
+        })
+        .catch((e) => console.error('Store Approval Email Error:', e.message));
+    } else if (store.user) {
+      // General status update for store
+      // (Using the same status update email for now, or could create a store-specific one)
+      this.accountStatusMail
+        .sendStatusUpdateEmail(
+          {
+            name: store.user.first_name,
+            email: store.user.email,
+          },
+          newStatus as any,
+        )
+        .catch((e) => console.error('Status Update Email Error:', e.message));
+    }
+
+    return {
+      message: `Store status changed to ${newStatus}`,
+      store: { id: store.id, status: newStatus },
     };
   }
 }

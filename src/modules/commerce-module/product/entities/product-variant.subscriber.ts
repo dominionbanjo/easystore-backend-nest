@@ -35,7 +35,7 @@ export class ProductVariantSubscriber implements EntitySubscriberInterface<Produ
     const productId =
       (event.entity as ProductVariant)?.product_id ||
       ('databaseEntity' in event
-        ? (event.databaseEntity as ProductVariant)?.product_id
+        ? event.databaseEntity?.product_id
         : undefined);
 
     if (!productId) return;

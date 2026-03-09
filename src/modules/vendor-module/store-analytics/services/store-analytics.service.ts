@@ -370,11 +370,17 @@ export class StoreAnalyticsService {
       [storeId],
     );
 
-    const response: any = await this.storeService.getStore(storeId);
+    // Fetch store directly (bypass public visibility check — this is an owner/internal call)
+    const storeRow = (await this.analyticsRepo.manager
+      .getRepository('stores')
+      .findOne({
+        where: { id: storeId },
+        relations: ['user'],
+      })) as any;
 
     const [{ count: pendingOrders }] = await this.analyticsRepo.manager.query(
       `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1 AND status IN ('pending', 'paid', 'processing')`,
-      [response.store.user_id],
+      [storeRow?.user_id],
     );
 
     /* ────────────────────────────────────────────────
@@ -389,6 +395,9 @@ export class StoreAnalyticsService {
         total_products: totalProducts,
         out_of_stock_count: Number(outOfStock),
         pending_orders_count: Number(pendingOrders),
+        store_status: storeRow?.status || 'pending',
+        account_status: storeRow?.user?.account_status || 'active',
+        payout_verified: !!storeRow?.payout_verified,
       },
       trends: {
         monthly: monthlyTrends,
