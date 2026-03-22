@@ -16,7 +16,11 @@ async function bootstrap() {
   app.enableCors({
     origin:
       process.env.NODE_ENV === 'production'
-        ? ['https://easystore01.netlify.app', 'https://eazystore.com.ng']
+        ? [
+            'https://easystore01.netlify.app',
+            'https://eazystore.com.ng',
+            'https://easy-store-liard.vercel.app',
+          ]
         : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

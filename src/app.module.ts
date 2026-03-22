@@ -50,11 +50,6 @@ import { AdminModule } from './modules/admin-module/admin-module.module';
           ttl: 60, // seconds
           limit: 100, // requests per minute
         },
-        {
-          name: 'auth',
-          ttl: 60,
-          limit: 5, // login / register protection
-        },
       ],
     }),
 
