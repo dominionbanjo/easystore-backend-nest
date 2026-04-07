@@ -10,7 +10,6 @@ import {
   addProductCardSelects,
   mapToProductCardData,
 } from '../utils/product-card.util';
-import { ProductHelperService } from './product-helper.service';
 
 @Injectable()
 export class ProductSearchService {
@@ -19,7 +18,6 @@ export class ProductSearchService {
     private readonly productRepo: Repository<Product>,
 
     private readonly wishlistService: WishlistService,
-    private readonly helpers: ProductHelperService,
   ) {}
 
   async search(params: ProductSearchDto, userId?: string) {
@@ -46,10 +44,7 @@ export class ProductSearchService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
 
-    let matchedColorIds: string[] = [];
-    if (colors.length > 0) {
-      matchedColorIds = await this.helpers.resolveColorIds(colors);
-    }
+
 
     const qb = addProductCardSelects(
       this.productRepo.createQueryBuilder('product'),
@@ -131,15 +126,36 @@ export class ProductSearchService {
     if (rating) {
       qb.andWhere('product.rating_average >= :rating', { rating });
     }
-    if (matchedColorIds.length > 0) {
-      qb.andWhere('product.colors && :colorIds', {
-        colorIds: matchedColorIds,
+
+    // Filter by color: product must have at least one variant
+    // whose combinations->>'Color' matches any of the requested values
+    if (colors.length > 0) {
+      colors.forEach((color, i) => {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM product_variants pv
+            WHERE pv.product_id = product.id
+            AND pv.combinations->>'Color' ILIKE :color${i}
+          )`,
+          { [`color${i}`]: color },
+        );
       });
     }
-    if (sizes.length > 0) {
-      qb.andWhere('product.sizes && :sizes', { sizes });
-    }
 
+    // Filter by size: product must have at least one variant
+    // whose combinations->>'Size' matches any of the requested values
+    if (sizes.length > 0) {
+      sizes.forEach((size, i) => {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM product_variants pv
+            WHERE pv.product_id = product.id
+            AND pv.combinations->>'Size' ILIKE :size${i}
+          )`,
+          { [`size${i}`]: size },
+        );
+      });
+    }
     qb.orderBy('rank', 'DESC')
       .addOrderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
@@ -156,11 +172,32 @@ export class ProductSearchService {
       }),
     );
 
-    const enriched = await this.helpers.resolveColorsForList(items);
+    // Aggregate available filter options from variant combinations
+    // across all matched products so the frontend can build dynamic sidebar filters.
+    const filtersMap = new Map<string, Set<string>>();
+    for (const item of items) {
+      const variants: { combinations?: Record<string, string> }[] =
+        (item as any).variants ?? [];
+      for (const v of variants) {
+        if (!v.combinations) continue;
+        for (const [key, val] of Object.entries(v.combinations)) {
+          if (!filtersMap.has(key)) filtersMap.set(key, new Set());
+          filtersMap.get(key)!.add(val);
+        }
+      }
+    }
+
+    const filters: Record<string, string[]> = {};
+    for (const [key, vals] of filtersMap.entries()) {
+      filters[key] = Array.from(vals).sort();
+    }
 
     return {
       message: 'Search results retrieved successfully',
-      data: buildPagination(enriched, total, page, limit),
+      data: {
+        ...buildPagination(items, total, page, limit),
+        filters,
+      },
     };
   }
 
@@ -177,8 +214,8 @@ export class ProductSearchService {
       maxPrice,
       rating,
       inStock = true,
-      colors,
-      sizes,
+      colors = [],
+      sizes = [],
     } = params;
 
     if (!q?.trim()) {
@@ -226,17 +263,30 @@ export class ProductSearchService {
       qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
-    if (colors?.length) {
-      const colorIds = await this.helpers.resolveColorIds(colors);
-      if (colorIds.length > 0) {
-        qb.andWhere('product.colors && :colorIds', { colorIds });
-      } else {
-        qb.andWhere('1=0');
-      }
+    if (colors.length > 0) {
+      colors.forEach((color, i) => {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM product_variants pv
+            WHERE pv.product_id = product.id
+            AND pv.combinations->>'Color' ILIKE :svColor${i}
+          )`,
+          { [`svColor${i}`]: color },
+        );
+      });
     }
 
-    if (sizes?.length) {
-      qb.andWhere('product.sizes && :sizes', { sizes });
+    if (sizes.length > 0) {
+      sizes.forEach((size, i) => {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM product_variants pv
+            WHERE pv.product_id = product.id
+            AND pv.combinations->>'Size' ILIKE :svSize${i}
+          )`,
+          { [`svSize${i}`]: size },
+        );
+      });
     }
 
     const [products, total] = await qb
@@ -252,11 +302,9 @@ export class ProductSearchService {
       }),
     );
 
-    const enriched = await this.helpers.resolveColorsForList(items);
-
     return {
       message: 'Store search results',
-      data: buildPagination(enriched, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
 
@@ -271,8 +319,6 @@ export class ProductSearchService {
       maxPrice,
       rating,
       inStock = true,
-      colors,
-      sizes,
     } = params;
 
     const page = pagination.page ?? 1;
@@ -316,18 +362,7 @@ export class ProductSearchService {
       qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
-    if (colors?.length) {
-      const colorIds = await this.helpers.resolveColorIds(colors);
-      if (colorIds.length > 0) {
-        qb.andWhere('product.colors && :colors', { colors: colorIds });
-      } else {
-        qb.andWhere('1=0');
-      }
-    }
 
-    if (sizes?.length) {
-      qb.andWhere('product.sizes && :sizes', { sizes });
-    }
 
     const [products, total] = await qb
       .orderBy('product.created_at', 'DESC')
@@ -353,8 +388,7 @@ export class ProductSearchService {
         address_state: store?.address_state,
         address_country: store?.address_country,
         address_postal_code: store?.address_postal_code,
-        colors: product.colors || [],
-        sizes: product.sizes || [],
+
         options: product.options || [],
         variants: (product.variants || []).map((v: any) => ({
           ...v,
@@ -366,11 +400,9 @@ export class ProductSearchService {
       };
     });
 
-    const enriched = await this.helpers.resolveColorsForList(items);
-
     return {
       message: 'Store products search retrieved successfully',
-      data: buildPagination(enriched, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
 
@@ -385,8 +417,6 @@ export class ProductSearchService {
       inStock,
       isOutOfStock,
       onSale,
-      colors,
-      sizes,
     } = params;
 
     const qb = this.productRepo
@@ -461,18 +491,7 @@ export class ProductSearchService {
       qb.andWhere('product.status = :status', { status: params.status });
     }
 
-    if (colors?.length) {
-      const colorIds = await this.helpers.resolveColorIds(colors);
-      if (colorIds.length > 0) {
-        qb.andWhere('product.colors && :colors', { colors: colorIds });
-      } else {
-        qb.andWhere('1=0');
-      }
-    }
 
-    if (sizes?.length) {
-      qb.andWhere('product.sizes && :sizes', { sizes });
-    }
 
     const [products, total] = await qb
       .skip((page - 1) * limit)
@@ -497,8 +516,7 @@ export class ProductSearchService {
         gallery: product.gallery,
         highlights: product.highlights,
         specs: product.specs,
-        colors: product.colors,
-        sizes: product.sizes,
+
         shipping_note: product.shipping_note,
         returns_note: product.returns_note,
         status: product.status,

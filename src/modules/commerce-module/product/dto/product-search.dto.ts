@@ -100,7 +100,9 @@ export class ProductSearchDto {
   @IsString()
   status?: string;
 
-  /* ───────────────── ARRAYS (CSV → ARRAY) ───────────────── */
+  /* ───────────────── VARIANT FILTERS (CSV → ARRAY) ───────────────── */
+  // Filters products that have at least one variant matching the given
+  // color or size value in its combinations JSONB field.
 
   @IsOptional()
   @Transform(({ value }) =>

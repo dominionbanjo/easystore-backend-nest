@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import slugify from 'slugify';
 import { ProductCategory } from './entities/product-category.entity';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
@@ -20,13 +20,17 @@ export class ProductCategoryService {
   /* ────────────────────────────────────────────────
      CREATE CATEGORY
   ──────────────────────────────────────────────── */
-  async create(dto: CreateProductCategoryDto) {
+  async create(dto: CreateProductCategoryDto, vendorId?: string) {
     const { name, parent_id } = dto;
 
     const slug = slugify(name, { lower: true, strict: true });
 
+    // Check if category exists for this vendor or in system
     const exists = await this.categoryRepo.findOne({
-      where: [{ name }, { slug }],
+      where: [
+        { name, vendor_id: vendorId ?? IsNull() },
+        { slug, vendor_id: vendorId ?? IsNull() },
+      ],
     });
 
     if (exists) {
@@ -47,6 +51,7 @@ export class ProductCategoryService {
       name,
       slug,
       parent_id: parent_id ?? null,
+      vendor_id: vendorId ?? null,
     });
 
     return this.categoryRepo.save(category);
@@ -82,26 +87,43 @@ export class ProductCategoryService {
   //   };
   // }
 
-  async findAll() {
+  async findAll(vendorId?: string | null) {
     /**
      * Get all parent categories with their children
      * Count products per child category
+     * Results = System Default (vendor_id IS NULL) + Vendor Specific
      */
     const qb = this.categoryRepo
       .createQueryBuilder('parent')
-      .leftJoinAndSelect('parent.children', 'child')
+      .leftJoinAndSelect(
+        'parent.children',
+        'child',
+        '(child.vendor_id IS NULL OR child.vendor_id = :vendorId)',
+        { vendorId: vendorId || null },
+      )
       .leftJoin('products', 'product', 'product.category_id = child.id')
-      .where('parent.parent_id IS NULL')
-      .select([
-        'parent.id',
-        'parent.name',
-        'parent.slug',
-        'parent.created_at',
-        'child.id',
-        'child.name',
-        'child.slug',
-        'child.created_at',
-      ])
+      .where('parent.parent_id IS NULL');
+
+    if (vendorId) {
+      qb.andWhere('(parent.vendor_id IS NULL OR parent.vendor_id = :vendorId)', {
+        vendorId,
+      });
+    } else {
+      qb.andWhere('parent.vendor_id IS NULL');
+    }
+
+    qb.select([
+      'parent.id',
+      'parent.name',
+      'parent.slug',
+      'parent.vendor_id',
+      'parent.created_at',
+      'child.id',
+      'child.name',
+      'child.slug',
+      'child.vendor_id',
+      'child.created_at',
+    ])
       .addSelect('COUNT(product.id)', 'child_products_count')
       .groupBy('parent.id')
       .addGroupBy('child.id')

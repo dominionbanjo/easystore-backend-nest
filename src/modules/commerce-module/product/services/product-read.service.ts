@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Product, ProductStatus } from '../entities/product.entity';
 import { ProductCategory } from '../../product-category/entities/product-category.entity';
-import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
+
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { WishlistService } from '../../wishlist/wishlist.service';
 import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from '../queries/products-grouped-by-category.sql';
@@ -25,8 +25,6 @@ export class ProductReadService {
     @InjectRepository(ProductCategory)
     private readonly categoryRepo: Repository<ProductCategory>,
 
-    @InjectRepository(ProductColor)
-    private readonly colorRepo: Repository<ProductColor>,
 
     private readonly wishlistService: WishlistService,
     private readonly helpers: ProductHelperService,
@@ -52,11 +50,9 @@ export class ProductReadService {
       order: { created_at: 'ASC' },
     });
 
-    const enrichedRows = await this.helpers.resolveColorsForList(rows);
-
     const grouped = new Map<string, any[]>();
 
-    for (const row of enrichedRows) {
+    for (const row of rows) {
       if (!grouped.has(row.parent_category_id)) {
         grouped.set(row.parent_category_id, []);
       }
@@ -80,8 +76,6 @@ export class ProductReadService {
         address_postal_code: row.address_postal_code,
         image: this.helpers.extractImageUrl(row.image),
         is_in_wishlist: wishlistSet.has(row.id),
-        colors: row.colors || [],
-        sizes: row.sizes || [],
         shipping_cost: row.shipping_cost ? Number(row.shipping_cost) / 100 : 0,
         options: row.options || [],
         variants: (row.variants || []).map((v: any) => ({
@@ -150,11 +144,9 @@ export class ProductReadService {
       }),
     );
 
-    const enriched = await this.helpers.resolveColorsForList(items);
-
     return {
       message: 'Featured products retrieved successfully',
-      data: buildPagination(enriched, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
 
@@ -201,11 +193,9 @@ export class ProductReadService {
       }),
     );
 
-    const items = await this.helpers.resolveColorsForList(data);
-
     return {
       message: 'Products retrieved successfully',
-      data: buildPagination(items, total, page, limit),
+      data: buildPagination(data, total, page, limit),
     };
   }
 
@@ -272,8 +262,6 @@ export class ProductReadService {
       address_postal_code: p.store?.address_postal_code,
       is_in_wishlist: wishlistSet.has(p.id),
       category: category.name,
-      colors: p.colors || [],
-      sizes: p.sizes || [],
       discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       on_sale: p.on_sale,
       options: p.options || [],
@@ -286,12 +274,10 @@ export class ProductReadService {
       })),
     }));
 
-    const items = await this.helpers.resolveColorsForList(data);
-
     return {
       message: 'Category products retrieved successfully',
       category,
-      data: buildPagination(items, total, page, limit),
+      data: buildPagination(data, total, page, limit),
     };
   }
 
@@ -329,16 +315,7 @@ export class ProductReadService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
 
-    const resolvedColors =
-      product.colors && product.colors.length
-        ? await this.colorRepo
-            .createQueryBuilder('c')
-            .select(['c.id', 'c.name', 'c.hex'])
-            .where('c.id = ANY(:colorIds)', {
-              colorIds: product.colors,
-            })
-            .getMany()
-        : [];
+
 
     const store = product.store
       ? {
@@ -404,9 +381,6 @@ export class ProductReadService {
       }),
     );
 
-    const enriched_related =
-      await this.helpers.resolveColorsForList(related_products);
-
     const { store: _s, reviews: _r, variants: _v, ...productOnly } = product;
     productOnly.specs = normalizeJson(productOnly.specs);
 
@@ -423,7 +397,6 @@ export class ProductReadService {
           shipping_cost: product.shipping_cost
             ? Number(product.shipping_cost) / 100
             : null,
-          colors: resolvedColors,
           options: product.options || [],
           variants,
           is_in_wishlist: wishlistSet.has(product.id),
@@ -431,7 +404,7 @@ export class ProductReadService {
         },
         store,
         reviews,
-        related_products: enriched_related,
+        related_products,
       },
     };
   }
@@ -479,11 +452,9 @@ export class ProductReadService {
       }),
     );
 
-    const enriched = await this.helpers.resolveColorsForList(items);
-
     return {
       message: 'Store products retrieved successfully',
-      data: buildPagination(enriched, total, page, limit),
+      data: buildPagination(items, total, page, limit),
     };
   }
 }

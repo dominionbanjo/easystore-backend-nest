@@ -381,10 +381,14 @@ export class ProductWriteService {
         const incomingIds = formatted.map((v) => v.id).filter(Boolean);
 
         // Delete orphans
-        await manager.delete(ProductVariant, {
-          product_id: id,
-          id: Not(In(incomingIds)),
-        });
+        if (incomingIds.length > 0) {
+          await manager.delete(ProductVariant, {
+            product_id: id,
+            id: Not(In(incomingIds)),
+          });
+        } else {
+          await manager.delete(ProductVariant, { product_id: id });
+        }
 
         // Upsert variants individually
         for (const v of formatted) {
@@ -401,7 +405,9 @@ export class ProductWriteService {
         }
 
         // Subscribers do NOT fire on QueryBuilder calls. Recalculate explicitly.
-        await this.recalculateStockFromVariants(id, manager);
+        if (formatted.length > 0) {
+          await this.recalculateStockFromVariants(id, manager);
+        }
       } else if (dto.variants === null) {
         await manager.delete(ProductVariant, { product_id: id });
       }
@@ -488,10 +494,14 @@ export class ProductWriteService {
         const formatted = this.formatVariants(dto.variants);
         const incomingIds = formatted.map((v) => v.id).filter(Boolean);
 
-        await manager.delete(ProductVariant, {
-          product_id: id,
-          id: Not(In(incomingIds)),
-        });
+        if (incomingIds.length > 0) {
+          await manager.delete(ProductVariant, {
+            product_id: id,
+            id: Not(In(incomingIds)),
+          });
+        } else {
+          await manager.delete(ProductVariant, { product_id: id });
+        }
 
         for (const v of formatted) {
           if (v.id) {
@@ -507,7 +517,9 @@ export class ProductWriteService {
         }
 
         // Subscribers do NOT fire on QueryBuilder calls. Recalculate explicitly.
-        await this.recalculateStockFromVariants(id, manager);
+        if (formatted.length > 0) {
+          await this.recalculateStockFromVariants(id, manager);
+        }
       } else if (dto.variants === null) {
         await manager.delete(ProductVariant, { product_id: id });
       }

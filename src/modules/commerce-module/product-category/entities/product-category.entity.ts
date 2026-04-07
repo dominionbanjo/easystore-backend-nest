@@ -23,18 +23,26 @@ export class ProductCategory {
      NAME (SEARCHABLE + UNIQUE)
   ───────────────────────────────────────────────── */
 
-  @Index('IDX_CATEGORY_NAME')
+  @Index('IDX_CATEGORY_NAME_VENDOR', ['name', 'vendor_id'], { unique: true })
   @Index('idx_category_name_trgm', { synchronize: false }) // 🔥 Required for fuzzy search
-  @Column({ type: 'varchar', length: 100, unique: true })
+  @Column({ type: 'varchar', length: 100 })
   name: string;
 
   /* ────────────────────────────────────────────────
      SLUG (URL + FAST LOOKUP)
   ───────────────────────────────────────────────── */
 
-  @Index('IDX_CATEGORY_SLUG')
-  @Column({ type: 'varchar', length: 120, unique: true })
+  @Index('IDX_CATEGORY_SLUG_VENDOR', ['slug', 'vendor_id'], { unique: true })
+  @Column({ type: 'varchar', length: 120 })
   slug: string;
+
+  /* ────────────────────────────────────────────────
+     VENDOR ID (NULL = GLOBAL/DEFAULT)
+  ───────────────────────────────────────────────── */
+
+  @Index('IDX_CATEGORY_VENDOR_ID')
+  @Column({ type: 'uuid', nullable: true })
+  vendor_id: string | null;
 
   /* ────────────────────────────────────────────────
      SELF HIERARCHY

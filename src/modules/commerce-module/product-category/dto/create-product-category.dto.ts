@@ -6,9 +6,10 @@ export class CreateProductCategoryDto {
   @Length(2, 100)
   name: string;
 
+  @IsOptional()
   @IsString()
   @Length(2, 100)
-  slug: string;
+  slug?: string;
 
   /**
    * Parent category ID (optional)

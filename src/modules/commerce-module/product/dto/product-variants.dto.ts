@@ -5,6 +5,7 @@ import {
   IsInt,
   IsArray,
   IsObject,
+  IsUUID,
   Min,
   IsNotEmpty,
 } from 'class-validator';
@@ -21,6 +22,10 @@ export class ProductOptionDto {
 }
 
 export class ProductVariantDto {
+  @IsUUID()
+  @IsOptional()
+  id?: string;
+
   @IsString()
   @IsOptional()
   sku?: string;
@@ -40,4 +45,12 @@ export class ProductVariantDto {
   @IsInt()
   @Min(0)
   stock: number;
+
+  @IsString()
+  @IsOptional()
+  image_url?: string | null;
+
+  @IsString()
+  @IsOptional()
+  image_public_id?: string | null;
 }
