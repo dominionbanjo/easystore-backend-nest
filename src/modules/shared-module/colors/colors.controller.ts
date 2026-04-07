@@ -14,6 +14,9 @@ import { UpdateColorDto } from './dto/update-color.dto';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
+import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
+import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
+import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 
 @Controller('colors')
 export class ColorsController {
@@ -24,17 +27,22 @@ export class ColorsController {
   ──────────────────────────────────────────────── */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  create(@Body() dto: CreateColorDto) {
-    return this.colorsService.create(dto);
+  @Roles('admin', 'vendor')
+  create(
+    @Body() dto: CreateColorDto,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    const vendorId = user.role === 'admin' ? undefined : (user.store_id ?? undefined);
+    return this.colorsService.create(dto, vendorId);
   }
 
   /* ────────────────────────────────────────────────
      READ ALL
   ──────────────────────────────────────────────── */
   @Get()
-  findAll() {
-    return this.colorsService.findAll();
+  @UseGuards(OptionalJwtAuthGuard)
+  findAll(@CurrentUser() user?: jwtStrategy.JwtAuthUser) {
+    return this.colorsService.findAll(user?.store_id ?? undefined);
   }
 
   /* ────────────────────────────────────────────────

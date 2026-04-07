@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 
 import { CreateColorDto } from './dto/create-color.dto';
 import { UpdateColorDto } from './dto/update-color.dto';
@@ -20,34 +20,60 @@ export class ColorsService {
   /* ────────────────────────────────────────────────
      CREATE
   ──────────────────────────────────────────────── */
-  async create(dto: CreateColorDto) {
+  async create(dto: CreateColorDto, vendorId?: string) {
     const exists = await this.colorRepo.exist({
-      where: [{ name: dto.name }, { hex: dto.hex }],
+      where: [
+        { name: dto.name, vendor_id: vendorId ?? IsNull() },
+        { hex: dto.hex, vendor_id: vendorId ?? IsNull() },
+      ],
     });
 
     if (exists) {
       throw new BadRequestException(
-        'Color with same name or hex already exists',
+        'Color with same name or hex already exists for you',
       );
     }
 
-    const color = this.colorRepo.create(dto);
-    const saved = await this.colorRepo.save(color);
+    const color = this.colorRepo.create({
+      ...dto,
+      vendor_id: vendorId ?? null,
+    });
 
-    return {
-      message: 'Color created successfully',
-      color: saved,
-    };
+    try {
+      const saved = await this.colorRepo.save(color);
+
+      return {
+        message: 'Color created successfully',
+        color: saved,
+      };
+    } catch (error) {
+      if (error.code === '23505') {
+        throw new BadRequestException(
+          'A color with this name or hex code already exists in your store or system defaults.',
+        );
+      }
+      throw error;
+    }
   }
 
   /* ────────────────────────────────────────────────
      READ ALL
   ──────────────────────────────────────────────── */
-  async findAll() {
-    const colors = await this.colorRepo.find({
-      select: ['id', 'name', 'hex'],
-      order: { name: 'ASC' },
-    });
+  async findAll(vendorId?: string) {
+    const query = this.colorRepo.createQueryBuilder('color');
+
+    if (vendorId) {
+      query.where('(color.vendor_id IS NULL OR color.vendor_id = :vendorId)', {
+        vendorId,
+      });
+    } else {
+      query.where('color.vendor_id IS NULL');
+    }
+
+    const colors = await query
+      .select(['color.id', 'color.name', 'color.hex', 'color.vendor_id'])
+      .orderBy('color.name', 'ASC')
+      .getMany();
 
     return {
       message: 'Colors retrieved successfully',

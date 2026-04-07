@@ -18,24 +18,31 @@ export class ProductColor {
   /* ───────────────────────────────────────────────
      COLOR NAME
   ─────────────────────────────────────────────── */
-  @Index('IDX_PRODUCT_COLOR_NAME')
+  @Index('IDX_PRODUCT_COLOR_NAME_VENDOR', ['name', 'vendor_id'], {
+    unique: true,
+  })
   @Column({
     type: 'varchar',
     length: 100,
-    unique: true,
   })
   name: string;
 
   /* ───────────────────────────────────────────────
      HEX VALUE (#FFFFFF)
   ─────────────────────────────────────────────── */
-  @Index('IDX_PRODUCT_COLOR_HEX')
+  @Index('IDX_PRODUCT_COLOR_HEX_VENDOR', ['hex', 'vendor_id'], { unique: true })
   @Column({
     type: 'varchar',
     length: 7,
-    unique: true,
   })
   hex: string;
+
+  /* ───────────────────────────────────────────────
+     VENDOR ID (NULL = GLOBAL/DEFAULT)
+  ─────────────────────────────────────────────── */
+  @Index('IDX_PRODUCT_COLOR_VENDOR_ID')
+  @Column({ type: 'uuid', nullable: true })
+  vendor_id: string | null;
 
   /* ───────────────────────────────────────────────
      TIMESTAMPS
