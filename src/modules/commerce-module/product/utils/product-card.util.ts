@@ -19,8 +19,6 @@ export function addProductCardSelects(
     `${alias}.rating_average`,
     `${alias}.stock`,
     `${alias}.created_at`,
-    `${alias}.colors`,
-    `${alias}.sizes`,
     `${alias}.options`,
     `${alias}.discount_price`,
     `${alias}.on_sale`,
@@ -73,8 +71,6 @@ export function mapToProductCardData(
     featured: p.featured,
     shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
     category: p.category_ref?.name,
-    colors: p.colors || [],
-    sizes: p.sizes || [],
     options: p.options || [],
     variants: (p.variants || []).map((v) => ({
       ...v,

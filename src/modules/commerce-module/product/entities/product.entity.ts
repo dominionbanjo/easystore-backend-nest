@@ -146,11 +146,11 @@ export class Product {
   @Column({ type: 'jsonb', nullable: true })
   options: { name: string; values: string[] }[] | null;
 
-  @Column({ type: 'text', array: true, nullable: true })
-  colors: string[] | null;
+  //   @Column({ type: 'text', array: true, nullable: true })
+  //   colors: string[] | null;
 
-  @Column({ type: 'text', array: true, nullable: true })
-  sizes: string[] | null;
+  //   @Column({ type: 'text', array: true, nullable: true })
+  //   sizes: string[] | null;
 
   /* ────────────────────────────────────────────────
      SHIPPING DETAILS
