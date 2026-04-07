@@ -44,7 +44,17 @@ export class ProductSearchService {
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
 
+    // Build a prefix tsquery: "fant" → "fant:*", "jal biy" → "jal:* & biy:*"
+    // This makes the search_vector match partial word prefixes.
+    const tsPrefix = q
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => `${w}:*`)
+      .join(' & ');
 
+    // For direct ILIKE substring matching — catches "fant" inside "fanta can drink"
+    const qLike = `%${q.trim()}%`;
 
     const qb = addProductCardSelects(
       this.productRepo.createQueryBuilder('product'),
@@ -65,9 +75,10 @@ export class ProductSearchService {
       .addSelect(
         `
       (
-        ts_rank(product.search_vector, websearch_to_tsquery(:q)) * 0.7
-        + similarity(product.name, :q) * 0.5
-        + similarity(category.name, :q) * 0.3
+        COALESCE(ts_rank(product.search_vector, websearch_to_tsquery(:q)), 0) * 0.7
+        + CASE WHEN product.name ILIKE :qLike THEN 0.8 ELSE 0 END
+        + word_similarity(:q, product.name) * 0.6
+        + word_similarity(:q, COALESCE(category.name, '')) * 0.3
       )
     `,
         'rank',
@@ -77,12 +88,14 @@ export class ProductSearchService {
       product.status = :status
       AND (
         product.search_vector @@ websearch_to_tsquery(:q)
-        OR similarity(product.name, :q) > 0.25
+        OR product.search_vector @@ to_tsquery('simple', :tsPrefix)
+        OR product.name ILIKE :qLike
+        OR word_similarity(:q, product.name) > 0.3
         OR product.category_id IN (
           WITH RECURSIVE category_tree AS (
             SELECT id
             FROM product_categories
-            WHERE similarity(name, :q) > 0.25
+            WHERE word_similarity(:q, name) > 0.3
             UNION ALL
             SELECT c.id
             FROM product_categories c
@@ -95,9 +108,12 @@ export class ProductSearchService {
     `,
         {
           q,
+          tsPrefix,
+          qLike,
           status: ProductStatus.ACTIVE,
         },
       );
+
 
     if (minPrice) {
       qb.andWhere('product.price >= :minPrice', { minPrice: minPrice * 100 });
