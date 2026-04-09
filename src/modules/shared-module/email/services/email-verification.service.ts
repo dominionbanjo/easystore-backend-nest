@@ -28,7 +28,7 @@ export class EmailVerificationService {
 
       <div style="background-color: #f3f4f6; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
         <p style="font-size: 14px; color: #6b7280; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Your Verification Code</p>
-        <div style="font-size: 42px; font-weight: 800; color: #6366f1; letter-spacing: 10px; margin: 0;">
+        <div style="font-size: 42px; font-weight: 800; color: ${this.tpl.brandColor}; letter-spacing: 10px; margin: 0;">
           ${otp}
         </div>
         <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">This code will expire in <b>10 minutes</b>.</p>

@@ -4,13 +4,15 @@ import { EmailTemplateService } from '../email-template.service';
 
 @Injectable()
 export class DeliveryMailService {
-  private readonly brandColor = '#6366f1';
+  private readonly brandColor: string;
   private readonly baseUrl = process.env.FRONTEND_URL || 'https://eazystore.com.ng';
 
   constructor(
     private email: EmailService,
     private tpl: EmailTemplateService,
-  ) {}
+  ) {
+    this.brandColor = this.tpl.brandColor;
+  }
 
   private getStatusMessage(status: string): {
     title: string;
@@ -356,7 +358,7 @@ export class DeliveryMailService {
       <p>Thank you for confirming the delivery of order <b>#${order_id.split('-')[0].toUpperCase()}</b>. This completes your transaction.</p>
       
       <div style="background-color: #f3f4f6; border-radius: 12px; padding: 25px; text-align: center; margin: 30px 0;">
-        <h3 style="margin: 0; color: #6366f1;">Thank you for shopping!</h3>
+        <h3 style="margin: 0; color: ${this.brandColor};">Thank you for shopping!</h3>
         <p style="margin-top: 10px; font-size: 14px; color: #6b7280;">We look forward to serving you again soon.</p>
       </div>
 

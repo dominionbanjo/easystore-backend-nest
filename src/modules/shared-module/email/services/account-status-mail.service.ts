@@ -35,7 +35,7 @@ export class AccountStatusMailService {
           <p>Please be informed that your EasyStore account has been <b>Restricted</b> by our team for a review.</p>
           <p>While restricted, some features may be limited. If you believe this is a mistake or need clarification, please contact our support team to resolve this.</p>
           <div style="text-align: center; margin-top: 30px;">
-            ${this.tpl.button('Contact Support', 'mailto:support@easystore.com')}
+            ${this.tpl.button('Contact Support', 'mailto:support@eazystore.com.ng')}
           </div>
         `;
         break;

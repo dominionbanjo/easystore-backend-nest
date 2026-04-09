@@ -4,13 +4,15 @@ import { EmailTemplateService } from '../email-template.service';
 
 @Injectable()
 export class EscrowMailService {
-  private readonly brandColor = '#6366f1';
+  private readonly brandColor: string;
   private readonly baseUrl = process.env.FRONTEND_URL || 'https://eazystore.com.ng';
 
   constructor(
     private email: EmailService,
     private tpl: EmailTemplateService,
-  ) {}
+  ) {
+    this.brandColor = this.tpl.brandColor;
+  }
 
   /* ------------------------------------------------------------
        1. ESCROW CREATED (BUYER)

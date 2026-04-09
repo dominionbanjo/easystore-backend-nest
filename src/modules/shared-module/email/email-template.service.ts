@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class EmailTemplateService {
-  private readonly brandColor = '#6366f1'; // Indigo-500
+  public readonly brandColor = '#17c06e'; // Brand Primary (Green)
   private readonly secondaryColor = '#f97316'; // Orange-500
   private readonly textColor = '#1f2937'; // Gray-800
   private readonly mutedTextColor = '#6b7280'; // Gray-500
@@ -15,7 +15,7 @@ export class EmailTemplateService {
         body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: ${this.bgColor}; color: ${this.textColor}; -webkit-font-smoothing: antialiased; }
         .wrapper { width: 100%; table-layout: fixed; background-color: ${this.bgColor}; padding-bottom: 40px; }
         .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-spacing: 0; font-family: sans-serif; color: ${this.textColor}; border-radius: 12px; overflow: hidden; margin-top: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-        .header { padding: 40px 0 20px; text-align: center; background: linear-gradient(135deg, ${this.brandColor} 0%, #4f46e5 100%); }
+        .header { padding: 40px 0 20px; text-align: center; background: linear-gradient(135deg, ${this.brandColor} 0%, #059669 100%); }
         .content { padding: 40px 30px; line-height: 1.6; }
         .footer { text-align: center; padding: 30px; font-size: 13px; color: ${this.mutedTextColor}; }
         .button { display: inline-block; padding: 14px 28px; background-color: ${this.brandColor}; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; border: none; }
@@ -52,17 +52,17 @@ export class EmailTemplateService {
                 </div>
                 <div class="divider"></div>
                 <p style="font-size: 14px; color: ${this.mutedTextColor}; text-align: center; margin-bottom: 0;">
-                  If you have any questions, feel free to contact our support team at <a href="mailto:support@easystore.com" style="color: ${this.brandColor};">support@easystore.com</a>
+                  If you have any questions, feel free to contact our support team at <a href="mailto:support@eazystore.com.ng" style="color: ${this.brandColor};">support@eazystore.com.ng</a>
                 </p>
               </td>
             </tr>
             <tr>
               <td class="footer">
                 <p style="margin-bottom: 10px;">&copy; ${new Date().getFullYear()} EazyStore Inc. All rights reserved.</p>
-                <p>123 Commerce St, Digital Valley, ES 10101</p>
+                <p>Phase 3, Gwagwalada, Abuja, Nigeria</p>
                 <div style="margin-top: 20px;">
-                  <a href="#" style="margin: 0 10px; color: ${this.mutedTextColor}; text-decoration: none;">Privacy Policy</a>
-                  <a href="#" style="margin: 0 10px; color: ${this.mutedTextColor}; text-decoration: none;">Terms of Service</a>
+                  <a href="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/privacy-policy" style="margin: 0 10px; color: ${this.mutedTextColor}; text-decoration: none;">Privacy Policy</a>
+                  <a href="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/terms-of-service" style="margin: 0 10px; color: ${this.mutedTextColor}; text-decoration: none;">Terms of Service</a>
                 </div>
               </td>
             </tr>

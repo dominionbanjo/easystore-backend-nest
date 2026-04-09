@@ -28,25 +28,25 @@ export class WelcomeMailService {
       </p>
       
       <div style="background-color: #f3f4f6; padding: 25px; border-radius: 12px; margin: 30px 0;">
-        <h3 style="margin-top: 0; color: #6366f1;">🚀 Getting Started</h3>
+        <h3 style="margin-top: 0; color: ${this.tpl.brandColor};">🚀 Getting Started</h3>
         <p style="font-size: 14px; margin-bottom: 20px;">Here are your first steps to making the most of EazyStore:</p>
         
         <table style="width: 100%; border-spacing: 0;">
           <tr>
             <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
-              <span style="font-weight: 700; color: #6366f1; margin-right: 10px;">1.</span> 
+              <span style="font-weight: 700; color: ${this.tpl.brandColor}; margin-right: 10px;">1.</span> 
               Complete your profile settings
             </td>
           </tr>
           <tr>
             <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
-              <span style="font-weight: 700; color: #6366f1; margin-right: 10px;">2.</span> 
+              <span style="font-weight: 700; color: ${this.tpl.brandColor}; margin-right: 10px;">2.</span> 
               ${role === 'vendor' ? 'Set up your custom storefront' : 'Explore trending products'}
             </td>
           </tr>
           <tr>
             <td style="padding: 10px 0;">
-              <span style="font-weight: 700; color: #6366f1; margin-right: 10px;">3.</span> 
+              <span style="font-weight: 700; color: ${this.tpl.brandColor}; margin-right: 10px;">3.</span> 
               ${role === 'vendor' ? 'Add your first product' : 'Save your favorite stores'}
             </td>
           </tr>
@@ -56,7 +56,7 @@ export class WelcomeMailService {
 
     if (role === 'vendor') {
       content += `
-        <div style="border: 2px dashed #6366f1; padding: 20px; border-radius: 12px; margin: 30px 0; text-align: center;">
+        <div style="border: 2px dashed ${this.tpl.brandColor}; padding: 20px; border-radius: 12px; margin: 30px 0; text-align: center;">
           <h3 style="margin-top: 0;">Ready to Start Selling?</h3>
           <p style="font-size: 14px;">Your dashboard is ready and waiting. Start building your empire today!</p>
           ${this.tpl.button('Visit Vendor Dashboard', `${process.env.FRONTEND_URL}/vendor/dashboard`)}

@@ -94,7 +94,7 @@ export class AdminNotifyMailService {
   ) {
     const title = 'System Log: Status Change';
     const content = `
-      <p>Administrative Log: The status for <b>${user.name}</b> (${user.email}) has been updated to <span style="font-weight: 700; color: #6366f1;">${newStatus.toUpperCase()}</span>.</p>
+      <p>Administrative Log: The status for <b>${user.name}</b> (${user.email}) has been updated to <span style="font-weight: 700; color: ${this.tpl.brandColor};">${newStatus.toUpperCase()}</span>.</p>
     `;
 
     const html = this.tpl.wrapper(title, content);

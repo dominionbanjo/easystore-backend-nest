@@ -87,7 +87,7 @@ export class OrderMailService {
         </div>
         <div style="border-top: 1px solid #e5e7eb; margin: 12px 0; padding-top: 12px; display: flex; justify-content: space-between;">
           <span style="font-weight: 700; color: #111827; font-size: 18px;">Total</span>
-          <span style="font-weight: 700; color: #6366f1; font-size: 18px;">₦${order.total.toLocaleString()}</span>
+          <span style="font-weight: 700; color: ${this.tpl.brandColor}; font-size: 18px;">₦${order.total.toLocaleString()}</span>
         </div>
       </div>
     `;
@@ -241,7 +241,7 @@ export class OrderMailService {
         <p>Your order <b>#${payload.order.id.split('-')[0].toUpperCase()}</b> status has been updated to:</p>
         
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
-          <span style="font-weight: 700; font-size: 20px; color: #6366f1; text-transform: uppercase;">${payload.status.replace(/_/g, ' ')}</span>
+          <span style="font-weight: 700; font-size: 20px; color: ${this.tpl.brandColor}; text-transform: uppercase;">${payload.status.replace(/_/g, ' ')}</span>
         </div>
 
         <p>You can track the progress of your order using the link below.</p>

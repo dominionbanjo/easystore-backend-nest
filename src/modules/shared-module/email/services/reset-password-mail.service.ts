@@ -44,7 +44,7 @@ export class ResetPasswordMailService {
 
       <p style="font-size: 13px; color: #9ca3af;">
         If the button above doesn't work, copy and paste this link into your browser: <br/>
-        <a href="${resetURL}" style="color: #6366f1; word-break: break-all;">${resetURL}</a>
+        <a href="${resetURL}" style="color: ${this.tpl.brandColor}; word-break: break-all;">${resetURL}</a>
       </p>
     `;
 
