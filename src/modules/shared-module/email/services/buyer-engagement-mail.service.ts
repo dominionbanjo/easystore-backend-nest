@@ -24,7 +24,7 @@ export class BuyerEngagementMailService {
           </p>
         </div>
 
-        <div style="background: linear-gradient(to right, #fef3c7, #fefce8); padding: 25px; border-radius: 12px; border: 1px solid #fde68a; margin-bottom: 30px; text-align: center;">
+        <div style="background: linear-gradient(to right, #fef3c7, #fefce8); padding: 25px; border-radius: ${this.tpl.borderRadius}; border: 1px solid #fde68a; margin-bottom: 30px; text-align: center;">
              <h3 style="margin-top: 0; color: #92400e;">✨ Curated Just for You</h3>
              <p style="font-size: 14px; color: #b45309; margin-bottom: 0;">
                 Our algorithm has hand-picked a selection of stores that match your interests. 

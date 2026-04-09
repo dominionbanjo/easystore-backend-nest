@@ -34,7 +34,7 @@ export class OrderMailService {
           <div style="display: flex; align-items: center;">
             ${
               item.image
-                ? `<img src="${item.image}" alt="${item.name}" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover; margin-right: 12px;" />`
+                ? `<img src="${item.image}" alt="${item.name}" style="width: 50px; height: 50px; border-radius: ${this.tpl.borderRadius}; object-fit: cover; margin-right: 12px;" />`
                 : ''
             }
             <div>
@@ -76,7 +76,7 @@ export class OrderMailService {
     const shipping = order.shipping_fee || 0;
 
     return `
-      <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px;">
+      <div style="background-color: #f9fafb; padding: 20px; border-radius: ${this.tpl.borderRadius}; margin-top: 20px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span style="color: #6b7280;">Subtotal</span>
           <span style="font-weight: 600;">₦${(subtotal / 100).toLocaleString()}</span>
@@ -240,7 +240,7 @@ export class OrderMailService {
         <p>Hi <b>${payload.name}</b>,</p>
         <p>Your order <b>#${payload.order.id.split('-')[0].toUpperCase()}</b> status has been updated to:</p>
         
-        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: ${this.tpl.borderRadius}; text-align: center; margin: 20px 0;">
           <span style="font-weight: 700; font-size: 20px; color: ${this.tpl.brandColor}; text-transform: uppercase;">${payload.status.replace(/_/g, ' ')}</span>
         </div>
 

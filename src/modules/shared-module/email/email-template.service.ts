@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class EmailTemplateService {
   public readonly brandColor = '#17c06e'; // Brand Primary (Green)
+  public readonly borderRadius = '4.8px'; // 0.3rem (sm)
   private readonly secondaryColor = '#f97316'; // Orange-500
   private readonly textColor = '#1f2937'; // Gray-800
   private readonly mutedTextColor = '#6b7280'; // Gray-500
@@ -14,11 +15,11 @@ export class EmailTemplateService {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: ${this.bgColor}; color: ${this.textColor}; -webkit-font-smoothing: antialiased; }
         .wrapper { width: 100%; table-layout: fixed; background-color: ${this.bgColor}; padding-bottom: 40px; }
-        .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-spacing: 0; font-family: sans-serif; color: ${this.textColor}; border-radius: 12px; overflow: hidden; margin-top: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-spacing: 0; font-family: sans-serif; color: ${this.textColor}; border-radius: ${this.borderRadius}; overflow: hidden; margin-top: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
         .header { padding: 40px 0 20px; text-align: center; background: linear-gradient(135deg, ${this.brandColor} 0%, #059669 100%); }
         .content { padding: 40px 30px; line-height: 1.6; }
         .footer { text-align: center; padding: 30px; font-size: 13px; color: ${this.mutedTextColor}; }
-        .button { display: inline-block; padding: 14px 28px; background-color: ${this.brandColor}; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; border: none; }
+        .button { display: inline-block; padding: 14px 28px; background-color: ${this.brandColor}; color: #ffffff !important; text-decoration: none; border-radius: ${this.borderRadius}; font-weight: 600; margin: 20px 0; border: none; }
         .divider { border-top: 1px solid #e5e7eb; margin: 30px 0; }
         h1, h2, h3 { color: #111827; margin-top: 0; font-weight: 700; }
         p { margin: 0 0 16px; }

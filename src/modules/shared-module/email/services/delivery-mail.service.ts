@@ -84,7 +84,7 @@ export class DeliveryMailService {
       <p>Hi <b>${name}</b>,</p>
       <p>Your order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been processed for delivery. Our team is working to get it to you as soon as possible.</p>
       
-      <div style="background-color: #f3f4f6; padding: 25px; border-radius: 12px; margin: 30px 0; border-left: 4px solid ${this.brandColor};">
+      <div style="background-color: #f3f4f6; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; border-left: 4px solid ${this.brandColor};">
         <p style="margin: 0; font-weight: 700; color: #111827;">Status: Processing</p>
         <p style="margin: 5px 0 0; font-size: 14px; color: #6b7280;">We will notify you once your package is on the way!</p>
       </div>
@@ -152,7 +152,7 @@ export class DeliveryMailService {
       <p>Hi <b>${name}</b>,</p>
       <p>A courier has been assigned to your order <b>#${order_id.split('-')[0].toUpperCase()}</b> and is preparing for pickup.</p>
       
-      <div style="background-color: #f0f7ff; border: 1px solid #dbeafe; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
+      <div style="background-color: #f0f7ff; border: 1px solid #dbeafe; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; text-align: center;">
         <p style="margin: 0; font-size: 12px; color: #1e40af; text-transform: uppercase; letter-spacing: 1px;">Courier Tracking ID</p>
         <p style="margin: 10px 0 0; font-size: 24px; font-weight: 800; color: #1e3a8a;">${courier_id.split('-')[0].toUpperCase()}</p>
       </div>
@@ -220,7 +220,7 @@ export class DeliveryMailService {
       <p>There's an update regarding your order <b>#${order_id.split('-')[0].toUpperCase()}</b>:</p>
       
       <div style="margin: 30px 0; text-align: center;">
-        <div style="display: inline-block; padding: 12px 30px; border-radius: 50px; background-color: ${color}15; color: ${color}; border: 1px solid ${color}30;">
+        <div style="display: inline-block; padding: 12px 30px; border-radius: ${this.tpl.borderRadius}; background-color: ${color}15; color: ${color}; border: 1px solid ${color}30;">
           <h2 style="margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase;">${status.replace('_', ' ')}</h2>
         </div>
         <p style="margin-top: 20px; font-size: 16px; color: #4b5563;">${message}</p>
@@ -257,7 +257,7 @@ export class DeliveryMailService {
       <p>Hello <b>${name}</b>,</p>
       <p>The delivery status for order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been updated.</p>
       
-      <div style="margin: 25px 0; padding: 20px; border-radius: 12px; background-color: ${color}10; border-left: 5px solid ${color};">
+      <div style="margin: 25px 0; padding: 20px; border-radius: ${this.tpl.borderRadius}; background-color: ${color}10; border-left: 5px solid ${color};">
         <p style="margin: 0; font-weight: 700; color: #111827; text-transform: capitalize;">New Status: ${status.replace('_', ' ')}</p>
       </div>
     `;
@@ -323,7 +323,7 @@ export class DeliveryMailService {
     const content = `
       <p>Hello <b>${name}</b>,</p>
       <p>Order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been marked as delivered by the courier.</p>
-      <div style="background-color: #fefce8; border: 1px solid #fef08a; padding: 20px; border-radius: 12px; margin-top: 25px;">
+      <div style="background-color: #fefce8; border: 1px solid #fef08a; padding: 20px; border-radius: ${this.tpl.borderRadius}; margin-top: 25px;">
         <p style="margin: 0; color: #854d0e; font-size: 14px;">
           <b>Fulfillment Tip:</b> We are now waiting for the customer to confirm receipt. Once confirmed, your funds will be released from escrow immediately.
         </p>
@@ -357,7 +357,7 @@ export class DeliveryMailService {
       <p>Hi <b>${name}</b>,</p>
       <p>Thank you for confirming the delivery of order <b>#${order_id.split('-')[0].toUpperCase()}</b>. This completes your transaction.</p>
       
-      <div style="background-color: #f3f4f6; border-radius: 12px; padding: 25px; text-align: center; margin: 30px 0;">
+      <div style="background-color: #f3f4f6; border-radius: ${this.tpl.borderRadius}; padding: 25px; text-align: center; margin: 30px 0;">
         <h3 style="margin: 0; color: ${this.brandColor};">Thank you for shopping!</h3>
         <p style="margin-top: 10px; font-size: 14px; color: #6b7280;">We look forward to serving you again soon.</p>
       </div>
@@ -388,7 +388,7 @@ export class DeliveryMailService {
     const title = 'Payment Released! 💰';
     const content = `
       <p>Hello <b>${name}</b>,</p>
-      <div style="padding: 30px; background-color: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; text-align: center; margin: 30px 0;">
+      <div style="padding: 30px; background-color: #ecfdf5; border: 1px solid #10b981; border-radius: ${this.tpl.borderRadius}; text-align: center; margin: 30px 0;">
         <div style="font-size: 50px; margin-bottom: 15px;">💵</div>
         <h3 style="margin: 0; color: #047857; font-size: 24px;">Success!</h3>
         <p style="margin-top: 10px; color: #065f46; font-size: 16px;">
@@ -435,10 +435,10 @@ export class DeliveryMailService {
       
       <div style="margin: 40px 0; text-align: center;">
         <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 2px; font-weight: 700;">Secure Release Code</p>
-        <div style="background-color: #f8fafc; padding: 30px; border-radius: 16px; display: inline-block; min-width: 240px; margin-top: 15px; border: 3px dashed #cbd5e1;">
+        <div style="background-color: #f8fafc; padding: 30px; border-radius: ${this.tpl.borderRadius}; display: inline-block; min-width: 240px; margin-top: 15px; border: 3px dashed #cbd5e1;">
           <span style="font-size: 42px; font-family: 'Courier New', monospace; font-weight: 800; letter-spacing: 12px; color: #1e293b;">${release_code}</span>
         </div>
-        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 15px; border-radius: 8px; margin-top: 30px;">
+        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 15px; border-radius: ${this.tpl.borderRadius}; margin-top: 30px;">
           <p style="font-size: 13px; color: #be123c; margin: 0; font-weight: 600;">
             ⚠ Warning: Do not share this code with anyone until the package is in your hands.
           </p>

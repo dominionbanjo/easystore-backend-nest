@@ -34,7 +34,7 @@ export class ResetPasswordMailService {
         ${this.tpl.button('Reset My Password', resetURL)}
       </div>
 
-      <div style="background-color: #fffbeb; border-radius: 12px; padding: 20px; border: 1px solid #fef3c7; margin-top: 30px;">
+      <div style="background-color: #fffbeb; border-radius: ${this.tpl.borderRadius}; padding: 20px; border: 1px solid #fef3c7; margin-top: 30px;">
         <p style="font-size: 14px; color: #92400e; margin-bottom: 0;">
           <b>Security Tip:</b> If you did not request a password reset, please ignore this email or contact support if you're concerned about your account security.
         </p>

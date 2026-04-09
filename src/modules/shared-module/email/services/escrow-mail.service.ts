@@ -31,7 +31,7 @@ export class EscrowMailService {
       <p>Hi <b>${name}</b>,</p>
       <p>An escrow has been successfully initialized for your order <b>#${order_id.split('-')[0].toUpperCase()}</b>.</p>
       
-      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
+      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; text-align: center;">
         <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
         <h3 style="margin: 0; color: #166534;">Your Purchase is Protected</h3>
         <p style="margin-top: 10px; font-size: 14px; color: #166534;">
@@ -72,7 +72,7 @@ export class EscrowMailService {
       <p>Hello <b>${name}</b>,</p>
       <p>An escrow has been created for order <b>#${order_id.split('-')[0].toUpperCase()}</b>.</p>
       
-      <div style="background-color: #f3f4f6; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
+      <div style="background-color: #f3f4f6; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; text-align: center;">
         <p style="margin: 0; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Pending Payout</p>
         <p style="margin: 10px 0 0; font-size: 32px; font-weight: 800; color: #111827;">₦${amount.toLocaleString()}</p>
       </div>
@@ -111,7 +111,7 @@ export class EscrowMailService {
     const content = `
       <p>Hi <b>${name}</b>,</p>
       <p>Your payment for order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been successfully secured in escrow.</p>
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; margin-top: 25px;">
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: ${this.tpl.borderRadius}; margin-top: 25px;">
         <p style="margin: 0; font-size: 14px; color: #475569;">
           <b>Note:</b> The vendor has been notified and will begin processing your delivery shortly. Your funds remain protected.
         </p>
@@ -178,7 +178,7 @@ export class EscrowMailService {
       <p>Hello <b>${name}</b>,</p>
       <p>Congratulations! Your payment for order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been released from escrow.</p>
       
-      <div style="background-color: #ecfdf5; border: 1px solid #10b981; padding: 30px; border-radius: 12px; margin: 30px 0; text-align: center;">
+      <div style="background-color: #ecfdf5; border: 1px solid #10b981; padding: 30px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; text-align: center;">
         <p style="margin: 0; font-size: 12px; color: #047857; text-transform: uppercase; letter-spacing: 1px;">Amount Added to Wallet</p>
         <p style="margin: 10px 0 0; font-size: 36px; font-weight: 800; color: #065f46;">₦${amount.toLocaleString()}</p>
       </div>
@@ -216,7 +216,7 @@ export class EscrowMailService {
       <p>Hi <b>${name}</b>,</p>
       <p>Your order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been cancelled and a refund has been issued.</p>
       
-      <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 30px; border-radius: 12px; margin: 30px 0; text-align: center;">
+      <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 30px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; text-align: center;">
         <p style="margin: 0; font-size: 12px; color: #be123c; text-transform: uppercase; letter-spacing: 1px;">Refunded Amount</p>
         <p style="margin: 10px 0 0; font-size: 36px; font-weight: 800; color: #9f1239;">₦${amount.toLocaleString()}</p>
       </div>

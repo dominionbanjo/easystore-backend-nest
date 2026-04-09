@@ -27,7 +27,7 @@ export class WelcomeMailService {
         more seamless shopping and selling experience.
       </p>
       
-      <div style="background-color: #f3f4f6; padding: 25px; border-radius: 12px; margin: 30px 0;">
+      <div style="background-color: #f3f4f6; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0;">
         <h3 style="margin-top: 0; color: ${this.tpl.brandColor};">🚀 Getting Started</h3>
         <p style="font-size: 14px; margin-bottom: 20px;">Here are your first steps to making the most of EazyStore:</p>
         
@@ -56,7 +56,7 @@ export class WelcomeMailService {
 
     if (role === 'vendor') {
       content += `
-        <div style="border: 2px dashed ${this.tpl.brandColor}; padding: 20px; border-radius: 12px; margin: 30px 0; text-align: center;">
+        <div style="border: 2px dashed ${this.tpl.brandColor}; padding: 20px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; text-align: center;">
           <h3 style="margin-top: 0;">Ready to Start Selling?</h3>
           <p style="font-size: 14px;">Your dashboard is ready and waiting. Start building your empire today!</p>
           ${this.tpl.button('Visit Vendor Dashboard', `${process.env.FRONTEND_URL}/vendor/dashboard`)}
@@ -71,7 +71,7 @@ export class WelcomeMailService {
     }
 
     content += `
-      <div style="margin: 30px 0; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
+      <div style="margin: 30px 0; padding: 20px; border-radius: ${this.tpl.borderRadius}; border: 1px solid #e5e7eb;">
         <h4 style="margin-top: 0;">💡 Quick Tip</h4>
         <p style="font-size: 14px; color: #6b7280; margin-bottom: 0;">
           Access your account and settings anytime by clicking on your profile icon at the top right of the page.

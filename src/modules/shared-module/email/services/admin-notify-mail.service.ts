@@ -17,7 +17,7 @@ export class AdminNotifyMailService {
     const content = `
       <p>System notification: A new user has joined the EasyStore platform.</p>
       
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; border-radius: 12px; margin: 30px 0;">
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0;">
         <h3 style="margin-top: 0; color: #1e293b; font-size: 16px;">User Details</h3>
         <table style="width: 100%; border-spacing: 0;">
           <tr>
@@ -57,7 +57,7 @@ export class AdminNotifyMailService {
     const content = `
       <p>System Alert: A new vendor store has been created and requires administrative review for activation.</p>
       
-      <div style="background-color: #fffbeb; border: 1px solid #fef3c7; padding: 25px; border-radius: 12px; margin: 30px 0;">
+      <div style="background-color: #fffbeb; border: 1px solid #fef3c7; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0;">
         <h3 style="margin-top: 0; color: #92400e; font-size: 16px;">Store Information</h3>
         <table style="width: 100%; border-spacing: 0;">
           <tr>

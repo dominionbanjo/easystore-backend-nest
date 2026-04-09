@@ -70,7 +70,7 @@ export class AccountStatusMailService {
       <p>Excellent news! Your store, <b>${vendor.storeName}</b>, has been reviewed and <b>Approved</b> by our team.</p>
       <p>Your storefront is now visible to customers, and you can start listing products and accepting orders immediately.</p>
       
-      <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; padding: 25px; border-radius: 12px; margin: 30px 0;">
+      <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0;">
         <h3 style="margin-top: 0; color: #166534;">🚀 Next Steps</h3>
         <ul style="padding-left: 20px; font-size: 14px; color: #166534;">
           <li style="margin-bottom: 8px;">Upload high-quality product images to stand out.</li>

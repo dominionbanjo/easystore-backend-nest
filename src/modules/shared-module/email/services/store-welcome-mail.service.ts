@@ -21,7 +21,7 @@ export class StoreWelcomeMailService {
       <p>Hi <b>${vendor.name}</b>,</p>
       <p>Congratulations! Your store, <b>${vendor.storeName}</b>, has been successfully created. We're excited to see your business grow on EazyStore.</p>
       
-      <div style="background-color: #fff7ed; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #ffedd5;">
+      <div style="background-color: #fff7ed; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; border: 1px solid #ffedd5;">
         <h3 style="margin-top: 0; color: #c2410c;">📋 Next Step: Admin Review</h3>
         <p style="font-size: 14px; margin-bottom: 0; color: #9a3412;">
           To maintain the highest quality for our customers, all new stores undergo a quick review. 
@@ -40,7 +40,7 @@ export class StoreWelcomeMailService {
         ${this.tpl.button('📺 Watch Setup Video', videoUrl)}
       </div>
 
-      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 12px; margin-top: 30px;">
+      <div style="background-color: #f3f4f6; padding: 20px; border-radius: ${this.tpl.borderRadius}; margin-top: 30px;">
         <h4 style="margin-top: 0;">Quick Checklist:</h4>
         <ul style="padding-left: 20px; font-size: 14px; color: #4b5563;">
           <li style="margin-bottom: 8px;">Upload high-quality product images</li>

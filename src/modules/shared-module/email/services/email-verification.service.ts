@@ -26,7 +26,7 @@ export class EmailVerificationService {
         Thank you for joining EazyStore! To complete your registration and secure your account, please use the verification code below.
       </p>
 
-      <div style="background-color: #f3f4f6; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
+      <div style="background-color: #f3f4f6; border-radius: ${this.tpl.borderRadius}; padding: 30px; text-align: center; margin: 30px 0;">
         <p style="font-size: 14px; color: #6b7280; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Your Verification Code</p>
         <div style="font-size: 42px; font-weight: 800; color: ${this.tpl.brandColor}; letter-spacing: 10px; margin: 0;">
           ${otp}
