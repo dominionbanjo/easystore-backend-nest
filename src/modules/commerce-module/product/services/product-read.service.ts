@@ -409,6 +409,50 @@ export class ProductReadService {
     };
   }
 
+  async getVendorSingle(identifier: string, storeId: string) {
+    const isUUID = /^[0-9a-f]{8}-/.test(identifier);
+
+    const product = await this.productRepo.findOne({
+      where: isUUID
+        ? { id: identifier, store_id: storeId }
+        : { slug: identifier, store_id: storeId },
+      relations: ['category_ref', 'store', 'variants'],
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found in your store');
+    }
+
+    const variants = (product.variants || []).map((v) => ({
+      ...v,
+      price: Number(v.price) / 100,
+      discount_price: v.discount_price ? Number(v.discount_price) / 100 : null,
+    }));
+
+    const { store: _s, variants: _v, ...productOnly } = product;
+    productOnly.specs = normalizeJson(productOnly.specs);
+
+    return {
+      message: 'Vendor product retrieved successfully',
+      data: {
+        product: {
+          ...productOnly,
+          price: Number(product.price) / 100,
+          discount_price: product.discount_price
+            ? Number(product.discount_price) / 100
+            : null,
+          shipping_cost: product.shipping_cost
+            ? Number(product.shipping_cost) / 100
+            : null,
+          options: product.options || [],
+          variants,
+          store_id: product.store_id || product.store?.id,
+        },
+      },
+    };
+  }
+
+
   async getByStore(
     storeId: string,
     pagination: PaginationQueryDto = { page: 1, limit: 20 },

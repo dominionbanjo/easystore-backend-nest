@@ -67,6 +67,25 @@ export class VendorProductController {
   }
 
   /* ────────────────────────────────────────────────
+     🔍 VENDOR: GET SINGLE PRODUCT (For Editing)
+     GET /vendor/products/:idOrSlug
+  ──────────────────────────────────────────────── */
+  @Get(':idOrSlug')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.VIEW_PRODUCT)
+  getVendorSingle(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Param('idOrSlug') identifier: string,
+  ) {
+    if (!user.store_id) {
+      throw new NotFoundException('User does not own a store');
+    }
+
+    return this.productService.getVendorSingle(identifier, user.store_id);
+  }
+
+
+  /* ────────────────────────────────────────────────
      🔍 PUBLIC: SEARCH PRODUCTS IN A STORE
      GET /vendor/products/store/:storeId/search
   ──────────────────────────────────────────────── */

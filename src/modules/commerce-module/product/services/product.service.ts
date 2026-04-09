@@ -60,6 +60,11 @@ export class ProductService {
     return this.readService.getByStore(storeId, pagination, userId);
   }
 
+  getVendorSingle(identifier: string, storeId: string) {
+    return this.readService.getVendorSingle(identifier, storeId);
+  }
+
+
   /* ────────────────────────────────────────────────
      SEARCH OPERATIONS
   ──────────────────────────────────────────────── */
