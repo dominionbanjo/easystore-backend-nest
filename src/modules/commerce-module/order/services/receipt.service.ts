@@ -14,7 +14,7 @@ export class ReceiptService {
     const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     // Branding / Header
-    page.drawText('EasyStore Receipt', {
+    page.drawText('EazyStore Receipt', {
       x: 50,
       y: height - 50,
       size: 24,
@@ -125,7 +125,7 @@ export class ReceiptService {
     });
 
     // Footer
-    page.drawText('EasyStore Inc. | Support: support@easystore.com', {
+    page.drawText('EazyStore Inc. | Support: support@easystore.com', {
       x: width / 2 - 100,
       y: 20,
       size: 8,

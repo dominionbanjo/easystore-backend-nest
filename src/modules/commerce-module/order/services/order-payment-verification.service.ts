@@ -16,6 +16,7 @@ import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 
 import { OrderMailService } from 'src/modules/shared-module/email/services/order-mail.service';
 import { ReceiptService } from './receipt.service';
+import { OrderManagementService } from './order-management.service';
 
 @Injectable()
 export class OrderPaymentVerificationService {
@@ -33,6 +34,7 @@ export class OrderPaymentVerificationService {
     private readonly cache: CacheService,
     private readonly orderMailService: OrderMailService,
     private readonly receiptService: ReceiptService,
+    private readonly orderManagementService: OrderManagementService,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -111,24 +113,27 @@ export class OrderPaymentVerificationService {
         });
 
         // 4. Record Transaction (Side Effect)
-        /* TRANSACTION RECORD */
-        await this.transactions.create({
-          order_id: order.id,
-          escrow_id: order.escrow_id ?? undefined,
-          user_id: order.buyer_id!,
-          vendor_id: order.vendor_id,
-          type: 'payment_confirmed',
-          amount: order.total,
-          currency: 'NGN',
-          status: 'success',
-          description: 'Payment verified manually',
-          metadata: {
-            provider: 'paystack',
-            reference,
-          },
-        });
-
-        // 5. Adjust Stock (REDUCE) — variant-aware
+          /* TRANSACTION RECORD */
+          await this.transactions.create({
+            order_id: order.id,
+            escrow_id: order.escrow_id ?? undefined,
+            user_id: order.buyer_id!,
+            vendor_id: order.vendor_id,
+            type: 'payment_confirmed',
+            amount: order.total,
+            currency: 'NGN',
+            status: 'success',
+            description: 'Payment verified manually',
+            metadata: {
+              provider: 'paystack',
+              reference,
+            },
+          });
+  
+          // 5. Track verified product customer
+          await this.orderManagementService.createProductCustomers(order, manager);
+  
+          // 6. Adjust Stock (REDUCE) — variant-aware
         for (const item of order.order_items) {
           if (item.variant_id) {
             // Deduct from the specific variant AND keep product aggregate in sync

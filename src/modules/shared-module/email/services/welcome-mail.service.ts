@@ -23,13 +23,13 @@ export class WelcomeMailService {
     let content = `
       <p>Hi <b>${name}</b>,</p>
       <p>
-        We're absolutely thrilled to have you join <b>EasyStore</b>! You've just taken the first step towards a smarter, 
+        We're absolutely thrilled to have you join <b>EazyStore</b>! You've just taken the first step towards a smarter, 
         more seamless shopping and selling experience.
       </p>
       
       <div style="background-color: #f3f4f6; padding: 25px; border-radius: 12px; margin: 30px 0;">
         <h3 style="margin-top: 0; color: #6366f1;">🚀 Getting Started</h3>
-        <p style="font-size: 14px; margin-bottom: 20px;">Here are your first steps to making the most of EasyStore:</p>
+        <p style="font-size: 14px; margin-bottom: 20px;">Here are your first steps to making the most of EazyStore:</p>
         
         <table style="width: 100%; border-spacing: 0;">
           <tr>
@@ -80,7 +80,7 @@ export class WelcomeMailService {
 
       <p style="margin-top: 30px;">
         Happy ${role === 'vendor' ? 'selling' : 'shopping'}, <br/>
-        <b>The EasyStore Team</b>
+        <b>The EazyStore Team</b>
       </p>
     `;
 
@@ -88,7 +88,7 @@ export class WelcomeMailService {
 
     return this.email.sendEmail({
       to: email,
-      subject: 'Welcome to EasyStore! 🎉',
+      subject: 'Welcome to EazyStore! 🎉',
       html,
     });
   }

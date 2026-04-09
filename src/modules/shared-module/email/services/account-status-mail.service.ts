@@ -74,7 +74,7 @@ export class AccountStatusMailService {
         <h3 style="margin-top: 0; color: #166534;">🚀 Next Steps</h3>
         <ul style="padding-left: 20px; font-size: 14px; color: #166534;">
           <li style="margin-bottom: 8px;">Upload high-quality product images to stand out.</li>
-          <li style="margin-bottom: 8px;">Share your store link on social media to drive traffic.</li>
+          <li style="margin-bottom: 8px;">Use our <b>Product Sharing</b> tool to generate beautiful images and share your products directly to your Instagram, WhatsApp, and Facebook pages.</li>
           <li style="margin-bottom: 8px;">Set up your customized delivery rates.</li>
           <li>Configure your payout settings to get paid.</li>
         </ul>

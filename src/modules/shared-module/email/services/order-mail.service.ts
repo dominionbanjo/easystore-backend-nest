@@ -177,7 +177,7 @@ export class OrderMailService {
         <p>Hi <b>${payload.name}</b>,</p>
         <p>Great news! Your payment for order <b>#${payload.order.id.split('-')[0].toUpperCase()}</b> was successfully confirmed. We've now preparing your items for delivery.</p>
         
-        <p>We've attached your official digital receipt to this email for your records. You can also download it anytime from your order history on EasyStore.</p>
+        <p>We've attached your official digital receipt to this email for your records. You can also download it anytime from your order history on EazyStore.</p>
 
         <h3 style="margin-top: 30px;">Receipt Summary</h3>
         ${itemTable}

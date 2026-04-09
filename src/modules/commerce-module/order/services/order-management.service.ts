@@ -65,9 +65,9 @@ export class OrderManagementService {
   }
 
   /* ────────────────────────────────────────────────
-     PRIVATE: CREATE VERIFIED PRODUCT CUSTOMERS
+     PUBLIC: CREATE VERIFIED PRODUCT CUSTOMERS
   ──────────────────────────────────────────────── */
-  private async createProductCustomers(order: Order, manager: any) {
+  public async createProductCustomers(order: Order, manager: any) {
     if (!order.order_items || order.order_items.length === 0) return;
 
     for (const item of order.order_items) {
@@ -95,7 +95,10 @@ export class OrderManagementService {
      MARK ORDER AS PAID
   ──────────────────────────────────────────────── */
   async markPaid(orderId: string) {
-    const order = await this.orderRepo.findOne({ where: { id: orderId } });
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ['buyer'],
+    });
     if (!order) throw new BadRequestException('Order not found');
     if (order.status === 'paid' || order.payment_status === 'success') return;
 

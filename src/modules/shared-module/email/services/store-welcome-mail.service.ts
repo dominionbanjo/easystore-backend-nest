@@ -19,7 +19,7 @@ export class StoreWelcomeMailService {
 
     const content = `
       <p>Hi <b>${vendor.name}</b>,</p>
-      <p>Congratulations! Your store, <b>${vendor.storeName}</b>, has been successfully created. We're excited to see your business grow on EasyStore.</p>
+      <p>Congratulations! Your store, <b>${vendor.storeName}</b>, has been successfully created. We're excited to see your business grow on EazyStore.</p>
       
       <div style="background-color: #fff7ed; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #ffedd5;">
         <h3 style="margin-top: 0; color: #c2410c;">📋 Next Step: Admin Review</h3>
@@ -52,7 +52,7 @@ export class StoreWelcomeMailService {
 
       <p style="margin-top: 30px;">
         Best regards, <br/>
-        <b>The EasyStore Vendor Team</b>
+        <b>The EazyStore Vendor Team</b>
       </p>
     `;
 

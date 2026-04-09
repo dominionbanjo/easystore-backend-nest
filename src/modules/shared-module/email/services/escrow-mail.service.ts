@@ -33,7 +33,7 @@ export class EscrowMailService {
         <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
         <h3 style="margin: 0; color: #166534;">Your Purchase is Protected</h3>
         <p style="margin-top: 10px; font-size: 14px; color: #166534;">
-          Your money is safely held by EasyStore and will only be released to the vendor after you confirm you've received your order.
+          Your money is safely held by EazyStore and will only be released to the vendor after you confirm you've received your order.
         </p>
       </div>
 

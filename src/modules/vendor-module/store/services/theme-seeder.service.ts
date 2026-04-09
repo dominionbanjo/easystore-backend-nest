@@ -20,7 +20,7 @@ export class ThemeSeederService implements OnModuleInit {
     const defaultTemplates = [
       {
         name: 'Default',
-        description: 'The standard EasyStore layout.',
+        description: 'The standard EazyStore layout.',
         default_config: {
           header_style: 'standard',
           primary_color: '#0ea5e9', // Default primary

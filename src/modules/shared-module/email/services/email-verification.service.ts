@@ -23,7 +23,7 @@ export class EmailVerificationService {
     const content = `
       <p>Hi <b>${name}</b>,</p>
       <p>
-        Thank you for joining EasyStore! To complete your registration and secure your account, please use the verification code below.
+        Thank you for joining EazyStore! To complete your registration and secure your account, please use the verification code below.
       </p>
 
       <div style="background-color: #f3f4f6; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
@@ -35,7 +35,7 @@ export class EmailVerificationService {
       </div>
 
       <p style="font-size: 14px; color: #6b7280; text-align: center;">
-        If you didn't create an account with EasyStore, you can safely ignore this email.
+        If you didn't create an account with EazyStore, you can safely ignore this email.
       </p>
     `;
 

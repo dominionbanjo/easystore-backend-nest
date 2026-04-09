@@ -41,7 +41,7 @@ export class EmailTemplateService {
           <table class="main">
             <tr>
               <td class="header">
-                <img src="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/logos/inline-stripe.png" alt="EasyStore" class="logo-img" style="filter: brightness(0) invert(1);" />
+                <img src="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/logos/inline-stripe.png" alt="EazyStore" class="logo-img" style="filter: brightness(0) invert(1);" />
               </td>
             </tr>
             <tr>
@@ -58,7 +58,7 @@ export class EmailTemplateService {
             </tr>
             <tr>
               <td class="footer">
-                <p style="margin-bottom: 10px;">&copy; ${new Date().getFullYear()} EasyStore Inc. All rights reserved.</p>
+                <p style="margin-bottom: 10px;">&copy; ${new Date().getFullYear()} EazyStore Inc. All rights reserved.</p>
                 <p>123 Commerce St, Digital Valley, ES 10101</p>
                 <div style="margin-top: 20px;">
                   <a href="#" style="margin: 0 10px; color: ${this.mutedTextColor}; text-decoration: none;">Privacy Policy</a>
