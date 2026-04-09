@@ -166,7 +166,7 @@ export class StoreReadService {
 
     const store = await this.storeRepo.findOne({
       where: isUUID ? { id: identifier } : { slug: identifier },
-      relations: ['user'],
+      relations: ['user', 'theme_setting', 'theme_setting.template'],
     });
 
     // Strictly require store AND user account to both be active for public access.
@@ -238,9 +238,28 @@ export class StoreReadService {
         .getMany();
     }
 
+    let themeData: any = null;
+    if (store.theme_setting && store.theme_setting.template) {
+      themeData = {
+        template: store.theme_setting.template,
+        custom_config: store.theme_setting.custom_config,
+      };
+    } else {
+      const defaultTemplate = await this.templateRepo.findOne({
+        where: { name: 'Default' },
+      });
+      themeData = {
+        template: defaultTemplate,
+        custom_config: {},
+      };
+    }
+
     const response = {
       message: 'Store retrieved successfully',
-      store: mapToPublicStore(store, totalProductsCount),
+      store: {
+        ...mapToPublicStore(store, totalProductsCount),
+        theme: themeData,
+      },
       products: productsResult,
       categories,
     };

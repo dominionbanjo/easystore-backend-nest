@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { ProductReview } from './entities/review.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { Product } from '../product/entities/product.entity';
+import { ProductCustomer } from '../product/entities/product-customer.entity';
 
 @Injectable()
 export class ProductReviewService {
@@ -17,6 +18,9 @@ export class ProductReviewService {
 
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+
+    @InjectRepository(ProductCustomer)
+    private readonly productCustomerRepo: Repository<ProductCustomer>,
 
     private readonly cache: CacheService,
   ) {}
@@ -50,6 +54,17 @@ export class ProductReviewService {
 
     if (product.vendor_id === user_id) {
       throw new BadRequestException('You cannot review your own product');
+    }
+
+    // Verify user actually purchased the product
+    const verifiedPurchase = await this.productCustomerRepo.findOne({
+      where: { product_id, user_id },
+    });
+
+    if (!verifiedPurchase) {
+      throw new BadRequestException(
+        'You must have a verified purchase of this product to leave a review.',
+      );
     }
 
     const existing = await this.reviewRepo.findOne({

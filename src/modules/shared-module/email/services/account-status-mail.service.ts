@@ -15,44 +15,43 @@ export class AccountStatusMailService {
   ) {
     let title = '';
     let content = '';
-    const logoUrl = 'https://easystore01.netlify.app/logos/inline-stripe.png';
 
     switch (newStatus) {
       case 'active':
         title = 'Account Activated! 🎉';
         content = `
-          <p style="color:#555;">Hi <b>${user.name}</b>,</p>
-          <p style="color:#555;">Great news! Your EasyStore account status has been updated to <b>Active</b>.</p>
-          <p style="color:#555;">You now have full access to all platform features. You can log in and continue where you left off.</p>
+          <p>Hi <b>${user.name}</b>,</p>
+          <p>Great news! Your EasyStore account status has been updated to <b>Active</b>.</p>
+          <p>You now have full access to all platform features. You can log in and continue your commerce journey.</p>
+          <div style="text-align: center; margin-top: 30px;">
+            ${this.tpl.button('Login to My Account', `${process.env.FRONTEND_URL}/auth/login`)}
+          </div>
         `;
         break;
       case 'restricted':
         title = 'Account Restricted ⚠️';
         content = `
-          <p style="color:#555;">Hi <b>${user.name}</b>,</p>
-          <p style="color:#555;">Please be informed that your EasyStore account has been <b>Restricted</b> by the administration.</p>
-          <p style="color:#555;">While restricted, some features may be limited. If you believe this is a mistake, please contact our support team to resolve this.</p>
+          <p>Hi <b>${user.name}</b>,</p>
+          <p>Please be informed that your EasyStore account has been <b>Restricted</b> by our team for a review.</p>
+          <p>While restricted, some features may be limited. If you believe this is a mistake or need clarification, please contact our support team to resolve this.</p>
+          <div style="text-align: center; margin-top: 30px;">
+            ${this.tpl.button('Contact Support', 'mailto:support@easystore.com')}
+          </div>
         `;
         break;
       case 'banned':
         title = 'Account Suspended 🚫';
         content = `
-          <p style="color:#555;">Hi <b>${user.name}</b>,</p>
-          <p style="color:#555;">Your EasyStore account has been <b>Suspended</b> due to a violation of our terms of service.</p>
-          <p style="color:#555;">You will no longer be able to log in or access your store. Please contact support if you wish to appeal this decision.</p>
+          <p>Hi <b>${user.name}</b>,</p>
+          <p>Your EasyStore account has been <b>Suspended</b> due to a violation of our terms of service.</p>
+          <p>You will no longer be able to log in or access your store. If you wish to appeal this decision, please reach out to our administrative team.</p>
         `;
         break;
       default:
         return;
     }
 
-    content += `
-      <div style="margin-top:30px; padding-top:20px; border-top:1px solid #eee;">
-        <p style="color:#777; font-size:13px;">If you have any questions, feel free to reply to this email.</p>
-      </div>
-    `;
-
-    const html = this.tpl.wrapperWithLogo(title, content, logoUrl);
+    const html = this.tpl.wrapper(title, content);
     return this.email.sendEmail({
       to: user.email,
       subject: `Account Update: ${title}`,
@@ -66,23 +65,32 @@ export class AccountStatusMailService {
     storeName: string;
   }) {
     const title = 'Your Store is Live! 🏪 🎉';
-    const logoUrl = 'https://easystore01.netlify.app/logos/inline-stripe.png';
     const content = `
-      <p style="color:#555;">Hi <b>${vendor.name}</b>,</p>
-      <p style="color:#555;">Excellent news! Your store, <b>${vendor.storeName}</b>, has been reviewed and <b>Approved</b> by our team.</p>
-      <p style="color:#555;">Your storefront is now visible to customers, and you can start listing products and accepting orders.</p>
-      <div style="background:#f0f9ff; padding:15px; border-radius:8px; margin:20px 0; border:1px solid #bae6fd;">
-        <p style="color:#0369a1; font-weight:bold; margin-top:0;">What's Next?</p>
-        <ul style="color:#555; font-size:14px; margin-bottom:0;">
-          <li>Add more products to your catalog.</li>
-          <li>Share your store link with your community.</li>
-          <li>Set up your delivery rates for easier checkout.</li>
+      <p>Hi <b>${vendor.name}</b>,</p>
+      <p>Excellent news! Your store, <b>${vendor.storeName}</b>, has been reviewed and <b>Approved</b> by our team.</p>
+      <p>Your storefront is now visible to customers, and you can start listing products and accepting orders immediately.</p>
+      
+      <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; padding: 25px; border-radius: 12px; margin: 30px 0;">
+        <h3 style="margin-top: 0; color: #166534;">🚀 Next Steps</h3>
+        <ul style="padding-left: 20px; font-size: 14px; color: #166534;">
+          <li style="margin-bottom: 8px;">Upload high-quality product images to stand out.</li>
+          <li style="margin-bottom: 8px;">Share your store link on social media to drive traffic.</li>
+          <li style="margin-bottom: 8px;">Set up your customized delivery rates.</li>
+          <li>Configure your payout settings to get paid.</li>
         </ul>
       </div>
-      <p style="color:#555;">Happy Selling!</p>
+
+      <div style="text-align: center; margin-top: 30px;">
+        ${this.tpl.button('Go to Store Dashboard', `${process.env.FRONTEND_URL}/vendor/dashboard`)}
+      </div>
+
+      <p style="margin-top: 30px;">
+        Happy Selling! <br/>
+        <b>The EasyStore Team</b>
+      </p>
     `;
 
-    const html = this.tpl.wrapperWithLogo(title, content, logoUrl);
+    const html = this.tpl.wrapper(title, content);
     return this.email.sendEmail({
       to: vendor.email,
       subject: `Store Approved: ${vendor.storeName}`,

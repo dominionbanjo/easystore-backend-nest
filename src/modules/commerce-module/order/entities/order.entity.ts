@@ -47,8 +47,8 @@ export class Order {
   /* ───────────────────────────────────────────────
      RELATIONS → BUYER
   ─────────────────────────────────────────────── */
-  @Column({ type: 'uuid' })
-  buyer_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  buyer_id: string | null;
 
   @ManyToOne(() => User, (user) => user.orders_as_buyer, {
     onDelete: 'CASCADE',

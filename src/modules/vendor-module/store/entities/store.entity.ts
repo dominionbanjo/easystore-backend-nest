@@ -191,6 +191,10 @@ export class Store {
   @Column({ type: 'timestamptz', nullable: true })
   last_bank_update: Date | null;
 
+  /* ENGAGEMENT TRACKING */
+  @Column({ type: 'timestamptz', nullable: true })
+  last_awareness_email_sent: Date | null;
+
   /* TIMESTAMPS */
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

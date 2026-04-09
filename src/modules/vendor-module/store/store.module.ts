@@ -24,6 +24,7 @@ import { StoreReadService } from './services/store-read.service';
 import { StoreWriteService } from './services/store-write.service';
 import { StoreHelperService } from './services/store-helper.service';
 import { ThemeSeederService } from './services/theme-seeder.service';
+import { VendorAwarenessCronService } from './services/vendor-awareness-cron.service';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { ThemeSeederService } from './services/theme-seeder.service';
     ThemeSeederService,
     StoreOwnerGuard,
     StoreDeliveryRateService,
+    VendorAwarenessCronService,
   ],
   exports: [StoreService, StoreReadService, StoreWriteService, StoreOwnerGuard],
 })

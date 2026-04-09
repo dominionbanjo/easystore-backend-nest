@@ -18,58 +18,77 @@ export class WelcomeMailService {
   async sendWelcomeEmail(payload: WelcomeEmailPayload) {
     const { name, email, role } = payload;
 
-    const logoUrl = 'https://easystore01.netlify.app/logos/inline-stripe.png';
-    const title = 'Welcome to EasyStore! 🎉';
+    const title = 'Welcome to the Future of Commerce! 🌟';
 
     let content = `
-      <p style="color:#555; line-height:1.6;">Hi <b>${name}</b>,</p>
-      <p style="color:#555; line-height:1.6;">
-        Welcome to <b>EasyStore</b>! We're excited to have you join our community. 
-        EasyStore is your all-in-one platform for seamless commerce and effortless shopping.
+      <p>Hi <b>${name}</b>,</p>
+      <p>
+        We're absolutely thrilled to have you join <b>EasyStore</b>! You've just taken the first step towards a smarter, 
+        more seamless shopping and selling experience.
       </p>
+      
+      <div style="background-color: #f3f4f6; padding: 25px; border-radius: 12px; margin: 30px 0;">
+        <h3 style="margin-top: 0; color: #6366f1;">🚀 Getting Started</h3>
+        <p style="font-size: 14px; margin-bottom: 20px;">Here are your first steps to making the most of EasyStore:</p>
+        
+        <table style="width: 100%; border-spacing: 0;">
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+              <span style="font-weight: 700; color: #6366f1; margin-right: 10px;">1.</span> 
+              Complete your profile settings
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+              <span style="font-weight: 700; color: #6366f1; margin-right: 10px;">2.</span> 
+              ${role === 'vendor' ? 'Set up your custom storefront' : 'Explore trending products'}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0;">
+              <span style="font-weight: 700; color: #6366f1; margin-right: 10px;">3.</span> 
+              ${role === 'vendor' ? 'Add your first product' : 'Save your favorite stores'}
+            </td>
+          </tr>
+        </table>
+      </div>
     `;
 
     if (role === 'vendor') {
       content += `
-        <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin:20px 0; border-left:4px solid #10b981;">
-          <h3 style="margin-top:0; color:#10b981;">Unlock Your Selling Potential 🚀</h3>
-          <p style="color:#555; font-size:14px; margin-bottom:0;">
-            As a vendor, you can now:
-            <ul style="padding-left:20px; color:#555; font-size:14px;">
-              <li>Create your own custom storefront in seconds.</li>
-              <li>Manage products, inventory, and orders with ease.</li>
-              <li>Track your revenue with real-time analytics.</li>
-              <li>Connect with customers directly through localized sales channels.</li>
-            </ul>
-          </p>
+        <div style="border: 2px dashed #6366f1; padding: 20px; border-radius: 12px; margin: 30px 0; text-align: center;">
+          <h3 style="margin-top: 0;">Ready to Start Selling?</h3>
+          <p style="font-size: 14px;">Your dashboard is ready and waiting. Start building your empire today!</p>
+          ${this.tpl.button('Visit Vendor Dashboard', `${process.env.FRONTEND_URL}/vendor/dashboard`)}
+        </div>
+      `;
+    } else {
+      content += `
+        <div style="text-align: center; margin: 30px 0;">
+          ${this.tpl.button('Start Shopping Now', `${process.env.FRONTEND_URL}/explore`)}
         </div>
       `;
     }
 
     content += `
-      <div style="margin:25px 0; padding:15px; background: #f0f7ff; border-radius:8px; border: 1px solid #cce3ff;">
-        <h4 style="margin-top:0; color:#0066cc;">💡 Pro-Tip: Navigating Your Account</h4>
-        <p style="color:#555; font-size:14px; margin-bottom:0;">
-          <b>On Mobile:</b> Click the <b>hamburger menu (three lines)</b> at the top corner to access all your sections and settings. <br/>
-          <b>On Desktop:</b> Click your <b>profile icon</b> at the top right to manage your account, view orders, and more.
+      <div style="margin: 30px 0; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb;">
+        <h4 style="margin-top: 0;">💡 Quick Tip</h4>
+        <p style="font-size: 14px; color: #6b7280; margin-bottom: 0;">
+          Access your account and settings anytime by clicking on your profile icon at the top right of the page.
         </p>
       </div>
 
-      <p style="color:#555; line-height:1.6;">
-        We're here to help you get the most out of EasyStore. If you have any questions, simply reply to this email or visit our help center.
-      </p>
-
-      <p style="color:#555; margin-top:30px;">
+      <p style="margin-top: 30px;">
         Happy ${role === 'vendor' ? 'selling' : 'shopping'}, <br/>
         <b>The EasyStore Team</b>
       </p>
     `;
 
-    const html = this.tpl.wrapperWithLogo(title, content, logoUrl);
+    const html = this.tpl.wrapper(title, content);
 
     return this.email.sendEmail({
       to: email,
-      subject: 'Welcome to EasyStore!',
+      subject: 'Welcome to EasyStore! 🎉',
       html,
     });
   }

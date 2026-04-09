@@ -10,6 +10,9 @@ import { ResetPasswordMailService } from './services/reset-password-mail.service
 import { AdminNotifyMailService } from './services/admin-notify-mail.service';
 import { AccountStatusMailService } from './services/account-status-mail.service';
 import { StoreWelcomeMailService } from './services/store-welcome-mail.service';
+import { VendorAwarenessMailService } from './services/vendor-awareness-mail.service';
+import { BuyerEngagementMailService } from './services/buyer-engagement-mail.service';
+
 
 @Module({
   providers: [
@@ -26,7 +29,10 @@ import { StoreWelcomeMailService } from './services/store-welcome-mail.service';
     AdminNotifyMailService,
     AccountStatusMailService,
     StoreWelcomeMailService,
+    VendorAwarenessMailService,
+    BuyerEngagementMailService,
   ],
+
 
   exports: [
     EmailService,
@@ -42,6 +48,8 @@ import { StoreWelcomeMailService } from './services/store-welcome-mail.service';
     AdminNotifyMailService,
     AccountStatusMailService,
     StoreWelcomeMailService,
+    VendorAwarenessMailService,
+    BuyerEngagementMailService,
   ],
 })
 export class EmailModule {}

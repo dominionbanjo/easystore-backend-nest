@@ -14,53 +14,49 @@ export class StoreWelcomeMailService {
     email: string;
     storeName: string;
   }) {
-    const title = 'Welcome to the Vendor Family! 🏪';
-    const logoUrl = 'https://easystore01.netlify.app/logos/inline-stripe.png';
-    const setupGuideUrl = 'https://example.com/vendor-setup-guide'; // Replace with actual guide URL
+    const title = 'Your Store Has Been Created! 🏪';
     const videoUrl = 'https://www.youtube.com/watch?v=k_XUaKOn68Y'; // Placeholder video link
 
     const content = `
-      <p style="color:#555;">Hi <b>${vendor.name}</b>,</p>
-      <p style="color:#555;">Congratulations on creating your store, <b>${vendor.storeName}</b>! We're thrilled to have you as part of our growing commerce community.</p>
+      <p>Hi <b>${vendor.name}</b>,</p>
+      <p>Congratulations! Your store, <b>${vendor.storeName}</b>, has been successfully created. We're excited to see your business grow on EasyStore.</p>
       
-      <div style="background:#fff7ed; padding:15px; border-radius:8px; margin:20px 0; border:1px solid #ffedd5;">
-        <h4 style="color:#c2410c; margin-top:0;">📋 Next Step: Admin Review</h4>
-        <p style="color:#555; font-size:14px; margin-bottom:0;">
-          To ensure platform quality, all new stores undergo a quick review by our team. 
+      <div style="background-color: #fff7ed; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #ffedd5;">
+        <h3 style="margin-top: 0; color: #c2410c;">📋 Next Step: Admin Review</h3>
+        <p style="font-size: 14px; margin-bottom: 0; color: #9a3412;">
+          To maintain the highest quality for our customers, all new stores undergo a quick review. 
           Your store is currently <b>pending approval</b> and will be live shortly. 
-          We'll notify you as soon as it's active!
+          We'll notify you as soon as you're ready to go!
         </p>
       </div>
 
-      <div style="margin:25px 0;">
-        <h4 style="color:#333;">🚀 Get Started While You Wait</h4>
-        <p style="color:#555; font-size:14px;">
-          While your store is being reviewed, you can start preparing your product catalog and store settings. 
-          Watch our <b>Quick Setup Guide</b> to learn how to make the most of your storefront:
-        </p>
-        
-        <div style="text-align:center; margin:20px 0;">
-          <a href="${videoUrl}" style="background:#ef4444; color:white; padding:12px 25px; border-radius:6px; text-decoration:none; font-weight:bold; display:inline-block;">
-            📺 Watch Setup Video
-          </a>
-        </div>
-        
-        <p style="color:#555; font-size:14px; text-align:center;">
-          Or read the <a href="${setupGuideUrl}" style="color:#3b82f6; text-decoration:underline;">Full Documentation</a> here.
-        </p>
-      </div>
-
-      <p style="color:#555; line-height:1.6;">
-        If you need any assistance setting up, simply reply to this email. We can't wait to see your store live!
+      <h3 style="margin-top: 30px;">🚀 Get Started While You Wait</h3>
+      <p style="font-size: 14px;">
+        While we review your store, you can start preparing your product catalog and store settings. 
+        Watch our <b>Quick Setup Guide</b> to hit the ground running:
       </p>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        ${this.tpl.button('📺 Watch Setup Video', videoUrl)}
+      </div>
 
-      <p style="color:#555; margin-top:30px;">
+      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 12px; margin-top: 30px;">
+        <h4 style="margin-top: 0;">Quick Checklist:</h4>
+        <ul style="padding-left: 20px; font-size: 14px; color: #4b5563;">
+          <li style="margin-bottom: 8px;">Upload high-quality product images</li>
+          <li style="margin-bottom: 8px;">Set up your shipping rates</li>
+          <li style="margin-bottom: 8px;">Connect your payout account</li>
+          <li>Review store policies</li>
+        </ul>
+      </div>
+
+      <p style="margin-top: 30px;">
         Best regards, <br/>
         <b>The EasyStore Vendor Team</b>
       </p>
     `;
 
-    const html = this.tpl.wrapperWithLogo(title, content, logoUrl);
+    const html = this.tpl.wrapper(title, content);
     return this.email.sendEmail({
       to: vendor.email,
       subject: `Store Created: ${vendor.storeName} is pending approval`,

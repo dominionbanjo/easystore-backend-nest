@@ -40,7 +40,7 @@ export class OfflineFulfillmentService {
 
     await this.transactions.create({
       order_id: order.id,
-      user_id: order.buyer_id,
+      user_id: order.buyer_id || undefined,
       vendor_id: vendorId,
       type: 'offline_fulfillment',
       amount: order.total,

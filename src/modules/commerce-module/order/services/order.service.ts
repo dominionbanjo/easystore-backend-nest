@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { ICartItem } from '../../cart/types/types';
 import { OrderStatus } from '../entities/order.entity';
 import { OrderCreationService } from './order-creation.service';
 import { OrderQueryService } from './order-query.service';
 import { OrderManagementService } from './order-management.service';
 import { OrderPaymentVerificationService } from './order-payment-verification.service';
+import { ReceiptService } from './receipt.service';
 
 /**
  * Main Order Service - Orchestrates and delegates to specialized services
@@ -17,6 +23,7 @@ export class OrderService {
     private readonly queryService: OrderQueryService,
     private readonly managementService: OrderManagementService,
     private readonly paymentVerificationService: OrderPaymentVerificationService,
+    private readonly receiptService: ReceiptService,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -41,7 +48,7 @@ export class OrderService {
   }
 
   /**
-   * Create offline order
+   * Create offline order (for checkout by buyer)
    */
   async createOfflineOrder(data: {
     buyer_id: string;
@@ -50,6 +57,19 @@ export class OrderService {
     notes?: string;
   }) {
     return this.creationService.createOfflineOrder(data);
+  }
+
+  /**
+   * Record Vendor Offline Sale (for manual vendor sales)
+   */
+  async recordVendorOfflineSale(data: {
+    vendor_id: string;
+    items: { product_id: string; variant_id?: string; quantity: number }[];
+    customer_name?: string;
+    customer_email?: string;
+    notes?: string;
+  }) {
+    return this.creationService.recordVendorOfflineSale(data);
   }
 
   /**
@@ -101,6 +121,20 @@ export class OrderService {
    */
   async getOrder(id: string) {
     return this.queryService.getOrder(id);
+  }
+
+  /**
+   * Get order receipt as PDF buffer
+   */
+  async getOrderReceiptPdf(id: string, userId: string) {
+    const order = await this.queryService.getOrderForReceipt(id);
+
+    // Verify ownership
+    if (order.buyer_id !== userId && order.vendor_id !== userId) {
+      throw new Error('Unauthorized');
+    }
+
+    return this.receiptService.generateReceiptPdf(order);
   }
 
   /**

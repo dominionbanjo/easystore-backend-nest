@@ -14,10 +14,12 @@ export class EmailService {
     to,
     subject,
     html,
+    attachments,
   }: {
     to: string;
     subject: string;
     html: string;
+    attachments?: { content: string; name: string }[];
   }) {
     try {
       const transactional = new SibApiV3Sdk.TransactionalEmailsApi();
@@ -30,6 +32,7 @@ export class EmailService {
         to: [{ email: to }],
         subject,
         htmlContent: html,
+        attachment: attachments,
       });
     } catch (e: any) {
       console.error('EMAIL ERROR → ', e.response?.text || e.message);

@@ -32,6 +32,18 @@ export class OrderQueryService {
   }
 
   /* ────────────────────────────────────────────────
+   GET ORDER FOR RECEIPT
+  ──────────────────────────────────────────────── */
+  async getOrderForReceipt(id: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      relations: ['buyer', 'vendor', 'vendor.store'],
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return order;
+  }
+
+  /* ────────────────────────────────────────────────
      GET ORDER FOR API (WITH RELATIONS)
   ──────────────────────────────────────────────── */
   async getOrderForApi(id: string, user_id: string) {

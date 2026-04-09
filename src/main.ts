@@ -17,7 +17,8 @@ async function bootstrap() {
     origin:
       process.env.NODE_ENV === 'production'
         ? [
-            'https://easystore01.netlify.app',
+            process.env.FRONTEND_URL,
+            'https://eazystore.com.ng',
             new RegExp('^https://([a-zA-Z0-9-]+\\.)?eazystore\\.com\\.ng$'),
             'https://easy-store-liard.vercel.app',
           ]

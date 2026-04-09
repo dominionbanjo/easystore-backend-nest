@@ -18,38 +18,32 @@ export class EmailVerificationService {
   async sendVerificationEmail(payload: EmailVerificationPayload) {
     const { name, email, otp } = payload;
 
-    const body = `
-      <p style="color:#555;">Hi <b>${name}</b>,</p>
-      <p style="color:#555;">
-        Thank you for signing up. Please use the OTP below to verify your email address.<br />
-        It expires in <b>10 minutes</b>.
+    const title = 'Verify Your Email Address';
+
+    const content = `
+      <p>Hi <b>${name}</b>,</p>
+      <p>
+        Thank you for joining EasyStore! To complete your registration and secure your account, please use the verification code below.
       </p>
 
-      <div style="
-        text-align:center;
-        font-size:28px;
-        font-weight:bold;
-        color:#007bff;
-        letter-spacing:6px;
-        margin:25px 0;
-      ">
-        ${otp}
+      <div style="background-color: #f3f4f6; border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
+        <p style="font-size: 14px; color: #6b7280; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Your Verification Code</p>
+        <div style="font-size: 42px; font-weight: 800; color: #6366f1; letter-spacing: 10px; margin: 0;">
+          ${otp}
+        </div>
+        <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">This code will expire in <b>10 minutes</b>.</p>
       </div>
 
-      <p style="color:#777; text-align:center;">
-        If you didn’t request this, please ignore this email.
+      <p style="font-size: 14px; color: #6b7280; text-align: center;">
+        If you didn't create an account with EasyStore, you can safely ignore this email.
       </p>
     `;
 
-    const html = this.tpl.wrapperWithLogo(
-      'Verify Your Email Address',
-      body,
-      'https://easystore01.netlify.app/logos/inline-stripe.png',
-    );
+    const html = this.tpl.wrapper(title, content);
 
     return this.email.sendEmail({
       to: email,
-      subject: 'Verify Your EasyStore Account',
+      subject: `Verify your account: ${otp}`,
       html,
     });
   }

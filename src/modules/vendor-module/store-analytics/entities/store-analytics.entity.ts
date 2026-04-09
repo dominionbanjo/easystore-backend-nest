@@ -37,6 +37,12 @@ export class StoreAnalytics {
   @Column({ type: 'bigint', default: 0 })
   total_revenue: number;
 
+  @Column({ type: 'bigint', default: 0 })
+  online_revenue: number;
+
+  @Column({ type: 'bigint', default: 0 })
+  offline_revenue: number;
+
   @Column({ type: 'int', default: 0 })
   total_orders: number;
 

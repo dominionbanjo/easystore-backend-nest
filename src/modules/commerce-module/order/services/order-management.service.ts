@@ -11,6 +11,8 @@ import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service'
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/services/store-analytics.service';
 import { ProductService } from '../../product/services/product.service';
+import { ProductCustomer } from '../../product/entities/product-customer.entity';
+import { OrderMailService } from 'src/modules/shared-module/email/services/order-mail.service';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -21,7 +23,10 @@ export class OrderManagementService {
     private readonly escrowService: EscrowService,
     private readonly cache: CacheService,
     private readonly productService: ProductService,
+    private readonly orderMailService: OrderMailService,
     private readonly dataSource: DataSource,
+    @InjectRepository(ProductCustomer)
+    private readonly productCustomerRepo: Repository<ProductCustomer>,
     @Inject(forwardRef(() => StoreAnalyticsService))
     private readonly analyticsService: StoreAnalyticsService,
   ) {}
@@ -50,11 +55,39 @@ export class OrderManagementService {
         order.total,
         order.buyer_id,
         order.order_items,
+        order.payment_method === 'offline' // Track if this is offline revenue
       );
 
       await this.orderRepo.update(orderId, { analytics_processed: true });
     } catch (error) {
       console.error(`Failed to update analytics for order ${orderId}:`, error);
+    }
+  }
+
+  /* ────────────────────────────────────────────────
+     PRIVATE: CREATE VERIFIED PRODUCT CUSTOMERS
+  ──────────────────────────────────────────────── */
+  private async createProductCustomers(order: Order, manager: any) {
+    if (!order.order_items || order.order_items.length === 0) return;
+
+    for (const item of order.order_items) {
+      // Check if already exists to prevent duplicates (e.g. if called multiple times)
+      const existing = await manager.findOne(ProductCustomer, {
+        where: { order_id: order.id, product_id: item.product_id },
+      });
+
+      if (!existing) {
+        await manager.insert(ProductCustomer, {
+          product_id: item.product_id,
+          vendor_id: item.vendor_id || order.vendor_id,
+          user_id: order.buyer_id, // Could be null for pure offline
+          order_id: order.id,
+          customer_name: order.buyer?.first_name 
+            ? `${order.buyer.first_name} ${order.buyer.last_name}`.trim() 
+            : null,
+          customer_email: order.buyer?.email || null,
+        });
+      }
     }
   }
 
@@ -88,6 +121,9 @@ export class OrderManagementService {
           );
         }
       }
+
+      // Track verified product customer
+      await this.createProductCustomers(order, manager);
     });
 
     await this.cache.clearPrefix('svc:order');
@@ -160,6 +196,23 @@ export class OrderManagementService {
     // Trigger analytics if delivered or completed
     if (status === 'delivered' || status === 'completed') {
       await this.processAnalytics(id);
+    }
+
+    // Send Rate Vendor Email when delivered (if online/buyer exists)
+    if (status === 'delivered' && order.buyer_id) {
+      const fullOrder = await this.orderRepo.findOne({
+        where: { id: order.id },
+        relations: ['buyer', 'vendor', 'vendor.store'],
+      });
+      if (fullOrder && fullOrder.buyer?.email && fullOrder.vendor?.store) {
+        await this.orderMailService.sendRateVendorEmail({
+          email: fullOrder.buyer.email,
+          name: fullOrder.buyer.first_name,
+          storeName: fullOrder.vendor.store.store_name,
+          orderId: fullOrder.id,
+          products: fullOrder.order_items,
+        });
+      }
     }
 
     await this.cache.clearPrefix('svc:order');

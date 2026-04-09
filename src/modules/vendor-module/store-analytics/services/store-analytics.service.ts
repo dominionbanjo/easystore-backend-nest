@@ -56,8 +56,9 @@ export class StoreAnalyticsService {
   async updateFromOrder(
     storeId: string,
     amount: number, // kept for backward compatibility, but NOT trusted
-    customerId: string,
+    customerId: string | null,
     items: ICartItem[],
+    isOffline: boolean = false,
   ) {
     const now = new Date();
     const year = now.getFullYear();
@@ -73,13 +74,22 @@ export class StoreAnalyticsService {
       /* ────────────────────────────────────────────────
        1️⃣ LOCK LIFETIME ANALYTICS
     ──────────────────────────────────────────────── */
-      const analyticsRow = await manager.findOne(StoreAnalytics, {
+      let analyticsRow = await manager.findOne(StoreAnalytics, {
         where: { store_id: storeId },
         lock: { mode: 'pessimistic_write' },
       });
 
       if (!analyticsRow) {
-        throw new NotFoundException('Store analytics not found');
+        // Lazily initialize analytics if missing
+        await this.initializeAnalyticsForStore(storeId, manager);
+        analyticsRow = await manager.findOne(StoreAnalytics, {
+          where: { store_id: storeId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!analyticsRow) {
+          throw new NotFoundException('Store analytics could not be initialized');
+        }
       }
 
       /* ────────────────────────────────────────────────
@@ -91,6 +101,8 @@ export class StoreAnalyticsService {
           year,
           month,
           revenue: 0,
+          online_revenue: 0,
+          offline_revenue: 0,
           orders: 0,
           unique_customers: 0,
         },
@@ -98,64 +110,63 @@ export class StoreAnalyticsService {
       );
 
       /* ────────────────────────────────────────────────
-       3️⃣ FETCH CUSTOMER
-    ──────────────────────────────────────────────── */
-      const user = await manager.findOne(User, {
-        where: { id: customerId },
-        select: [
-          'id',
-          'first_name',
-          'last_name',
-          'email',
-          'address',
-          'phone_number',
-        ],
-      });
+         3️⃣ FETCH CUSTOMER & UPSERT STORE CUSTOMER
+      ──────────────────────────────────────────────── */
+      let isFirstOrderForStore = false;
 
-      if (!user) {
-        throw new NotFoundException('Customer not found');
-      }
-
-      const location =
-        user.address?.city ||
-        user.address?.state ||
-        user.address?.country ||
-        null;
-
-      /* ────────────────────────────────────────────────
-       4️⃣ UPSERT STORE CUSTOMER
-    ──────────────────────────────────────────────── */
-      const storeCustomerRepo = manager.getRepository(StoreCustomer);
-
-      const existingCustomer = await storeCustomerRepo.findOne({
-        where: { store_id: storeId, user_id: customerId },
-      });
-
-      const isFirstOrderForStore = !existingCustomer;
-
-      if (existingCustomer) {
-        await storeCustomerRepo.update(
-          { id: existingCustomer.id },
-          {
-            orders_count: () => `"orders_count" + 1`,
-            total_spent: () => `"total_spent" + ${orderTotal}`,
-            last_order_at: now,
-            phone_number: user.phone_number,
-          },
-        );
-      } else {
-        await storeCustomerRepo.insert({
-          store_id: storeId,
-          user_id: customerId,
-          name: `${user.first_name} ${user.last_name}`.trim(),
-          email: user.email,
-          location,
-          phone_number: user.phone_number,
-          orders_count: 1,
-          total_spent: orderTotal,
-          rating: 0,
-          last_order_at: now,
+      if (customerId) {
+        const user = await manager.findOne(User, {
+          where: { id: customerId },
+          select: [
+            'id',
+            'first_name',
+            'last_name',
+            'email',
+            'address',
+            'phone_number',
+          ],
         });
+
+        if (user) {
+          const location =
+            user.address?.city ||
+            user.address?.state ||
+            user.address?.country ||
+            null;
+
+          const storeCustomerRepo = manager.getRepository(StoreCustomer);
+
+          const existingCustomer = await storeCustomerRepo.findOne({
+            where: { store_id: storeId, user_id: customerId },
+          });
+
+          isFirstOrderForStore = !existingCustomer;
+
+          if (existingCustomer) {
+            await storeCustomerRepo.update(
+              { id: existingCustomer.id },
+              {
+                orders_count: () => `"orders_count" + 1`,
+                total_spent: () => `"total_spent" + ${orderTotal}`,
+                last_order_at: now,
+                phone_number: user.phone_number,
+              },
+            );
+          } else {
+            await storeCustomerRepo.insert({
+              store_id: storeId,
+              user_id: customerId,
+              name: `${user.first_name} ${user.last_name}`.trim(),
+              email: user.email,
+              location,
+              phone_number: user.phone_number,
+              orders_count: 1,
+              total_spent: orderTotal,
+              rating: 0,
+              last_order_at: now,
+            });
+          }
+        }
       }
 
       /* ────────────────────────────────────────────────
@@ -166,13 +177,23 @@ export class StoreAnalyticsService {
       UPDATE store_monthly_analytics
       SET
         revenue = CAST(revenue AS BIGINT) + $1,
+        online_revenue = CAST(online_revenue AS BIGINT) + $2,
+        offline_revenue = CAST(offline_revenue AS BIGINT) + $3,
         orders = orders + 1,
-        unique_customers = unique_customers + $2
-      WHERE store_id = $3
-        AND year = $4
-        AND month = $5
+        unique_customers = unique_customers + $4
+      WHERE store_id = $5
+        AND year = $6
+        AND month = $7
       `,
-        [orderTotal, isFirstOrderForStore ? 1 : 0, storeId, year, month],
+        [
+          orderTotal, 
+          isOffline ? 0 : orderTotal, 
+          isOffline ? orderTotal : 0, 
+          isFirstOrderForStore ? 1 : 0, 
+          storeId, 
+          year, 
+          month
+        ],
       );
 
       /* ────────────────────────────────────────────────
@@ -184,6 +205,8 @@ export class StoreAnalyticsService {
       const currentCustomers = Number(analyticsRow.total_customers || 0);
 
       analyticsRow.total_revenue = currentRevenue + orderTotal;
+      analyticsRow.online_revenue = Number(analyticsRow.online_revenue || 0) + (isOffline ? 0 : orderTotal);
+      analyticsRow.offline_revenue = Number(analyticsRow.offline_revenue || 0) + (isOffline ? orderTotal : 0);
       analyticsRow.total_orders = currentOrders + 1;
 
       if (isFirstOrderForStore) {
@@ -248,6 +271,8 @@ export class StoreAnalyticsService {
         txnManager.create(StoreAnalytics, {
           store_id: storeId,
           total_revenue: 0,
+          online_revenue: 0,
+          offline_revenue: 0,
           total_orders: 0,
           total_customers: 0,
           conversion_rate: 0,
@@ -262,6 +287,8 @@ export class StoreAnalyticsService {
           year,
           month,
           revenue: 0,
+          online_revenue: 0,
+          offline_revenue: 0,
           orders: 0,
           unique_customers: 0,
         }),
@@ -310,6 +337,8 @@ export class StoreAnalyticsService {
       year,
       month,
       revenue,
+      online_revenue,
+      offline_revenue,
       orders,
       unique_customers
     FROM store_monthly_analytics
@@ -389,6 +418,8 @@ export class StoreAnalyticsService {
     const result = {
       summary: {
         total_sales: Number(analyticsRow.total_revenue || 0),
+        online_sales: Number(analyticsRow.online_revenue || 0),
+        offline_sales: Number(analyticsRow.offline_revenue || 0),
         orders: Number(analyticsRow.total_orders || 0),
         customers: Number(analyticsRow.total_customers || 0),
         conversion_rate: Number(analyticsRow.conversion_rate || 0),

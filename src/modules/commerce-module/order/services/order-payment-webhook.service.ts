@@ -84,7 +84,7 @@ export class OrderPaymentService {
         // 3. Create Delivery
         await this.delivery.createDelivery({
           order_id: order.id,
-          buyer_id: order.buyer_id,
+          buyer_id: order.buyer_id!,
           vendor_id: order.vendor_id,
         });
 
@@ -92,7 +92,7 @@ export class OrderPaymentService {
         await this.transactions.create({
           order_id: order.id,
           escrow_id: order.escrow_id ?? undefined,
-          user_id: order.buyer_id,
+          user_id: order.buyer_id!,
           vendor_id: order.vendor_id,
           type: 'payment_webhook',
           amount: order.total,
@@ -136,6 +136,9 @@ export class OrderPaymentService {
           id: firstOrder.id,
           status: 'paid',
           total: expectedTotalKobo / 100,
+          items: firstOrder.order_items,
+          subtotal: Number(firstOrder.subtotal),
+          shipping_fee: Number(firstOrder.shipping_fee),
         },
       });
     } catch (error) {
@@ -152,6 +155,9 @@ export class OrderPaymentService {
             id: order.id,
             status: 'paid',
             total: Number(order.total) / 100,
+            items: order.order_items,
+            subtotal: Number(order.subtotal),
+            shipping_fee: Number(order.shipping_fee),
           },
         });
       } catch (error) {

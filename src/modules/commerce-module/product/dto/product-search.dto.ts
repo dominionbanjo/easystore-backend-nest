@@ -12,6 +12,7 @@ import { Type, Transform } from 'class-transformer';
 export class ProductSearchDto {
   /* ───────────────── SEARCH ───────────────── */
 
+  @IsOptional()
   @IsString()
   q: string;
 

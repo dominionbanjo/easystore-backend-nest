@@ -14,6 +14,7 @@ import { ProductCategory } from '../product-category/entities/product-category.e
 import { ReviewModule } from '../review/review.module';
 import { WishlistModule } from '../wishlist/wishlist.module';
 import { ProductVariant } from './entities/product-variant.entity';
+import { ProductCustomer } from './entities/product-customer.entity';
 import { VendorProductController } from './controllers/vendor-product.controller';
 import { CartModule } from '../cart/cart.module';
 
@@ -23,6 +24,7 @@ import { CartModule } from '../cart/cart.module';
       Product,
       ProductVariant,
       ProductCategory,
+      ProductCustomer,
       Store,
     ]),
     ReviewModule,

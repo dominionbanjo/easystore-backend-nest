@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -13,8 +14,13 @@ import { DeliveryService } from '../../delivery/delivery.service';
 import { ProductService } from '../../product/services/product.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 
+import { OrderMailService } from 'src/modules/shared-module/email/services/order-mail.service';
+import { ReceiptService } from './receipt.service';
+
 @Injectable()
 export class OrderPaymentVerificationService {
+  private readonly logger = new Logger(OrderPaymentVerificationService.name);
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
@@ -25,6 +31,8 @@ export class OrderPaymentVerificationService {
     private readonly deliveryService: DeliveryService,
     private readonly productService: ProductService,
     private readonly cache: CacheService,
+    private readonly orderMailService: OrderMailService,
+    private readonly receiptService: ReceiptService,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -34,6 +42,7 @@ export class OrderPaymentVerificationService {
     /* FETCH ALL ORDERS FOR THIS PAYMENT */
     const orders = await this.orderRepo.find({
       where: { payment_reference: reference },
+      relations: ['buyer'],
     });
 
     if (!orders.length) {
@@ -97,7 +106,7 @@ export class OrderPaymentVerificationService {
         /* CREATE DELIVERY */
         await this.deliveryService.createDelivery({
           order_id: order.id,
-          buyer_id: order.buyer_id,
+          buyer_id: order.buyer_id!,
           vendor_id: order.vendor_id,
         });
 
@@ -106,7 +115,7 @@ export class OrderPaymentVerificationService {
         await this.transactions.create({
           order_id: order.id,
           escrow_id: order.escrow_id ?? undefined,
-          user_id: order.buyer_id,
+          user_id: order.buyer_id!,
           vendor_id: order.vendor_id,
           type: 'payment_confirmed',
           amount: order.total,
@@ -136,6 +145,30 @@ export class OrderPaymentVerificationService {
               manager,
             );
           }
+        }
+
+        // 6. Send Confirmation Email & Receipt
+        try {
+          const receiptBuffer = await this.receiptService.generateReceiptPdf(order);
+          await this.orderMailService.sendPaymentVerified(
+            {
+              email: order.buyer.email,
+              name: order.buyer.first_name,
+              order: {
+                id: order.id,
+                status: 'paid',
+                total: Number(order.total) / 100,
+                items: order.order_items,
+                subtotal: order.subtotal,
+                shipping_fee: order.shipping_fee,
+              },
+            },
+            receiptBuffer,
+          );
+        } catch (mailError) {
+          this.logger.error(
+            `Failed to send receipt for order ${order.id}: ${mailError.message}`,
+          );
         }
       }
 

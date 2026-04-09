@@ -5,11 +5,13 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { CommonModule } from 'src/common/common.module';
 import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
+import { BuyerEngagementCronService } from './services/buyer-engagement-cron.service';
+import { EmailModule } from 'src/modules/shared-module/email/email.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Store]), CommonModule],
+  imports: [TypeOrmModule.forFeature([User, Store]), CommonModule, EmailModule],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, BuyerEngagementCronService],
   exports: [UsersService],
 })
 export class UsersModule {}

@@ -14,6 +14,7 @@ import { OrderService } from '../services/order.service';
 import { CreateOfflineOrderDto } from '../dto/create-offline-order.dto';
 import { CreateOnlineOrderDto } from '../dto/create-online-order.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
+import { RecordVendorOfflineSaleDto } from '../dto/record-offline-sale.dto';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
@@ -142,6 +143,25 @@ export class PandaOrderController {
   }
 
   /* ────────────────────────────────────────────────
+     RECORD OFFLINE SALE (VENDOR)
+  ──────────────────────────────────────────────── */
+  @Post('vendor/offline-sale')
+  @UseGuards(RolesGuard, StoreOwnerGuard)
+  @Roles('vendor')
+  async recordVendorOfflineSale(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body() dto: RecordVendorOfflineSaleDto,
+  ) {
+    return this.orderService.recordVendorOfflineSale({
+      vendor_id: user.sub,
+      items: dto.items,
+      customer_name: dto.customer_name,
+      customer_email: dto.customer_email,
+      notes: dto.notes,
+    });
+  }
+
+  /* ────────────────────────────────────────────────
      UPDATE ORDER STATUS (VENDOR / ADMIN)
   ──────────────────────────────────────────────── */
   @Patch(':id/status')
@@ -163,5 +183,22 @@ export class PandaOrderController {
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
     return this.orderService.cancelOrder(id, user.sub);
+  }
+
+  /* ────────────────────────────────────────────────
+     DOWNLOAD RECEIPT
+  ──────────────────────────────────────────────── */
+  @Get(':id/receipt')
+  async downloadReceipt(
+    @Param('id') id: string,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    const pdfBuffer = await this.orderService.getOrderReceiptPdf(id, user.sub);
+    
+    return {
+      status: 'success',
+      data: pdfBuffer.toString('base64'),
+      filename: `receipt-${id.split('-')[0].toUpperCase()}.pdf`,
+    };
   }
 }

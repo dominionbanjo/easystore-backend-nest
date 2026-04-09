@@ -19,16 +19,19 @@ import { ProductModule } from '../product/product.module';
 import { PandascrowEscrowService } from './services/pandascrow-escrow.service';
 import { HttpModule } from '@nestjs/axios';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { ProductCustomer } from '../product/entities/product-customer.entity';
 import { OrderPaymentController } from './controllers/order-payment.controller';
 import { OrderController } from './controllers/pandaOrder.controller';
 import { PandaOrderController } from './controllers/order.controller';
 import { OrderPaymentService } from './services/order-payment-webhook.service';
+import { ReceiptService } from './services/receipt.service';
 import { CartModule } from '../cart/cart.module';
 import { StoreAnalyticsModule } from 'src/modules/vendor-module/store-analytics/store-analytics.module';
+import { OrderCronService } from './services/order-cron.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, User]),
+    TypeOrmModule.forFeature([Order, User, ProductCustomer]),
     HttpModule,
     ProductModule,
     CacheModule,
@@ -56,7 +59,9 @@ import { StoreAnalyticsModule } from 'src/modules/vendor-module/store-analytics/
     // Supporting services
     PandascrowEscrowService,
     OrderPaymentService,
+    OrderCronService,
+    ReceiptService,
   ],
-  exports: [OrderService],
+  exports: [OrderService, ReceiptService],
 })
 export class OrderModule {}
