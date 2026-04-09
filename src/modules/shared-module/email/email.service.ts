@@ -26,8 +26,8 @@ export class EmailService {
 
       await transactional.sendTransacEmail({
         sender: {
-          email: 'dominionbanjo@gmail.com',
-          name: 'easyStore',
+          email: 'support@eazystore.com.ng',
+          name: 'Eazystore',
         },
         to: [{ email: to }],
         subject,
