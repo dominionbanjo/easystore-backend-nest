@@ -1,98 +1,115 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🛠️ EasyStore API Core — High-Performance NestJS Engine
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=for-the-badge&logo=nestjs)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)
+![TypeORM](https://img.shields.io/badge/TypeORM-0.3-FB3E44?style=for-the-badge&logo=typeorm)
+![Redis](https://img.shields.io/badge/Redis-Caching-DC382D?style=for-the-badge&logo=redis)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The **EasyStore API Core** is the architectural backbone of the EasyStore platform. It is a progressive **NestJS** application built with a focus on domain-driven modularity, security, and financial integrity. It handles everything from multi-step vendor onboarding to sophisticated escrow-based transaction clearing.
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 🏗️ System Architecture
 
-## Project setup
+The backend follows a **Modular Design Pattern**, where each core business domain is encapsulated in its own module.
 
-```bash
-$ npm install
+### Core Domain Modules
+- **`Identity-Module`**: Manages the security perimeter. 
+    - Full JWT authentication with token rotation.
+    - Role-Based Access Control (RBAC) (Admin, Vendor, User).
+    - Multi-factor authentication via OTP (Email/SMS logic).
+    - Google OAuth 2.0 integration.
+- **`Commerce-Module`**: The transactional heart of the platform.
+    - **Inventory System**: Complex product entity management with categories and variants.
+    - **Order Lifecycle**: State-machine based order processing (Pending -> Paid -> Shipped -> Delivered).
+    - **Review System**: Relational feedback loop between buyers and products.
+- **`Finance-Module`**: Sophisticated financial orchestration.
+    - **Escrow System**: Securely holds funds until delivery is verified.
+    - **Transaction Ledger**: Immutable recording of all financial movements.
+    - **Payout Automation**: Automated vendor settlements via the **Paystack API**.
+- **`Vendor-Module`**: Storefront infrastructure.
+    - Dynamic store creation and configuration.
+    - **Analytics Engine**: Aggregates sales, customer, and order data for vendor dashboards.
+- **`Admin-Module`**: Global governance and platform settings.
+- **`Shared-Module`**: Infrastructural utilities (Cloudinary, Brevo, Redis).
+
+---
+
+## 💾 Data Model (Technical Spec)
+
+EasyStore uses **TypeORM** for relational mapping with a highly optimized PostgreSQL schema.
+
+### Primary Entities
+- **User**: Central identity with dynamic role assignment.
+- **Store**: Multi-tenant entity containing revenue metrics, branding, and metadata.
+- **Product**: Relational entity linked to stores and categories.
+- **Order**: Complex entity linking buyers, vendors, and line items.
+- **Escrow**: Dedicated entity for managing the lifecycle of held funds.
+- **Transaction**: Physical record of payment gateway events.
+
+---
+
+## ⚡ External Integrations
+
+| Provider | Purpose | Implementation Detail |
+|----------|---------|------------------------|
+| **Paystack** | Financial Gateway | Used for secure checkouts, card verification, and vendor payouts. |
+| **Cloudinary** | Media Optimization | Handles all image uploads (logos, product shots) with automated resizing. |
+| **Brevo (Sendinblue)**| Communication | Event-driven transactional emails (Welcome, OTP, Order confirmation). |
+| **Redis** | Speed & Security | Used for caching high-frequency data and managing rate-limiting states. |
+
+---
+
+## 🛡️ Security & Performance
+- **Throttler Guard**: Global and endpoint-specific rate limiting to prevent brute-force and DDoS attacks.
+- **Interceptors & DTOs**: Strict request validation using `class-validator` and `class-transformer`.
+- **Database Indexing**: Optimized query performance for high-traffic store discovery.
+- **Environment Gating**: Secure handling of production secrets via `@nestjs/config`.
+
+---
+
+## ⚙️ Development Setup
+
+### 1. Prerequisites
+- Docker (for local PG/Redis) or managed instances.
+- Node.js v20+
+
+### 2. Environment Configuration
+Create a `.env` in `easystore-backend/`:
+```env
+DATABASE_URL=postgres://user:pass@host:port/db
+JWT_SECRET=your_complex_secret
+PAYSTACK_SECRET_KEY=sk_test_...
+CLOUDINARY_URL=cloudinary://...
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
-## Compile and run the project
-
+### 3. Installation
 ```bash
-# development
-$ npm run start
+# Install dependencies
+npm install
 
-# watch mode
-$ npm run start:dev
+# Run migrations
+npm run migration:run
 
-# production mode
-$ npm run start:prod
+# Start development server
+npm run dev
 ```
 
-## Run tests
+---
 
-```bash
-# unit tests
-$ npm run test
+## 📡 API Overview
+Detailed documentation is typically available via Swagger at `/api/docs` (if enabled in development).
 
-# e2e tests
-$ npm run test:e2e
+| Group | Endpoints |
+|-------|-----------|
+| **Auth** | `/auth/login`, `/auth/register`, `/auth/verify-otp` |
+| **Vendor** | `/stores/create`, `/stores/dashboard-stats`, `/products/*` |
+| **Orders** | `/orders/create`, `/orders/my-orders`, `/orders/:id/status` |
+| **Admin** | `/admin/vendors`, `/admin/system-logs`, `/admin/payouts` |
 
-# test coverage
-$ npm run test:cov
-```
+---
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 📄 License
+This project is licensed under the UNLICENSED license.
