@@ -613,8 +613,31 @@ export class OrderCreationService {
 
       paystackOptions.split_code = splitData.split_code;
     } else {
-      // MULTI-VENDOR SPLIT
+      // ─────────────────────────────────────────────────────────────────────
+      // MULTI-VENDOR SPLIT — Production-grade approach
+      //
+      // Paystack only supports bearer_type: 'account' | 'subaccount'.
+      // For multi-vendor we use 'account' (platform pays Paystack fee upfront)
+      // then distribute that Paystack fee cost pro-rata across all vendors by
+      // deducting it from their individual split shares BEFORE sending to Paystack.
+      //
+      // Each vendor's final share =
+      //   gross (subtotal + shipping)
+      //   − 1.5% platform cut
+      //   − their proportional share of the Paystack transaction fee
+      // ─────────────────────────────────────────────────────────────────────
+
+      // 1. Estimate Paystack fee on the amount Paystack will actually process
+      const paystackFeeKobo = Math.min(
+        Math.ceil(grandTotalKobo * 0.015) + 10_000, // 1.5% + ₦100 flat
+        200_000,                                     // ₦2,000 cap
+      );
+
+      // 2. Build split subaccounts: each vendor absorbs their pro-rata share
+      //    of the Paystack fee on top of the platform's 1.5% cut
       const splitSubaccounts: { subaccount: string; share: number }[] = [];
+      const totalGross = subtotalKobo + totalShippingKobo; // denominator for pro-rata
+
       for (const vendorId of vendorIds) {
         const store = await this.storeService.getStoreByUser(vendorId);
 
@@ -624,31 +647,43 @@ export class OrderCreationService {
           );
         }
 
-        // Vendor-side: 1.5% deducted from their gross (subtotal + shipping)
-        const vendorGross =
-          vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
-        const vendorShare = Math.floor(vendorGross * (1 - VENDOR_FEE_RATE));
+        const vendorGross = vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
+
+        // Pro-rata share of Paystack fee this vendor should absorb
+        const vendorPaystackFeeShare = Math.round(
+          (vendorGross / (totalGross || 1)) * paystackFeeKobo,
+        );
+
+        // Platform cut (1.5%) + vendor's Paystack fee share
+        const vendorPlatformCut = Math.round(vendorGross * VENDOR_FEE_RATE);
+        const vendorShare = Math.floor(
+          vendorGross - vendorPlatformCut - vendorPaystackFeeShare,
+        );
+
         splitSubaccounts.push({
           subaccount: store.paystack_subaccount_code,
-          share: vendorShare,
+          share: Math.max(vendorShare, 0), // guard against negative on tiny amounts
         });
       }
 
+      // 3. Fix rounding: ensure total allocated doesn't exceed what Paystack
+      //    will actually settle (grandTotal − totalVendorShares should == platformKeep)
+      const totalAllocated = splitSubaccounts.reduce((s, v) => s + v.share, 0);
+      const diff = grandTotalKobo - platformFeeKobo - paystackFeeKobo - totalAllocated;
+      if (diff !== 0 && splitSubaccounts.length > 0) {
+        splitSubaccounts[splitSubaccounts.length - 1].share += diff;
+      }
+
       if (splitSubaccounts.length > 0) {
-        // Create a dynamic split
         const splitPayload = {
           name: `Marketplace Split - ${reference}`,
-          type: 'flat',
+          type: 'flat' as const,
           currency: 'NGN',
           subaccounts: splitSubaccounts,
-          bearer_type: 'subaccount', // Vendor bears the Paystack transaction fee
+          bearer_type: 'account' as const, // Platform pays Paystack fee; cost pre-distributed in shares
         };
 
-        console.log(
-          'DEBUG: Multi-vendor Split Payload:',
-          JSON.stringify(splitPayload, null, 2),
-        );
-        const splitData = await this.paystack.createSplit(splitPayload as any);
+        const splitData = await this.paystack.createSplit(splitPayload);
         paystackOptions.split_code = splitData.split_code;
       }
     }
