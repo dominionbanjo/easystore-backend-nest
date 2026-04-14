@@ -305,7 +305,7 @@ export class StoreWriteService {
       business_name: store.store_name,
       bank_code,
       account_number,
-      percentage_charge: 2.5,
+      percentage_charge: 1.5, // 1.5% platform fee deducted from vendor on each sale
     });
 
     const updated = await this.storeRepo.save({
@@ -386,7 +386,7 @@ export class StoreWriteService {
         business_name: store.store_name,
         bank_code: code,
         account_number: acct,
-        percentage_charge: 2.5,
+        percentage_charge: 1.5, // 1.5% platform fee deducted from vendor on each sale
       });
 
       bank_name = verified.bank_name || verified.account_name;

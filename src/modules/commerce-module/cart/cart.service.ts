@@ -105,22 +105,24 @@ export class CartService {
       0,
     );
 
-    // Platform fee (Fixed 2%)
-    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
+    /*
+     * FEE MODEL v2 — Buyer Side (mirrors order-creation.service.ts)
+     * ─────────────────────────────────────────────────────────────
+     * Buyer pays: subtotal + shipping + 1% platform fee (capped at ₦2,000).
+     * Paystack transaction fee is borne by the vendor via bearer_type: 'subaccount'
+     * (deducted automatically from vendor's split — NOT added to buyer's total).
+     * ─────────────────────────────────────────────────────────────
+     */
+    const BUYER_FEE_RATE = 0.01;
+    const BUYER_FEE_CAP_KOBO = 200_000; // ₦2,000 cap
 
-    // Base amount that we apply Paystack fee on
-    const baseAmountBeforePaystack =
-      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
+    const rawBuyerFeeKobo = Math.round(subtotalKobo * BUYER_FEE_RATE);
+    const buyerPlatformFeeKobo = Math.min(rawBuyerFeeKobo, BUYER_FEE_CAP_KOBO);
 
-    // Calculate Paystack fee on the base amount
-    const paystackFeeKobo = this.paystackService.calculateTransactionFee(
-      baseAmountBeforePaystack,
-    );
-
-    // Consolidate both fees into "Service Charge"
-    const serviceChargeKobo = platformFee2PercentKobo + paystackFeeKobo;
-
-    const totalKobo = baseAmountBeforePaystack + paystackFeeKobo;
+    // Buyer total: subtotal + shipping + their 1% fee only
+    // Paystack fee is taken from vendor's side — not charged to buyer
+    const serviceChargeKobo = buyerPlatformFeeKobo;
+    const totalKobo = subtotalKobo + totalShippingKobo + buyerPlatformFeeKobo;
 
     return {
       subtotalKobo,

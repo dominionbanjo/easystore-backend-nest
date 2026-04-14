@@ -362,16 +362,22 @@ export class OrderCreationService {
       totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
-    const baseAmountBeforePaystack =
-      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
-    const paystackFeeKobo = this.paystack.calculateTransactionFee(
-      baseAmountBeforePaystack,
-    );
+    /*
+     * FEE MODEL v2
+     * ─────────────────────────────────────────────────────────────
+     * Buyer pays:  subtotal + shipping + 1% buyer-fee (capped ₦2,000). That’s it.
+     * Vendor pays: Paystack txn fee (bearer_type: 'subaccount') + 1.5% platform split.
+     * ─────────────────────────────────────────────────────────────
+     */
+    const BUYER_FEE_RATE = 0.01; // 1%
+    const BUYER_FEE_CAP_KOBO = 200_000; // ₦2,000 cap
 
-    // The final platform fee includes what Paystack will deduct, so the platform net stays >= 0
-    const platformFeeKobo = platformFee2PercentKobo + paystackFeeKobo;
-    const grandTotalKobo = baseAmountBeforePaystack + paystackFeeKobo;
+    // Buyer pays ONLY their 1% fee. Paystack fee is on the vendor via split.
+    const rawBuyerFeeKobo = Math.round(subtotalKobo * BUYER_FEE_RATE);
+    const buyerPlatformFeeKobo = Math.min(rawBuyerFeeKobo, BUYER_FEE_CAP_KOBO);
+    const platformFeeKobo = buyerPlatformFeeKobo; // for metadata/accounting
+    const grandTotalKobo =
+      subtotalKobo + totalShippingKobo + buyerPlatformFeeKobo;
 
     /* PREPARE PAYSTACK METADATA */
     const paystackMetadata = {
@@ -527,16 +533,23 @@ export class OrderCreationService {
       totalShippingKobo += vendorMaxShippingKobo;
     }
 
-    const platformFee2PercentKobo = Math.round(subtotalKobo * 0.02);
-    const baseAmountBeforePaystack =
-      subtotalKobo + totalShippingKobo + platformFee2PercentKobo;
-    const paystackFeeKobo = this.paystack.calculateTransactionFee(
-      baseAmountBeforePaystack,
-    );
+    /*
+     * FEE MODEL v2
+     * ─────────────────────────────────────────────────────────────
+     * Buyer pays:  subtotal + shipping + 1% buyer-fee (capped ₦2,000). That's it.
+     * Vendor pays: Paystack txn fee (bearer_type: 'subaccount') + 1.5% platform split.
+     * ─────────────────────────────────────────────────────────────
+     */
+    const BUYER_FEE_RATE = 0.01; // 1 %
+    const BUYER_FEE_CAP_KOBO = 200_000; // ₦2,000 cap
+    const VENDOR_FEE_RATE = 0.015; // 1.5 %
 
-    // The final platform fee includes what Paystack will deduct, protecting the platform share length
-    const platformFeeKobo = platformFee2PercentKobo + paystackFeeKobo;
-    const grandTotalKobo = baseAmountBeforePaystack + paystackFeeKobo;
+    // Buyer pays ONLY their 1% fee. Paystack fee is on the vendor via split.
+    const rawBuyerFeeKobo = Math.round(subtotalKobo * BUYER_FEE_RATE);
+    const buyerPlatformFeeKobo = Math.min(rawBuyerFeeKobo, BUYER_FEE_CAP_KOBO);
+    const platformFeeKobo = buyerPlatformFeeKobo; // for metadata/accounting
+    const grandTotalKobo =
+      subtotalKobo + totalShippingKobo + buyerPlatformFeeKobo;
     const reference = `ref_${uuidv4().replace(/-/g, '')}`;
 
     /* PREPARE PAYSTACK OPTIONS (SPLIT) */
@@ -569,11 +582,20 @@ export class OrderCreationService {
         );
       }
 
-      // Calculate what vendor gets: Subtotal + Shipping (Platform keeps 2%)
-      const vendorShare =
+      /*
+       * Vendor-side split: vendor receives their subtotal + shipping
+       * MINUS the 1.5% platform fee. The Paystack transaction fee is
+       * borne by the vendor subaccount (bearer_type: 'subaccount').
+       *
+       * Example: subtotal ₦10,000 + shipping ₦500 = ₦10,500
+       *   Vendor share = ₦10,500 × (1 - 0.015) = ₦10,342.5 → rounded down
+       *   Platform keeps ₦157.5 (1.5 %) + had already collected ₦100 from buyer (1 %)
+       */
+      const vendorGross =
         vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
+      const vendorShare = Math.floor(vendorGross * (1 - VENDOR_FEE_RATE));
 
-      const splitData = await this.paystack.createSplit({
+      const splitPayload = {
         name: `Marketplace Split - ${reference}`,
         type: 'flat',
         currency: 'NGN',
@@ -583,8 +605,11 @@ export class OrderCreationService {
             share: vendorShare,
           },
         ],
-        bearer_type: 'account', // Platform pays Paystack fees from its share
-      });
+        bearer_type: 'subaccount', // Vendor bears the Paystack transaction fee
+        bearer_subaccount: store.paystack_subaccount_code,
+      };
+
+      const splitData = await this.paystack.createSplit(splitPayload as any);
 
       paystackOptions.split_code = splitData.split_code;
     } else {
@@ -599,9 +624,10 @@ export class OrderCreationService {
           );
         }
 
-        // Calculate what vendor gets: Subtotal + Shipping (platform keeps fee)
-        const vendorShare =
+        // Vendor-side: 1.5% deducted from their gross (subtotal + shipping)
+        const vendorGross =
           vendorSubtotals[vendorId] + vendorShippingFees[vendorId];
+        const vendorShare = Math.floor(vendorGross * (1 - VENDOR_FEE_RATE));
         splitSubaccounts.push({
           subaccount: store.paystack_subaccount_code,
           share: vendorShare,
@@ -610,13 +636,19 @@ export class OrderCreationService {
 
       if (splitSubaccounts.length > 0) {
         // Create a dynamic split
-        const splitData = await this.paystack.createSplit({
+        const splitPayload = {
           name: `Marketplace Split - ${reference}`,
           type: 'flat',
           currency: 'NGN',
           subaccounts: splitSubaccounts,
-          bearer_type: 'account', // Platform pays transaction fee from its own share
-        });
+          bearer_type: 'subaccount', // Vendor bears the Paystack transaction fee
+        };
+
+        console.log(
+          'DEBUG: Multi-vendor Split Payload:',
+          JSON.stringify(splitPayload, null, 2),
+        );
+        const splitData = await this.paystack.createSplit(splitPayload as any);
         paystackOptions.split_code = splitData.split_code;
       }
     }
@@ -673,7 +705,9 @@ export class OrderCreationService {
         notes: JSON.stringify({
           platform_fee_kobo: vendorPlatformFeeKobo,
           shipping_fee_kobo: vendorShippingFeeKobo,
-          fee_percentage: 2,
+          buyer_platform_fee_kobo: buyerPlatformFeeKobo,
+          vendor_fee_rate: VENDOR_FEE_RATE,
+          buyer_fee_rate: BUYER_FEE_RATE,
           subtotal_kobo: vendorSubtotalKobo,
           total_kobo: vendorTotalKobo,
         }),
@@ -715,11 +749,15 @@ export class OrderCreationService {
     let subtotalKobo = 0;
 
     for (const item of items) {
-      const productResult = await this.productService.getSingle(item.product_id);
+      const productResult = await this.productService.getSingle(
+        item.product_id,
+      );
       const product = productResult.product;
 
       if (!product || product.vendor_id !== vendor_id) {
-        throw new BadRequestException(`Product ${item.product_id} not found or doesn't belong to vendor`);
+        throw new BadRequestException(
+          `Product ${item.product_id} not found or doesn't belong to vendor`,
+        );
       }
 
       let price = Number(product.price);
@@ -746,11 +784,13 @@ export class OrderCreationService {
         discount_price: null,
         unit_price: price,
         image:
-          product.image?.url || (typeof product.image === 'string' ? product.image : null),
+          product.image?.url ||
+          (typeof product.image === 'string' ? product.image : null),
         variant_id: item.variant_id ?? null,
         variant_options:
           item.variant_id && product.variants
-            ? product.variants.find((v) => v.id === item.variant_id)?.combinations || null
+            ? product.variants.find((v) => v.id === item.variant_id)
+                ?.combinations || null
             : null,
         quantity: item.quantity,
         size: null,
@@ -770,7 +810,9 @@ export class OrderCreationService {
       payment_method: 'offline',
       payment_status: 'success',
       status: 'completed',
-      notes: notes || `Manual offline sale recorded by vendor. Customer: ${customer_name || 'Walk-in'}`,
+      notes:
+        notes ||
+        `Manual offline sale recorded by vendor. Customer: ${customer_name || 'Walk-in'}`,
     });
 
     const savedOrder = await this.orderRepo.save(orderEntity);
@@ -792,9 +834,17 @@ export class OrderCreationService {
     await this.orderRepo.manager.transaction(async (manager) => {
       for (const item of orderItems) {
         if (item.variant_id) {
-          await this.productService.adjustVariantStock(item.variant_id, -item.quantity, manager);
+          await this.productService.adjustVariantStock(
+            item.variant_id,
+            -item.quantity,
+            manager,
+          );
         } else {
-          await this.productService.adjustStock(item.product_id, -item.quantity, manager);
+          await this.productService.adjustStock(
+            item.product_id,
+            -item.quantity,
+            manager,
+          );
         }
       }
     });
