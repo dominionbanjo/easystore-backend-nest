@@ -45,8 +45,11 @@ export class ProductSearchService {
       : new Set<string>();
 
     // Build a prefix tsquery: "fant" → "fant:*", "jal biy" → "jal:* & biy:*"
-    // This makes the search_vector match partial word prefixes.
+    // Strip special characters (like '&', '|', '!') that are tsquery operators
+    // to avoid syntax errors when the user's search term contains them.
     const tsPrefix = q
+      .trim()
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')  // strip special chars
       .trim()
       .split(/\s+/)
       .filter(Boolean)
@@ -244,7 +247,10 @@ export class ProductSearchService {
 
     const tsQuery = q
       .trim()
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .trim()
       .split(/\s+/)
+      .filter(Boolean)
       .map((w) => `${w}:*`)
       .join(' & ');
 
@@ -346,7 +352,10 @@ export class ProductSearchService {
 
     const tsQuery = q
       .trim()
+      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .trim()
       .split(/\s+/)
+      .filter(Boolean)
       .map((w) => `${w}:*`)
       .join(' & ');
 
@@ -445,7 +454,10 @@ export class ProductSearchService {
     if (q?.trim()) {
       const tsQuery = q
         .trim()
+        .replace(/[^a-zA-Z0-9\s]/g, ' ')
+        .trim()
         .split(/\s+/)
+        .filter(Boolean)
         .map((w) => `${w}:*`)
         .join(' & ');
 
