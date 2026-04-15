@@ -32,8 +32,7 @@ export class ProductSearchService {
       city,
       rating,
       inStock,
-      colors = [],
-      sizes = [],
+      filter = {},
     } = params;
 
     if (!q?.trim()) {
@@ -146,35 +145,20 @@ export class ProductSearchService {
       qb.andWhere('product.rating_average >= :rating', { rating });
     }
 
-    // Filter by color: product must have at least one variant
-    // whose combinations->>'Color' matches any of the requested values
-    if (colors.length > 0) {
-      colors.forEach((color, i) => {
+    // Dynamically apply variant filters
+    Object.entries(filter).forEach(([key, values], idx) => {
+      if (!values || values.length === 0) return;
+      values.forEach((val, vIdx) => {
         qb.andWhere(
           `EXISTS (
             SELECT 1 FROM product_variants pv
             WHERE pv.product_id = product.id
-            AND pv.combinations->>'Color' ILIKE :color${i}
+            AND pv.combinations->>:key${idx} ILIKE :val${idx}_${vIdx}
           )`,
-          { [`color${i}`]: color },
+          { [`key${idx}`]: key, [`val${idx}_${vIdx}`]: val },
         );
       });
-    }
-
-    // Filter by size: product must have at least one variant
-    // whose combinations->>'Size' matches any of the requested values
-    if (sizes.length > 0) {
-      sizes.forEach((size, i) => {
-        qb.andWhere(
-          `EXISTS (
-            SELECT 1 FROM product_variants pv
-            WHERE pv.product_id = product.id
-            AND pv.combinations->>'Size' ILIKE :size${i}
-          )`,
-          { [`size${i}`]: size },
-        );
-      });
-    }
+    });
     qb.orderBy('rank', 'DESC')
       .addOrderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
@@ -233,8 +217,7 @@ export class ProductSearchService {
       maxPrice,
       rating,
       inStock = true,
-      colors = [],
-      sizes = [],
+      filter = {},
     } = params;
 
     if (!q?.trim()) {
@@ -285,31 +268,20 @@ export class ProductSearchService {
       qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
-    if (colors.length > 0) {
-      colors.forEach((color, i) => {
+    // Dynamically apply variant filters
+    Object.entries(filter).forEach(([key, values], idx) => {
+      if (!values || values.length === 0) return;
+      values.forEach((val, vIdx) => {
         qb.andWhere(
           `EXISTS (
             SELECT 1 FROM product_variants pv
             WHERE pv.product_id = product.id
-            AND pv.combinations->>'Color' ILIKE :svColor${i}
+            AND pv.combinations->>:svKey${idx} ILIKE :svVal${idx}_${vIdx}
           )`,
-          { [`svColor${i}`]: color },
+          { [`svKey${idx}`]: key, [`svVal${idx}_${vIdx}`]: val },
         );
       });
-    }
-
-    if (sizes.length > 0) {
-      sizes.forEach((size, i) => {
-        qb.andWhere(
-          `EXISTS (
-            SELECT 1 FROM product_variants pv
-            WHERE pv.product_id = product.id
-            AND pv.combinations->>'Size' ILIKE :svSize${i}
-          )`,
-          { [`svSize${i}`]: size },
-        );
-      });
-    }
+    });
 
     const [products, total] = await qb
       .orderBy('rank', 'DESC')

@@ -5,7 +5,6 @@ import {
   IsInt,
   Min,
   IsBoolean,
-  IsArray,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
@@ -101,33 +100,24 @@ export class ProductSearchDto {
   @IsString()
   status?: string;
 
-  /* ───────────────── VARIANT FILTERS (CSV → ARRAY) ───────────────── */
-  // Filters products that have at least one variant matching the given
-  // color or size value in its combinations JSONB field.
-
+  /* ───────────────── DYNAMIC FILTERS (PIPED CSV → MAP) ───────────────── */
+  // Handles unified dynamic filters, e.g. "?filter=Color:Red|Size:M,L"
+  // Transforms it into a Record<string, string[]> for dynamic JSONB querying.
   @IsOptional()
-  @Transform(({ value }) =>
-    Array.isArray(value)
-      ? value
-      : value
-          ?.split(',')
-          .map((v: string) => v.trim())
-          .filter(Boolean),
-  )
-  @IsArray()
-  @IsString({ each: true })
-  colors?: string[];
-
-  @IsOptional()
-  @Transform(({ value }) =>
-    Array.isArray(value)
-      ? value
-      : value
-          ?.split(',')
-          .map((v: string) => v.trim())
-          .filter(Boolean),
-  )
-  @IsArray()
-  @IsString({ each: true })
-  sizes?: string[];
+  @Transform(({ value }) => {
+    if (!value || typeof value !== 'string') return undefined;
+    const filtersObj: Record<string, string[]> = {};
+    const parts = value.split('|');
+    for (const part of parts) {
+      const [key, vals] = part.split(':');
+      if (key && vals) {
+        filtersObj[key] = vals
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean);
+      }
+    }
+    return filtersObj;
+  })
+  filter?: Record<string, string[]>;
 }
