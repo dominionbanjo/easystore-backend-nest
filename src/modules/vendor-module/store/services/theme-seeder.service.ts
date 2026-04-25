@@ -23,7 +23,7 @@ export class ThemeSeederService implements OnModuleInit {
         description: 'The standard EazyStore layout.',
         default_config: {
           header_style: 'standard',
-          primary_color: '#0ea5e9', // Default primary
+          primary_color: '#17c06e', // Default primary (EazyStore Green)
           font_family: 'Inter, sans-serif',
           layout_style: 'grid',
         },
@@ -92,6 +92,12 @@ export class ThemeSeederService implements OnModuleInit {
         const newTemplate = this.templateRepo.create(template);
         await this.templateRepo.save(newTemplate);
         this.logger.log(`Seeded StoreTemplate: ${template.name}`);
+      } else {
+        // Update default config if it changed
+        exists.default_config = template.default_config;
+        exists.description = template.description;
+        await this.templateRepo.save(exists);
+        this.logger.log(`Updated StoreTemplate config: ${template.name}`);
       }
     }
   }
