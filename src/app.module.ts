@@ -24,6 +24,7 @@ import { EmailModule } from './modules/shared-module/email/email.module';
 import { StoreAnalyticsModule } from './modules/vendor-module/store-analytics/store-analytics.module';
 import { StoreModule } from './modules/vendor-module/store/store.module';
 import { AdminModule } from './modules/admin-module/admin-module.module';
+import { MessagingModule } from './modules/shared-module/messaging/messaging.module';
 
 @Module({
   imports: [
@@ -82,6 +83,9 @@ import { AdminModule } from './modules/admin-module/admin-module.module';
     EmailModule,
     CacheModule,
     AdminModule,
+
+    // 💬 MESSAGING
+    MessagingModule,
   ],
 
   controllers: [AppController],

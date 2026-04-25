@@ -18,6 +18,8 @@ export function mapToPublicStore(store: Store, totalProductsCount?: number) {
 
   return {
     id: store.id,
+    user_id: store.user_id,
+    vendor_id: store.user_id,
     store_name: store.store_name,
     slug: store.slug,
     status: store.status,
