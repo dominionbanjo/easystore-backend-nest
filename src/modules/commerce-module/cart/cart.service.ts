@@ -90,20 +90,10 @@ export class CartService {
       const priceKobo = item.unit_price;
       subtotalKobo += priceKobo * item.quantity;
 
-      // Group by vendor and take the maximum shipping cost for that vendor
-      const itemShippingKobo = Number(item.shipping_cost || 0);
-      if (
-        !vendorShippingFees[item.vendor_id] ||
-        itemShippingKobo > vendorShippingFees[item.vendor_id]
-      ) {
-        vendorShippingFees[item.vendor_id] = itemShippingKobo;
-      }
+      // Shipping is now handled at checkout via Store Delivery Rates
     }
 
-    const totalShippingKobo = Object.values(vendorShippingFees).reduce(
-      (sum, fee) => sum + fee,
-      0,
-    );
+    const totalShippingKobo = 0;
 
     /*
      * FEE MODEL v2 — Buyer Side (mirrors order-creation.service.ts)
@@ -149,9 +139,6 @@ export class CartService {
           price: Number(item.price) / 100,
           discount_price: item.discount_price
             ? Number(item.discount_price) / 100
-            : null,
-          shipping_cost: item.shipping_cost
-            ? Number(item.shipping_cost) / 100
             : null,
         })),
         subtotal: totals.subtotalKobo / 100,
@@ -286,9 +273,6 @@ export class CartService {
         size: payload.size ?? null,
         color: colorDisplay,
         color_hex: colorHex,
-        shipping_cost: product.shipping_cost
-          ? Number(product.shipping_cost)
-          : null,
       };
 
       cart.cart_items.push(item);
@@ -404,5 +388,27 @@ export class CartService {
         total: 0,
       },
     };
+  }
+
+  /* ────────────────────────────────────────────────
+     CLEAR SPECIFIC ITEMS
+  ──────────────────────────────────────────────── */
+  async removeSpecificItems(userId: string, itemsToRemove: ICartItem[]) {
+    const cart = await this.getOrCreateCart(userId);
+
+    cart.cart_items = cart.cart_items.filter(
+      (cartItem) =>
+        !itemsToRemove.some(
+          (rem) =>
+            rem.product_id === cartItem.product_id &&
+            (rem.variant_id ?? null) === (cartItem.variant_id ?? null) &&
+            (rem.size ?? null) === (cartItem.size ?? null) &&
+            (rem.color ?? null) === (cartItem.color ?? null),
+        ),
+    );
+
+    await this.cartRepo.save(cart);
+
+    return this.getCart(userId);
   }
 }

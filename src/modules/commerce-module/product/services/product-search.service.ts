@@ -375,9 +375,6 @@ export class ProductSearchService {
         discount_price: product.discount_price
           ? Number(product.discount_price) / 100
           : null,
-        shipping_cost: product.shipping_cost
-          ? Number(product.shipping_cost) / 100
-          : null,
         category_ref,
         store_slug: store?.slug,
         store_name: store?.store_name,
@@ -522,7 +519,6 @@ export class ProductSearchService {
         status: product.status,
         options: product.options || [],
         variants: product.variants || [],
-        shipping_cost: Number(product.shipping_cost) / 100,
         rating_average: Number(product.rating_average),
         rating_count: product.rating_count,
         review_count: product.review_count,

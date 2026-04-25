@@ -4,6 +4,8 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class CacheService {
+  private localLocks: Set<string> = new Set();
+
   constructor(@Inject('VALKEY_CLIENT') private readonly client: Redis | null) {}
 
   // -----------------------------
@@ -41,6 +43,37 @@ export class CacheService {
     if (keys.length === 0) return;
 
     await this.client.del(...keys);
+  }
+
+  // -----------------------------
+  // DISTRIBUTED LOCKS
+  // -----------------------------
+  async acquireLock(key: string, ttlSeconds: number = 30): Promise<boolean> {
+    if (!this.client) {
+      // Graceful local fallback if Redis is down
+      if (this.localLocks.has(key)) return false;
+      
+      this.localLocks.add(key);
+      
+      // Auto-release local lock after TTL
+      setTimeout(() => {
+        this.localLocks.delete(key);
+      }, ttlSeconds * 1000);
+      
+      return true;
+    }
+    
+    // SET resource_name my_random_value NX EX max-lock-time
+    const result = await this.client.set(key, 'locked', 'EX', ttlSeconds, 'NX');
+    return result === 'OK';
+  }
+
+  async releaseLock(key: string): Promise<void> {
+    if (!this.client) {
+      this.localLocks.delete(key);
+      return;
+    }
+    await this.client.del(key);
   }
 
   // -----------------------------

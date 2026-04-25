@@ -63,10 +63,6 @@ export class CreateProductCloudinaryDto {
   // city: string;
 
   /* ───────────── SHIPPING ───────────── */
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  shipping_cost?: number;
 
   @IsString()
   @IsOptional()

@@ -109,9 +109,6 @@ export class Product {
   @Column({ type: 'bigint', nullable: true })
   discount_price: number | null;
 
-  @Column({ type: 'bigint', nullable: true })
-  shipping_cost: number | null;
-
   @Column({ type: 'int', default: 0 })
   stock: number;
 

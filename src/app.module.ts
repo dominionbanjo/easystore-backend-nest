@@ -40,7 +40,7 @@ import { AdminModule } from './modules/admin-module/admin-module.module';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
-      synchronize: false, // ❌ never true in production
+      synchronize: true, // ❌ never true in production
       ssl: {
         rejectUnauthorized: false, // required for Neon / managed PG
       },

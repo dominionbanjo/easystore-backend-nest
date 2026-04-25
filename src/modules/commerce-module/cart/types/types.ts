@@ -14,5 +14,4 @@ export interface ICartItem {
   size: string | null;
   color: string | null;
   color_hex?: string | null;
-  shipping_cost: number | null;
 }

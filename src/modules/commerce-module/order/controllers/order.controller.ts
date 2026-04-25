@@ -45,6 +45,20 @@ export class PandaOrderController {
   }
 
   /* ────────────────────────────────────────────────
+     GET CHECKOUT SUMMARY
+  ──────────────────────────────────────────────── */
+  @Post('summary')
+  async getCheckoutSummary(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body('order_items') order_items: ICartItem[],
+  ) {
+    return this.orderService.getCheckoutSummary({
+      buyer_id: user.sub,
+      order_items,
+    });
+  }
+
+  /* ────────────────────────────────────────────────
      CREATE ONLINE ORDER (PAYSTACK)
   ──────────────────────────────────────────────── */
   @Post('online')
@@ -56,6 +70,7 @@ export class PandaOrderController {
       buyer_id: user.sub,
       email: dto.email,
       order_items: dto.order_items as ICartItem[],
+      delivery_rate_id: dto.delivery_rate_id,
     });
   }
 
@@ -73,6 +88,7 @@ export class PandaOrderController {
       buyer_id: user.sub,
       email: dto.email,
       order_items: dto.order_items as ICartItem[],
+      delivery_rate_id: dto.delivery_rate_id,
     });
   }
 

@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ConflictException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -99,15 +100,22 @@ export class DeliveryService {
       throw new BadRequestException('Missing required delivery fields');
     }
 
-    const cacheKey = `delivery:order:${order_id}`;
-    const cached = await this.cache.get<Delivery>(cacheKey);
-    if (cached) return cached;
-
-    const existing = await this.deliveryRepo.findOne({ where: { order_id } });
-    if (existing) {
-      await this.cache.set(cacheKey, existing);
-      return existing;
+    const lockKey = `lock:delivery:create:${order_id}`;
+    const acquired = await this.cache.acquireLock(lockKey, 15);
+    if (!acquired) {
+      throw new ConflictException('Delivery creation is in progress...');
     }
+
+    try {
+      const cacheKey = `delivery:order:${order_id}`;
+      const cached = await this.cache.get<Delivery>(cacheKey);
+      if (cached) return cached;
+
+      const existing = await this.deliveryRepo.findOne({ where: { order_id } });
+      if (existing) {
+        await this.cache.set(cacheKey, existing);
+        return existing;
+      }
 
     const order = await this.orderRepo.findOne({ where: { id: order_id } });
     if (!order) throw new NotFoundException('Order not found');
@@ -175,6 +183,9 @@ export class DeliveryService {
     }
 
     return saved;
+    } finally {
+      await this.cache.releaseLock(lockKey);
+    }
   }
 
   /* ────────────────────────────────────────────────
@@ -199,75 +210,83 @@ export class DeliveryService {
    7️⃣ CONFIRM OFFLINE DELIVERY (NO ESCROW)
 ──────────────────────────────────────────────── */
   async confirmOfflineDelivery(order_id: string) {
-    const delivery = await this.deliveryRepo.findOne({
-      where: { order_id },
-    });
-
-    if (!delivery) {
-      throw new NotFoundException('Delivery not found');
+    const lockKey = `lock:delivery:confirm-offline:${order_id}`;
+    const acquired = await this.cache.acquireLock(lockKey, 15);
+    if (!acquired) {
+      throw new ConflictException('Delivery confirmation in progress...');
     }
 
-    if (delivery.delivery_status === 'confirmed') {
+    try {
+      const delivery = await this.deliveryRepo.findOne({
+        where: { order_id },
+      });
+
+      if (!delivery) {
+        throw new NotFoundException('Delivery not found');
+      }
+
+      if (delivery.delivery_status === 'confirmed') {
+        return {
+          success: true,
+          idempotent: true,
+          message: 'Delivery already confirmed',
+        };
+      }
+
+      delivery.delivery_status = 'confirmed';
+      delivery.delivered_at = new Date();
+
+      await this.deliveryRepo.save(delivery);
+      await this.cache.clearPrefix('delivery');
+
+      // Sync order status
+      await this.orderRepo.update(order_id, {
+        status: 'completed',
+      });
+
+      const buyer = await this.userRepo.findOne({
+        where: { id: delivery.buyer_id },
+      });
+
+      const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+      const vendorName =
+        vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
+
+      // Notifications
+      if (buyer?.email) {
+        try {
+          await this.mail.sendDeliveryConfirmedBuyer({
+            email: buyer.email,
+            name: buyer.first_name ?? 'Customer',
+            order_id,
+          });
+        } catch (error) {
+          console.error('Failed to send confirmation email to buyer:', error);
+        }
+      }
+
+      if (vendor?.email) {
+        try {
+          await this.mail.sendDeliveryConfirmedVendor({
+            email: vendor.email,
+            name: vendorName,
+            order_id,
+          });
+        } catch (error) {
+          console.error('Failed to send confirmation email to vendor:', error);
+        }
+      }
+
+      // Trigger analytics
+      await this.processAnalytics(order_id);
+
       return {
         success: true,
-        idempotent: true,
-        message: 'Delivery already confirmed',
+        message: 'Offline delivery confirmed successfully',
       };
+    } finally {
+      await this.cache.releaseLock(lockKey);
     }
-
-    delivery.delivery_status = 'confirmed';
-    delivery.delivered_at = new Date();
-
-    await this.deliveryRepo.save(delivery);
-    await this.cache.clearPrefix('delivery');
-
-    // Sync order status
-    await this.orderRepo.update(order_id, {
-      status: 'completed',
-    });
-
-    const buyer = await this.userRepo.findOne({
-      where: { id: delivery.buyer_id },
-    });
-
-    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
-
-    const vendorName =
-      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
-
-    // 📧 Notifications
-    // 📧 Send notifications (non-blocking)
-    if (buyer?.email) {
-      try {
-        await this.mail.sendDeliveryConfirmedBuyer({
-          email: buyer.email,
-          name: buyer.first_name ?? 'Customer',
-          order_id,
-        });
-      } catch (error) {
-        console.error('Failed to send confirmation email to buyer:', error);
-      }
-    }
-
-    if (vendor?.email) {
-      try {
-        await this.mail.sendDeliveryConfirmedVendor({
-          email: vendor.email,
-          name: vendorName,
-          order_id,
-        });
-      } catch (error) {
-        console.error('Failed to send confirmation email to vendor:', error);
-      }
-    }
-
-    // Trigger analytics
-    await this.processAnalytics(order_id);
-
-    return {
-      success: true,
-      message: 'Offline delivery confirmed successfully',
-    };
   }
 
   /* ────────────────────────────────────────────────
@@ -366,24 +385,31 @@ export class DeliveryService {
       'returned',
     ];
 
-    const currentIndex = FLOW.indexOf(delivery.delivery_status);
-    const nextIndex = FLOW.indexOf(status);
-
-    if (status === 'confirmed') {
-      throw new BadRequestException(
-        'Confirmed status requires delivery confirmation flow',
-      );
+    const lockKey = `lock:delivery:update-status:${delivery_id}`;
+    const acquired = await this.cache.acquireLock(lockKey, 15);
+    if (!acquired) {
+      throw new ConflictException('Status update in progress...');
     }
 
-    if (nextIndex < currentIndex && !['failed', 'returned'].includes(status)) {
-      throw new BadRequestException(
-        `Invalid status transition ${delivery.delivery_status} → ${status}`,
-      );
-    }
+    try {
+      const currentIndex = FLOW.indexOf(delivery.delivery_status);
+      const nextIndex = FLOW.indexOf(status);
 
-    if (delivery.delivery_status === status) {
-      return { success: true, idempotent: true };
-    }
+      if (status === 'confirmed') {
+        throw new BadRequestException(
+          'Confirmed status requires delivery confirmation flow',
+        );
+      }
+
+      if (nextIndex < currentIndex && !['failed', 'returned'].includes(status)) {
+        throw new BadRequestException(
+          `Invalid status transition ${delivery.delivery_status} → ${status}`,
+        );
+      }
+
+      if (delivery.delivery_status === status) {
+        return { success: true, idempotent: true };
+      }
 
     delivery.delivery_status = status;
 
@@ -478,82 +504,94 @@ export class DeliveryService {
     }
 
     return { success: true };
+    } finally {
+      await this.cache.releaseLock(lockKey);
+    }
   }
 
   /* ────────────────────────────────────────────────
      5️⃣ CONFIRM DELIVERY (RELEASE ESCROW)
   ──────────────────────────────────────────────── */
   async confirmDelivery(order_id: string, code: string, vendor_id: string) {
-    const delivery = await this.deliveryRepo.findOne({
-      where: { order_id },
-    });
-
-    if (!delivery) {
-      throw new NotFoundException('Delivery not found');
+    const lockKey = `lock:delivery:confirm:${order_id}`;
+    const acquired = await this.cache.acquireLock(lockKey, 15);
+    if (!acquired) {
+      throw new ConflictException('Delivery confirmation in progress...');
     }
 
-    if (delivery.vendor_id !== vendor_id) {
-      throw new BadRequestException('Only vendor can confirm delivery');
-    }
+    try {
+      const delivery = await this.deliveryRepo.findOne({
+        where: { order_id },
+      });
 
-    if (delivery.delivery_status === 'confirmed') {
-      return {
-        success: true,
-        idempotent: true,
-        message: 'Delivery already confirmed',
-      };
-    }
-
-    delivery.delivery_status = 'confirmed';
-    delivery.delivered_at = new Date();
-
-    await this.deliveryRepo.save(delivery);
-    await this.cache.clearPrefix('delivery');
-
-    const buyer = await this.userRepo.findOne({
-      where: { id: delivery.buyer_id },
-    });
-
-    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
-
-    const vendorName =
-      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
-
-    // 📧 Send notifications (non-blocking)
-    if (buyer?.email) {
-      try {
-        await this.mail.sendDeliveryConfirmedBuyer({
-          email: buyer.email,
-          name: buyer.first_name ?? 'Customer',
-          order_id,
-        });
-      } catch (error) {
-        console.error(
-          'Failed to send delivery confirmed email to buyer:',
-          error,
-        );
+      if (!delivery) {
+        throw new NotFoundException('Delivery not found');
       }
-    }
 
-    if (vendor?.email) {
-      try {
-        await this.mail.sendDeliveryConfirmedVendor({
-          email: vendor.email,
-          name: vendorName,
-          order_id,
-        });
-      } catch (error) {
-        console.error(
-          'Failed to send delivery confirmed email to vendor:',
-          error,
-        );
+      if (delivery.vendor_id !== vendor_id) {
+        throw new BadRequestException('Only vendor can confirm delivery');
       }
+
+      if (delivery.delivery_status === 'confirmed') {
+        return {
+          success: true,
+          idempotent: true,
+          message: 'Delivery already confirmed',
+        };
+      }
+
+      delivery.delivery_status = 'confirmed';
+      delivery.delivered_at = new Date();
+
+      await this.deliveryRepo.save(delivery);
+      await this.cache.clearPrefix('delivery');
+
+      const buyer = await this.userRepo.findOne({
+        where: { id: delivery.buyer_id },
+      });
+
+      const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+      const vendorName =
+        vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
+
+      // 📧 Send notifications (non-blocking)
+      if (buyer?.email) {
+        try {
+          await this.mail.sendDeliveryConfirmedBuyer({
+            email: buyer.email,
+            name: buyer.first_name ?? 'Customer',
+            order_id,
+          });
+        } catch (error) {
+          console.error(
+            'Failed to send delivery confirmed email to buyer:',
+            error,
+          );
+        }
+      }
+
+      if (vendor?.email) {
+        try {
+          await this.mail.sendDeliveryConfirmedVendor({
+            email: vendor.email,
+            name: vendorName,
+            order_id,
+          });
+        } catch (error) {
+          console.error(
+            'Failed to send delivery confirmed email to vendor:',
+            error,
+          );
+        }
+      }
+
+      // Trigger analytics
+      await this.processAnalytics(order_id);
+
+      return this.escrowService.releaseEscrow(order_id, code);
+    } finally {
+      await this.cache.releaseLock(lockKey);
     }
-
-    // Trigger analytics
-    await this.processAnalytics(order_id);
-
-    return this.escrowService.releaseEscrow(order_id, code);
   }
 
   /* ────────────────────────────────────────────────

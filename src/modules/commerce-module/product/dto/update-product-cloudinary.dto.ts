@@ -53,10 +53,7 @@ export class UpdateProductCloudinaryDto {
   // @IsOptional()
   // city?: string;
 
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  shipping_cost?: number;
+
 
   @IsString()
   @IsOptional()

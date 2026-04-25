@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -41,27 +42,36 @@ export class OrderPaymentVerificationService {
    VERIFY PAYMENT (MULTI-ORDER, SINGLE REFERENCE)
 ──────────────────────────────────────────────── */
   async verifyPayment(reference: string) {
-    /* FETCH ALL ORDERS FOR THIS PAYMENT */
-    const orders = await this.orderRepo.find({
-      where: { payment_reference: reference },
-      relations: ['buyer'],
-    });
-
-    if (!orders.length) {
-      throw new NotFoundException('Orders not found for this payment');
+    const lockKey = `lock:verify-payment:${reference}`;
+    const acquired = await this.cache.acquireLock(lockKey, 30); // 30 sec lock
+    if (!acquired) {
+      throw new ConflictException(
+        'Payment verification is already in progress. Please wait a moment.',
+      );
     }
 
-    /* IDEMPOTENCY CHECK */
-    if (orders.every((o) => o.payment_status === 'success')) {
-      return {
-        success: true,
-        idempotent: true,
-        orders,
-      };
-    }
+    try {
+      /* FETCH ALL ORDERS FOR THIS PAYMENT */
+      const orders = await this.orderRepo.find({
+        where: { payment_reference: reference },
+        relations: ['buyer'],
+      });
 
-    /* VERIFY PAYSTACK ONCE */
-    const verification = await this.paystack.verifyPayment(reference);
+      if (!orders.length) {
+        throw new NotFoundException('Orders not found for this payment');
+      }
+
+      /* IDEMPOTENCY CHECK */
+      if (orders.every((o) => o.payment_status === 'success')) {
+        return {
+          success: true,
+          idempotent: true,
+          orders,
+        };
+      }
+
+      /* VERIFY PAYSTACK ONCE */
+      const verification = await this.paystack.verifyPayment(reference);
 
     if (verification.status !== 'success') {
       throw new BadRequestException('Payment verification failed');
@@ -192,5 +202,8 @@ export class OrderPaymentVerificationService {
         orders: updatedOrders,
       };
     });
+    } finally {
+      await this.cache.releaseLock(lockKey);
+    }
   }
 }

@@ -76,7 +76,6 @@ export class ProductReadService {
         address_postal_code: row.address_postal_code,
         image: this.helpers.extractImageUrl(row.image),
         is_in_wishlist: wishlistSet.has(row.id),
-        shipping_cost: row.shipping_cost ? Number(row.shipping_cost) / 100 : 0,
         options: row.options || [],
         variants: (row.variants || []).map((v: any) => ({
           ...v,
@@ -391,12 +390,9 @@ export class ProductReadService {
         product: {
           ...productOnly,
           price: Number(product.price) / 100,
-          discount_price: product.discount_price
-            ? Number(product.discount_price) / 100
-            : null,
-          shipping_cost: product.shipping_cost
-            ? Number(product.shipping_cost) / 100
-            : null,
+            discount_price: product.discount_price
+              ? Number(product.discount_price) / 100
+              : null,
           options: product.options || [],
           variants,
           is_in_wishlist: wishlistSet.has(product.id),
@@ -439,11 +435,8 @@ export class ProductReadService {
           ...productOnly,
           price: Number(product.price) / 100,
           discount_price: product.discount_price
-            ? Number(product.discount_price) / 100
-            : null,
-          shipping_cost: product.shipping_cost
-            ? Number(product.shipping_cost) / 100
-            : null,
+              ? Number(product.discount_price) / 100
+              : null,
           options: product.options || [],
           variants,
           store_id: product.store_id || product.store?.id,

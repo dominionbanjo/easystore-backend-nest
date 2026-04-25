@@ -23,7 +23,6 @@ export function addProductCardSelects(
     `${alias}.discount_price`,
     `${alias}.on_sale`,
     `${alias}.featured`,
-    `${alias}.shipping_cost`,
     'category.id',
     'category.name',
     'category.slug',
@@ -69,7 +68,6 @@ export function mapToProductCardData(
     discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
     on_sale: p.on_sale,
     featured: p.featured,
-    shipping_cost: p.shipping_cost ? Number(p.shipping_cost) / 100 : 0,
     category: p.category_ref?.name,
     options: p.options || [],
     variants: (p.variants || []).map((v) => ({

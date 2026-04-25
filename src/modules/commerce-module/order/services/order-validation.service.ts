@@ -130,9 +130,6 @@ export class OrderValidationService {
         size: item.size ?? null,
         color: item.color ?? null,
         color_hex: item.color_hex ?? null,
-        shipping_cost: product.shipping_cost
-          ? Number(product.shipping_cost)
-          : null,
       });
     }
 

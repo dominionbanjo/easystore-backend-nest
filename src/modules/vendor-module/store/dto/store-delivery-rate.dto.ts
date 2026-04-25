@@ -1,7 +1,22 @@
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+
 export class SetProductDeliveryRateDto {
-  country: string;
-  state?: string;
-  city?: string;
-  price: number;
-  estimated_days?: number;
+  @IsString()
+  @IsNotEmpty()
+  state: string;
+
+  @IsString()
+  @IsNotEmpty()
+  location: string;
+
+  @IsNumber()
+  fee: number;
+
+  @IsString()
+  @IsOptional()
+  duration?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

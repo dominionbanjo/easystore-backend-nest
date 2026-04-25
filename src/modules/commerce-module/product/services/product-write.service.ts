@@ -182,9 +182,6 @@ export class ProductWriteService {
       discount_price: dto.discount_price
         ? Math.round(Number(dto.discount_price) * 100)
         : null,
-      shipping_cost: dto.shipping_cost
-        ? Math.round(Number(dto.shipping_cost) * 100)
-        : null,
       vendor_id: user.sub,
       store_id: user.store_id,
       slug,
@@ -226,9 +223,6 @@ export class ProductWriteService {
       stock,
       discount_price: dto.discount_price
         ? Math.round(Number(dto.discount_price) * 100)
-        : null,
-      shipping_cost: dto.shipping_cost
-        ? Math.round(Number(dto.shipping_cost) * 100)
         : null,
       vendor_id: user.sub,
       store_id: user.store_id,
@@ -296,9 +290,6 @@ export class ProductWriteService {
           discount_price: dto.discount_price
             ? Math.round(Number(dto.discount_price) * 100)
             : null,
-          shipping_cost: dto.shipping_cost
-            ? Math.round(Number(dto.shipping_cost) * 100)
-            : null,
           vendor_id: user.sub,
           store_id: user.store_id,
           slug: slugify(dto.name, { lower: true, strict: true }),
@@ -357,11 +348,6 @@ export class ProductWriteService {
       if (dto.discount_price !== undefined) {
         updateData.discount_price = dto.discount_price
           ? Math.round(Number(dto.discount_price) * 100)
-          : null;
-      }
-      if (dto.shipping_cost !== undefined) {
-        updateData.shipping_cost = dto.shipping_cost
-          ? Math.round(Number(dto.shipping_cost) * 100)
           : null;
       }
 
@@ -472,11 +458,6 @@ export class ProductWriteService {
       if (dto.discount_price !== undefined) {
         updateData.discount_price = dto.discount_price
           ? Math.round(Number(dto.discount_price) * 100)
-          : null;
-      }
-      if (dto.shipping_cost !== undefined) {
-        updateData.shipping_cost = dto.shipping_cost
-          ? Math.round(Number(dto.shipping_cost) * 100)
           : null;
       }
       updateData.shipping_note = dto.shipping_note ?? product.shipping_note;

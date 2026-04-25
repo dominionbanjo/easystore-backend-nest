@@ -19,7 +19,6 @@ WITH ranked_products AS (
       WHERE v.product_id = p.id
     ) AS variants,
     p.on_sale,
-    p.shipping_cost,
 
     -- resolve MAIN category
     COALESCE(pc.id, c.id) AS parent_category_id,

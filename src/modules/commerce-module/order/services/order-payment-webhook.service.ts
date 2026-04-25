@@ -38,136 +38,148 @@ export class OrderPaymentService {
       return;
     }
 
-    const orders = await this.orders.getOrdersByPaymentReference(reference);
-    if (!orders.length) {
-      throw new NotFoundException(
-        `No orders found for payment reference: ${reference}`,
-      );
+    const lockKey = `lock:verify-payment:${reference}`;
+    const acquired = await this.cache.acquireLock(lockKey, 30); // 30 sec lock
+    if (!acquired) {
+      // If we can't get the lock, it means another process (webhook or manual) is already working on this reference.
+      // We return 200/empty because Paystack will retry or the other process will finish it.
+      return;
     }
-
-    // Idempotent check
-    if (orders.every((o) => o.payment_status === 'success')) return;
-
-    const verification = await this.paystack.verifyPayment(reference);
-    if (verification.status !== 'success') {
-      throw new BadRequestException('Webhook payment verification failed');
-    }
-
-    const amountPaidKobo = verification.amount;
-    const expectedTotalKobo = orders.reduce(
-      (sum, o) => sum + Number(o.total),
-      0,
-    );
-
-    if (amountPaidKobo !== expectedTotalKobo) {
-      throw new BadRequestException(
-        `Webhook amount mismatch. Expected: ${expectedTotalKobo} kobo, Paid: ${amountPaidKobo} kobo`,
-      );
-    }
-
-    /* MARK ALL ORDERS AS PAID IN A TRANSACTION */
-    await this.dataSource.transaction(async (manager) => {
-      for (const order of orders) {
-        if (order.payment_status === 'success') continue;
-
-        // 1. Update Order Status
-        await manager.update(Order, order.id, {
-          payment_status: 'success',
-          status: 'paid',
-        });
-
-        // 2. Fund Escrow (Side Effect)
-        if (order.escrow_id) {
-          await this.escrow.fundEscrow(order.escrow_id);
-        }
-
-        // 3. Create Delivery
-        await this.delivery.createDelivery({
-          order_id: order.id,
-          buyer_id: order.buyer_id!,
-          vendor_id: order.vendor_id,
-        });
-
-        // 4. Record Transaction
-        await this.transactions.create({
-          order_id: order.id,
-          escrow_id: order.escrow_id ?? undefined,
-          user_id: order.buyer_id!,
-          vendor_id: order.vendor_id,
-          type: 'payment_webhook',
-          amount: order.total,
-          currency: 'NGN',
-          status: 'success',
-          description: 'Payment confirmed via webhook',
-          metadata: payload,
-        });
-
-        // 5. Adjust Stock (REDUCE) — variant-aware
-        for (const item of order.order_items) {
-          if (item.variant_id) {
-            await this.productService.adjustVariantStock(
-              item.variant_id,
-              -Number(item.quantity),
-              manager,
-            );
-          } else {
-            await this.productService.adjustStock(
-              item.product_id,
-              -Number(item.quantity),
-              manager,
-            );
-          }
-        }
-      }
-    });
-
-    /* ────────────────────────────────────────────────
-     EMAILS (NON-BLOCKING)
-  ──────────────────────────────────────────────── */
-
-    // 1️⃣ Buyer email (send once)
-    const firstOrder = orders[0];
 
     try {
-      await this.mail.sendPaymentVerified({
-        email: firstOrder.buyer.email,
-        name: firstOrder.buyer.first_name,
-        order: {
-          id: firstOrder.id,
-          status: 'paid',
-          total: expectedTotalKobo / 100,
-          items: firstOrder.order_items,
-          subtotal: Number(firstOrder.subtotal),
-          shipping_fee: Number(firstOrder.shipping_fee),
-        },
-      });
-    } catch (error) {
-      console.error('Failed to send payment verified email to buyer:', error);
-    }
+      const orders = await this.orders.getOrdersByPaymentReference(reference);
+      if (!orders.length) {
+        throw new NotFoundException(
+          `No orders found for payment reference: ${reference}`,
+        );
+      }
 
-    // 2️⃣ Vendor emails (per order)
-    for (const order of orders) {
-      try {
-        await this.mail.sendVendorPaymentVerified({
-          email: order.vendor.email,
-          name: order.vendor.first_name,
-          order: {
-            id: order.id,
+      // Idempotent check
+      if (orders.every((o) => o.payment_status === 'success')) return;
+
+      const verification = await this.paystack.verifyPayment(reference);
+      if (verification.status !== 'success') {
+        throw new BadRequestException('Webhook payment verification failed');
+      }
+
+      const amountPaidKobo = verification.amount;
+      const expectedTotalKobo = orders.reduce(
+        (sum, o) => sum + Number(o.total),
+        0,
+      );
+
+      if (amountPaidKobo !== expectedTotalKobo) {
+        throw new BadRequestException(
+          `Webhook amount mismatch. Expected: ${expectedTotalKobo} kobo, Paid: ${amountPaidKobo} kobo`,
+        );
+      }
+
+      /* MARK ALL ORDERS AS PAID IN A TRANSACTION */
+      await this.dataSource.transaction(async (manager) => {
+        for (const order of orders) {
+          if (order.payment_status === 'success') continue;
+
+          // 1. Update Order Status
+          await manager.update(Order, order.id, {
+            payment_status: 'success',
             status: 'paid',
-            total: Number(order.total) / 100,
-            items: order.order_items,
-            subtotal: Number(order.subtotal),
-            shipping_fee: Number(order.shipping_fee),
+          });
+
+          // 2. Fund Escrow (Side Effect)
+          if (order.escrow_id) {
+            await this.escrow.fundEscrow(order.escrow_id);
+          }
+
+          // 3. Create Delivery
+          await this.delivery.createDelivery({
+            order_id: order.id,
+            buyer_id: order.buyer_id!,
+            vendor_id: order.vendor_id,
+          });
+
+          // 4. Record Transaction
+          await this.transactions.create({
+            order_id: order.id,
+            escrow_id: order.escrow_id ?? undefined,
+            user_id: order.buyer_id!,
+            vendor_id: order.vendor_id,
+            type: 'payment_webhook',
+            amount: order.total,
+            currency: 'NGN',
+            status: 'success',
+            description: 'Payment confirmed via webhook',
+            metadata: payload,
+          });
+
+          // 5. Adjust Stock (REDUCE) — variant-aware
+          for (const item of order.order_items) {
+            if (item.variant_id) {
+              await this.productService.adjustVariantStock(
+                item.variant_id,
+                -Number(item.quantity),
+                manager,
+              );
+            } else {
+              await this.productService.adjustStock(
+                item.product_id,
+                -Number(item.quantity),
+                manager,
+              );
+            }
+          }
+        }
+      });
+
+      /* ────────────────────────────────────────────────
+       EMAILS (NON-BLOCKING)
+    ──────────────────────────────────────────────── */
+
+      // 1️⃣ Buyer email (send once)
+      const firstOrder = orders[0];
+
+      try {
+        await this.mail.sendPaymentVerified({
+          email: firstOrder.buyer.email,
+          name: firstOrder.buyer.first_name,
+          order: {
+            id: firstOrder.id,
+            status: 'paid',
+            total: expectedTotalKobo / 100,
+            items: firstOrder.order_items,
+            subtotal: Number(firstOrder.subtotal),
+            shipping_fee: Number(firstOrder.shipping_fee),
           },
         });
       } catch (error) {
-        console.error(
-          'Failed to send payment verified email to vendor:',
-          error,
-        );
+        console.error('Failed to send payment verified email to buyer:', error);
       }
-    }
 
-    await this.cache.clearPrefix('svc:order');
+      // 2️⃣ Vendor emails (per order)
+      for (const order of orders) {
+        try {
+          await this.mail.sendVendorPaymentVerified({
+            email: order.vendor.email,
+            name: order.vendor.first_name,
+            order: {
+              id: order.id,
+              status: 'paid',
+              total: Number(order.total) / 100,
+              items: order.order_items,
+              subtotal: Number(order.subtotal),
+              shipping_fee: Number(order.shipping_fee),
+            },
+          });
+        } catch (error) {
+          console.error(
+            'Failed to send payment verified email to vendor:',
+            error,
+          );
+        }
+      }
+
+      await this.cache.clearPrefix('svc:order');
+    } finally {
+      await this.cache.releaseLock(lockKey);
+    }
   }
 }

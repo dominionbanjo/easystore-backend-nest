@@ -4,6 +4,8 @@ import {
   IsEmail,
   IsNotEmpty,
   ArrayMinSize,
+  IsOptional,
+  IsString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CartItemDto } from './cart-item.dto';
@@ -19,4 +21,8 @@ export class CreateOnlineOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CartItemDto)
   order_items: CartItemDto[];
+
+  @IsOptional()
+  @IsString()
+  delivery_rate_id?: string;
 }

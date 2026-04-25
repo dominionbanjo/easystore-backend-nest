@@ -52,9 +52,7 @@ export class OrderItemsBuilder {
         quantity: item.quantity,
         size: item.size ?? null,
         color: item.color ?? null,
-        shipping_cost: product.shipping_cost
-          ? Number(product.shipping_cost)
-          : null,
+        color_hex: item.color_hex ?? null,
       });
     }
 

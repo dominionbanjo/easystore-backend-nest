@@ -106,9 +106,4 @@ export class CreateProductDto {
   @IsString()
   @IsOptional()
   location?: string;
-
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  shipping_cost?: number;
 }

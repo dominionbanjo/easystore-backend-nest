@@ -41,11 +41,11 @@ export class StoreDeliveryRateService {
 
     const rate = this.rateRepo.create({
       store_id: store.id,
-      country: dto.country,
-      state: dto.state ?? null,
-      city: dto.city ?? null,
-      price: dto.price,
-      estimated_days: dto.estimated_days ?? null,
+      state: dto.state,
+      location: dto.location,
+      fee: dto.fee,
+      duration: dto.duration ?? null,
+      notes: dto.notes ?? null,
     });
 
     return this.rateRepo.save(rate);
@@ -60,11 +60,11 @@ export class StoreDeliveryRateService {
     const entities = rates.map((r) =>
       this.rateRepo.create({
         store_id: storeId,
-        country: r.country,
-        state: r.state ?? null,
-        city: r.city ?? null,
-        price: r.price,
-        estimated_days: r.estimated_days ?? null,
+        state: r.state,
+        location: r.location,
+        fee: r.fee,
+        duration: r.duration ?? null,
+        notes: r.notes ?? null,
       }),
     );
 
@@ -86,12 +86,18 @@ export class StoreDeliveryRateService {
     return this.rateRepo.find({
       where: { store_id: storeId },
       order: {
-        country: 'ASC',
         state: 'ASC',
-        city: 'ASC',
-        price: 'ASC',
+        location: 'ASC',
+        fee: 'ASC',
       },
     });
+  }
+
+  /* ────────────────────────────────────────────────
+     GET SINGLE RATE
+  ──────────────────────────────────────────────── */
+  async getRateById(id: string) {
+    return this.rateRepo.findOne({ where: { id } });
   }
 
   /* ────────────────────────────────────────────────
@@ -116,9 +122,8 @@ export class StoreDeliveryRateService {
 
     await this.rateRepo.update(rateId, {
       ...dto,
-      state: dto.state ?? null,
-      city: dto.city ?? null,
-      estimated_days: dto.estimated_days ?? null,
+      duration: dto.duration ?? null,
+      notes: dto.notes ?? null,
     });
 
     return { message: 'Delivery rate updated successfully' };

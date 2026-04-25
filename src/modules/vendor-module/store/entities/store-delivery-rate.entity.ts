@@ -27,25 +27,24 @@ export class StoreDeliveryRate {
   store: Store;
 
   /* LOCATION */
-  @Index('IDX_STORE_DELIVERY_RATE_COUNTRY')
-  @Column({ type: 'varchar', length: 100 })
-  country: string;
-
   @Index('IDX_STORE_DELIVERY_RATE_STATE')
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  state: string | null;
+  @Column({ type: 'varchar', length: 100 })
+  state: string;
 
-  @Index('IDX_STORE_DELIVERY_RATE_CITY')
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  city: string | null;
+  @Index('IDX_STORE_DELIVERY_RATE_LOCATION')
+  @Column({ type: 'varchar', length: 100 })
+  location: string;
 
   /* PRICE */
   @Column({ type: 'numeric', precision: 10, scale: 2 })
-  price: number;
+  fee: number;
 
   /* OPTIONAL RULES */
-  @Column({ type: 'int', nullable: true })
-  estimated_days: number | null;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  duration: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
 
   /* TIMESTAMPS */
   @CreateDateColumn({ type: 'timestamptz' })

@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { ICartItem } from '../../cart/types/types';
 import { OrderStatus } from '../entities/order.entity';
-import { OrderCreationService } from './order-creation.service';
+import { OnlineOrderService } from './online-order.service';
+import { OfflineOrderService } from './offline-order.service';
+import { PandaOrderService } from './panda-order.service';
+import { OrderSummaryService } from './order-summary.service';
 import { OrderQueryService } from './order-query.service';
 import { OrderManagementService } from './order-management.service';
 import { OrderPaymentVerificationService } from './order-payment-verification.service';
@@ -19,7 +22,10 @@ import { ReceiptService } from './receipt.service';
 @Injectable()
 export class OrderService {
   constructor(
-    private readonly creationService: OrderCreationService,
+    private readonly onlineOrderService: OnlineOrderService,
+    private readonly offlineOrderService: OfflineOrderService,
+    private readonly pandaOrderService: PandaOrderService,
+    private readonly summaryService: OrderSummaryService,
     private readonly queryService: OrderQueryService,
     private readonly managementService: OrderManagementService,
     private readonly paymentVerificationService: OrderPaymentVerificationService,
@@ -37,14 +43,24 @@ export class OrderService {
     buyer_id: string;
     order_items: ICartItem[];
   }) {
-    return this.creationService.createPandaEscrowOrder(data);
+    return this.pandaOrderService.createPandaEscrowOrder(data);
+  }
+
+  /**
+   * Get checkout summary for multi-vendor split
+   */
+  async getCheckoutSummary(data: {
+    buyer_id: string;
+    order_items: ICartItem[];
+  }) {
+    return this.summaryService.getCheckoutSummary(data);
   }
 
   /**
    * Complete Pandascrow escrow order
    */
   async completePandaEscrowOrder(data: { order_id: string; otp: string }) {
-    return this.creationService.completePandaEscrowOrder(data);
+    return this.pandaOrderService.completePandaEscrowOrder(data);
   }
 
   /**
@@ -56,7 +72,7 @@ export class OrderService {
     tax?: number;
     notes?: string;
   }) {
-    return this.creationService.createOfflineOrder(data);
+    return this.offlineOrderService.createOfflineOrder(data);
   }
 
   /**
@@ -69,7 +85,7 @@ export class OrderService {
     customer_email?: string;
     notes?: string;
   }) {
-    return this.creationService.recordVendorOfflineSale(data);
+    return this.offlineOrderService.recordVendorOfflineSale(data);
   }
 
   /**
@@ -79,8 +95,9 @@ export class OrderService {
     buyer_id: string;
     email: string;
     order_items: ICartItem[];
+    delivery_rate_id?: string;
   }) {
-    return this.creationService.createOnlineOrder(data);
+    return this.onlineOrderService.createOnlineOrder(data);
   }
 
   /**
@@ -90,8 +107,9 @@ export class OrderService {
     buyer_id: string;
     email: string;
     order_items: ICartItem[];
+    delivery_rate_id?: string;
   }) {
-    return this.creationService.createOnlineOrderNoEscrow(data);
+    return this.onlineOrderService.createOnlineOrderNoEscrow(data);
   }
 
   /* ────────────────────────────────────────────────
