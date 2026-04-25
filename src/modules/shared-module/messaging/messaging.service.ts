@@ -64,6 +64,7 @@ export class MessagingService {
       avatar: user.avatar,
       account_type: user.account_type,
       store_name: user.store?.store_name || null,
+      store_slug: user.store?.slug || null,
       created_at: user.created_at,
     };
   }
