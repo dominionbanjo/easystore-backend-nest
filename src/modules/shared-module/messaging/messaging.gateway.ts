@@ -89,11 +89,12 @@ export class MessagingGateway
       // Join personal room so other services can push notifications
       await client.join(`user:${userId}`);
 
-      // Broadcast online status
+      // Broadcast online status to others
       client.broadcast.emit('user_online', { user_id: userId });
 
-      // Deliver pending messages that arrived while offline
-      // (delivery is triggred via REST, WS is just a push layer)
+      // Send initial list of online users to the connecting client
+      const onlineIds = Array.from(this.userSockets.keys());
+      client.emit('online_users_list', { user_ids: onlineIds });
     } catch {
       client.disconnect(true);
     }
