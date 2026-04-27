@@ -108,7 +108,7 @@ export class OrderMailService {
         ${summary}
 
         <div style="text-align: center; margin-top: 30px;">
-          ${this.tpl.button('View Order Details', `${process.env.FRONTEND_URL}/orders/${payload.order.id}`)}
+          ${this.tpl.button('View Order Details', `${process.env.FRONTEND_URL}/account/orders/${payload.order.id}`)}
         </div>
       `,
     );
@@ -155,7 +155,7 @@ export class OrderMailService {
         <p>Your payment process for order <b>#${payload.order.id.split('-')[0].toUpperCase()}</b> has been started. Please complete the payment to finalize your order.</p>
         
         <div style="text-align: center; margin-top: 30px;">
-          ${this.tpl.button('Complete Payment', `${process.env.FRONTEND_URL}/orders/${payload.order.id}/pay`)}
+          ${this.tpl.button('Complete Payment', `${process.env.FRONTEND_URL}/account/orders/${payload.order.id}`)}
         </div>
       `,
     );
@@ -184,7 +184,7 @@ export class OrderMailService {
         ${summary}
 
         <div style="text-align: center; margin-top: 30px;">
-          ${this.tpl.button('Track Delivery', `${process.env.FRONTEND_URL}/orders/${payload.order.id}`)}
+          ${this.tpl.button('Track Delivery', `${process.env.FRONTEND_URL}/account/orders/${payload.order.id}`)}
         </div>
       `,
     );
@@ -247,7 +247,7 @@ export class OrderMailService {
         <p>You can track the progress of your order using the link below.</p>
 
         <div style="text-align: center; margin-top: 30px;">
-          ${this.tpl.button('Track Order', `${process.env.FRONTEND_URL}/orders/${payload.order.id}`)}
+          ${this.tpl.button('Track Order', `${process.env.FRONTEND_URL}/account/orders/${payload.order.id}`)}
         </div>
       `,
     );
@@ -269,7 +269,7 @@ export class OrderMailService {
         <p style="color: #6b7280;">If you didn't request this or have any concerns, please contact our support team.</p>
 
         <div style="text-align: center; margin-top: 30px;">
-          ${this.tpl.button('View Order', `${process.env.FRONTEND_URL}/orders/${payload.order.id}`)}
+          ${this.tpl.button('View Order', `${process.env.FRONTEND_URL}/account/orders/${payload.order.id}`)}
         </div>
       `,
     );
@@ -309,7 +309,9 @@ export class OrderMailService {
     });
   }
 
-  async sendVendorOrderFailedPaymentTimeout(payload: OrderMailPayload & { vendorName: string; storeName: string }) {
+  async sendVendorOrderFailedPaymentTimeout(
+    payload: OrderMailPayload & { vendorName: string; storeName: string },
+  ) {
     const html = this.tpl.wrapper(
       'Order Expired (Payment Timeout)',
       `
@@ -335,7 +337,13 @@ export class OrderMailService {
      POST-PURCHASE (RATE PRODUCT/VENDOR) EMAILS
   ──────────────────────────────────────────────── */
 
-  async sendRateVendorEmail(payload: { email: string; name: string; storeName: string; orderId: string; products: ICartItem[] }) {
+  async sendRateVendorEmail(payload: {
+    email: string;
+    name: string;
+    storeName: string;
+    orderId: string;
+    products: ICartItem[];
+  }) {
     const html = this.tpl.wrapper(
       `How was your order from ${payload.storeName}? ⭐️`,
       `
@@ -345,7 +353,7 @@ export class OrderMailService {
         <p>Your feedback is incredibly valuable to other shoppers and helps our vendors grow. Could you take a moment to leave a review?</p>
 
         <div style="text-align: center; margin-top: 30px;">
-          ${this.tpl.button('Leave a Review', `${process.env.FRONTEND_URL}/orders/${payload.orderId}`)}
+          ${this.tpl.button('Leave a Review', `${process.env.FRONTEND_URL}/account/orders/${payload.orderId}`)}
         </div>
       `,
     );

@@ -40,7 +40,7 @@ export class EscrowMailService {
       </div>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('View Order Status', `${this.baseUrl}/orders/${order_id}`)}
+        ${this.tpl.button('View Order Status', `${this.baseUrl}/account/orders/${order_id}`)}
       </div>
     `;
 
@@ -82,7 +82,7 @@ export class EscrowMailService {
       </p>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('Process Order', `${this.baseUrl}/vendor/orders/${order_id}`)}
+        ${this.tpl.button('Process Order', `${this.baseUrl}/vendor/orders`)}
       </div>
     `;
 
@@ -146,7 +146,7 @@ export class EscrowMailService {
       <p>You can now proceed with fulfillment. Funds will be released to you once the customer confirms delivery.</p>
       
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('View Order to Fulfill', `${this.baseUrl}/vendor/orders/${order_id}`)}
+        ${this.tpl.button('View Order to Fulfill', `${this.baseUrl}/vendor/orders`)}
       </div>
     `;
 
@@ -184,7 +184,7 @@ export class EscrowMailService {
       </div>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('Go to my Wallet', `${this.baseUrl}/vendor/wallet`)}
+        ${this.tpl.button('Go to my Dashboard', `${this.baseUrl}/vendor`)}
       </div>
     `;
 

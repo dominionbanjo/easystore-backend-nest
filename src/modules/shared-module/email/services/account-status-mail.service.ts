@@ -81,7 +81,7 @@ export class AccountStatusMailService {
       </div>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('Go to Store Dashboard', `${process.env.FRONTEND_URL}/vendor/dashboard`)}
+        ${this.tpl.button('Go to Store Dashboard', `${process.env.FRONTEND_URL}/vendor`)}
       </div>
 
       <p style="margin-top: 30px;">

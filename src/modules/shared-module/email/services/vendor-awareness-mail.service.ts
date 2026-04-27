@@ -120,7 +120,7 @@ export class VendorAwarenessMailService {
         <p>It's been a busy week! You recorded <b>${weeklyOrders} orders</b> across your EasyStore platform.</p>
         <p>Log in to your dashboard to view your conversion rates, top customers, and analytics breakdown.</p>
         <div style="text-align: center; margin-top: 30px;">
-          ${this.tpl.button('View Analytics Summary', `${process.env.FRONTEND_URL}/vendor`)}
+          ${this.tpl.button('View Analytics Summary', `${process.env.FRONTEND_URL}/vendor/analytics`)}
         </div>
       `,
     );

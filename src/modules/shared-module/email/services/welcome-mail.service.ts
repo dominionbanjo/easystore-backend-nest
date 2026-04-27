@@ -59,7 +59,7 @@ export class WelcomeMailService {
         <div style="border: 2px dashed ${this.tpl.brandColor}; padding: 20px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; text-align: center;">
           <h3 style="margin-top: 0;">Ready to Start Selling?</h3>
           <p style="font-size: 14px;">Your dashboard is ready and waiting. Start building your empire today!</p>
-          ${this.tpl.button('Visit Vendor Dashboard', `${process.env.FRONTEND_URL}/vendor/dashboard`)}
+          ${this.tpl.button('Visit Vendor Dashboard', `${process.env.FRONTEND_URL}/vendor`)}
         </div>
       `;
     } else {

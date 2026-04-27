@@ -76,7 +76,7 @@ export class AdminNotifyMailService {
       </div>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('Review and Approve Store', `${this.adminPanelUrl}/stores`)}
+        ${this.tpl.button('Review and Approve Store', `${this.adminPanelUrl}/vendors`)}
       </div>
     `;
 

@@ -90,7 +90,7 @@ export class DeliveryMailService {
       </div>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('Track Order', `${this.baseUrl}/orders/${order_id}`)}
+        ${this.tpl.button('Track Order', `${this.baseUrl}/account/orders/${order_id}`)}
       </div>
     `;
 
@@ -119,7 +119,7 @@ export class DeliveryMailService {
       <p>Please ensure the package is properly packed and ready for pickup. Our courier will be arriving shortly.</p>
       
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('View Order Details', `${this.baseUrl}/vendor/orders/${order_id}`)}
+        ${this.tpl.button('View Order Details', `${this.baseUrl}/vendor/orders`)}
       </div>
     `;
 
@@ -158,7 +158,7 @@ export class DeliveryMailService {
       </div>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('Track Live Progress', `${this.baseUrl}/orders/${order_id}`)}
+        ${this.tpl.button('Track Live Progress', `${this.baseUrl}/account/orders/${order_id}`)}
       </div>
     `;
 
@@ -227,7 +227,7 @@ export class DeliveryMailService {
       </div>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('View Detailed Tracking', `${this.baseUrl}/orders/${order_id}`)}
+        ${this.tpl.button('View Detailed Tracking', `${this.baseUrl}/account/orders/${order_id}`)}
       </div>
     `;
 
@@ -297,7 +297,7 @@ export class DeliveryMailService {
       </p>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('Confirm Delivery Receipt', `${this.baseUrl}/orders/${order_id}`)}
+        ${this.tpl.button('Confirm Delivery Receipt', `${this.baseUrl}/account/orders/${order_id}`)}
       </div>
     `;
 
@@ -363,7 +363,7 @@ export class DeliveryMailService {
       </div>
 
       <div style="text-align: center;">
-        ${this.tpl.button('Visit the Marketplace', `${this.baseUrl}/explore`)}
+        ${this.tpl.button('Visit the Marketplace', `${this.baseUrl}/stores`)}
       </div>
     `;
 
@@ -400,7 +400,7 @@ export class DeliveryMailService {
       </p>
 
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('View Wallet Balance', `${this.baseUrl}/vendor/wallet`)}
+        ${this.tpl.button('View My Dashboard', `${this.baseUrl}/vendor`)}
       </div>
     `;
 
@@ -471,7 +471,7 @@ export class DeliveryMailService {
       <p>You can view this proof in your order details page.</p>
       
       <div style="text-align: center; margin-top: 30px;">
-        ${this.tpl.button('View Proof of Delivery', `${this.baseUrl}/orders/${order_id}`)}
+        ${this.tpl.button('View Proof of Delivery', `${this.baseUrl}/account/orders/${order_id}`)}
       </div>
     `;
 
