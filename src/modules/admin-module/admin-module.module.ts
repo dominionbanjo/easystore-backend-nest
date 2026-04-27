@@ -9,24 +9,36 @@ import { AdminUsersController } from './controllers/admin-users.controller';
 import { AdminUsersService } from './services/admin-users.service';
 import { AdminTransactionsController } from './controllers/admin-transactions.controller';
 import { AdminTransactionsService } from './services/admin-transactions.service';
-import { AdminAnalyticsController } from './controllers/admin-analytics.controller';
 import { AdminAnalyticsService } from './services/admin-analytics.service';
 import { EmailModule } from 'src/modules/shared-module/email/email.module';
+import { Broadcast } from './entities/broadcast.entity';
+import { AdminBroadcastController } from './controllers/admin-broadcast.controller';
+import { AdminBroadcastService } from './services/admin-broadcast.service';
+import { AdminAnalyticsController } from './controllers/admin-analytics.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Store, Transaction, Order, Product]),
+    TypeOrmModule.forFeature([
+      User,
+      Store,
+      Transaction,
+      Order,
+      Product,
+      Broadcast,
+    ]),
     EmailModule,
   ],
   controllers: [
     AdminUsersController,
     AdminTransactionsController,
     AdminAnalyticsController,
+    AdminBroadcastController,
   ],
   providers: [
     AdminUsersService,
     AdminTransactionsService,
     AdminAnalyticsService,
+    AdminBroadcastService,
   ],
 })
 export class AdminModule {}

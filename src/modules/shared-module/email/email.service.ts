@@ -35,8 +35,10 @@ export class EmailService {
         attachment: attachments,
       });
     } catch (e: any) {
-      console.error('EMAIL ERROR → ', e.response?.text || e.message);
-      throw new Error('Email sending failed.');
+      const errorDetail = e.response?.body || e.response?.text || e.message;
+      console.error('EMAIL ERROR → ', errorDetail);
+      if (e.response?.body) console.error('BODY →', JSON.stringify(e.response.body, null, 2));
+      throw new Error(`Email sending failed: ${e.message}`);
     }
   }
 }

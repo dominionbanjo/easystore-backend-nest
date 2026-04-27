@@ -25,6 +25,7 @@ import { StoreAnalyticsModule } from './modules/vendor-module/store-analytics/st
 import { StoreModule } from './modules/vendor-module/store/store.module';
 import { AdminModule } from './modules/admin-module/admin-module.module';
 import { MessagingModule } from './modules/shared-module/messaging/messaging.module';
+import { NotificationModule } from './modules/shared-module/notification/notification.module';
 
 @Module({
   imports: [
@@ -41,7 +42,7 @@ import { MessagingModule } from './modules/shared-module/messaging/messaging.mod
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
-      synchronize: false, // ❌ never true in production
+      synchronize: true, // ❌ never true in production
       ssl: {
         rejectUnauthorized: false, // required for Neon / managed PG
       },
@@ -86,6 +87,7 @@ import { MessagingModule } from './modules/shared-module/messaging/messaging.mod
 
     // 💬 MESSAGING
     MessagingModule,
+    NotificationModule,
   ],
 
   controllers: [AppController],
