@@ -189,6 +189,7 @@ export class MessagingController {
     @Param('id') conversationId: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
+    if (conversationId === 'chatroom') return { message: 'Skipped for chatroom' };
     await this.messagingService.markConversationRead(conversationId, user.sub);
     return { message: 'Conversation marked as read' };
   }

@@ -248,7 +248,7 @@ export class MessagingGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { conversation_id: string },
   ) {
-    if (!data?.conversation_id) return;
+    if (!data?.conversation_id || data.conversation_id === 'chatroom') return;
     
     const userId = client.data.userId;
     await this.messagingService.markConversationRead(data.conversation_id, userId);
