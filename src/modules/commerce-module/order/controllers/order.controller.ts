@@ -41,6 +41,7 @@ export class PandaOrderController {
       order_items: dto.order_items as ICartItem[],
       tax: dto.tax,
       notes: dto.notes,
+      delivery_address_id: dto.delivery_address_id,
     });
   }
 
@@ -71,6 +72,7 @@ export class PandaOrderController {
       email: dto.email,
       order_items: dto.order_items as ICartItem[],
       delivery_rate_id: dto.delivery_rate_id,
+      delivery_address_id: dto.delivery_address_id,
     });
   }
 
@@ -89,6 +91,7 @@ export class PandaOrderController {
       email: dto.email,
       order_items: dto.order_items as ICartItem[],
       delivery_rate_id: dto.delivery_rate_id,
+      delivery_address_id: dto.delivery_address_id,
     });
   }
 

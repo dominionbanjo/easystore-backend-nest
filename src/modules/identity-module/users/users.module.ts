@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
+import { UserAddress } from './entities/user-address.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { CommonModule } from 'src/common/common.module';
@@ -9,7 +10,7 @@ import { BuyerEngagementCronService } from './services/buyer-engagement-cron.ser
 import { EmailModule } from 'src/modules/shared-module/email/email.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Store]), CommonModule, EmailModule],
+  imports: [TypeOrmModule.forFeature([User, Store, UserAddress]), CommonModule, EmailModule],
   controllers: [UsersController],
   providers: [UsersService, BuyerEngagementCronService],
   exports: [UsersService],

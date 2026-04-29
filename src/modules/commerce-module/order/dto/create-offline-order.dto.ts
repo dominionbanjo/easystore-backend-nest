@@ -23,4 +23,8 @@ export class CreateOfflineOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  delivery_address_id?: string;
 }

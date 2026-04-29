@@ -12,12 +12,16 @@ import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { sanitizeUser } from 'src/utils/response/sanitizeUser';
 import { EntityManager } from 'typeorm';
+import { UserAddress } from './entities/user-address.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+
+    @InjectRepository(UserAddress)
+    private readonly addressRepo: Repository<UserAddress>,
 
     @InjectRepository(Store)
     private readonly storeRepo: Repository<Store>,
@@ -157,10 +161,27 @@ export class UsersService {
      USER PROFILE
   ──────────────────────────────────────────────── */
   async getProfile(userId: string) {
-    const user2 = await this.userRepo.findOne({ where: { id: userId } });
+    const user2 = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: ['addresses'],
+    });
     if (!user2) throw new NotFoundException('User not found');
 
     delete (user2 as any).password;
+    
+    // Maintain old address JSON shape for backwards compatibility if needed on frontend,
+    // pulling from the default address.
+    const defaultAddress = user2.addresses?.find((a) => a.is_default) || user2.addresses?.[0];
+    if (defaultAddress && !user2.address) {
+      user2.address = {
+        street: defaultAddress.street,
+        city: defaultAddress.city,
+        state: defaultAddress.state,
+        country: defaultAddress.country,
+        postal_code: defaultAddress.postal_code,
+      };
+    }
+
     const user = sanitizeUser(user2);
 
     return { message: 'Profile retrieved successfully', user };
@@ -194,9 +215,31 @@ export class UsersService {
     }
 
     // ---------------------------
-    // Address (merge, don't overwrite)
+    // Address (migrate to UserAddress Entity)
     // ---------------------------
     if (data.address && typeof data.address === 'object') {
+      // For backwards compatibility and migration, if they send address object, 
+      // we save it as a new UserAddress marked as default if none exist, or update the existing default
+      const existingAddresses = await this.addressRepo.find({ where: { user_id: userId } });
+      const defaultAddress = existingAddresses.find(a => a.is_default) || existingAddresses[0];
+
+      if (defaultAddress) {
+        Object.assign(defaultAddress, data.address);
+        await this.addressRepo.save(defaultAddress);
+      } else {
+        const newAddress = this.addressRepo.create({
+          user_id: userId,
+          is_default: true,
+          street: data.address.street || '',
+          city: data.address.city || '',
+          state: data.address.state || '',
+          country: data.address.country || '',
+          postal_code: data.address.postal_code || '',
+        });
+        await this.addressRepo.save(newAddress);
+      }
+      
+      // Also update the legacy JSON object just in case standard payloads expect it statically until fully deprecated
       user.address = {
         ...(user.address ?? {}),
         ...data.address,
@@ -245,6 +288,16 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
+    // 3-Day Restriction Check
+    if (user.last_bank_update) {
+      const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+      const timeSinceUpdate = Date.now() - user.last_bank_update.getTime();
+      
+      if (timeSinceUpdate < THREE_DAYS_MS) {
+        throw new BadRequestException('You can only change your bank account details once every 3 days for security purposes. Please wait before updating your payout bank details.');
+      }
+    }
+
     const verified = await this.paystackService.verifyBankAccount(
       account_number,
       bank_code,
@@ -262,6 +315,7 @@ export class UsersService {
       bank_name: verified.bank_name,
       recipient_code,
       payout_verified: true,
+      last_bank_update: new Date(),
       settlement_email: settlement_email || user.settlement_email,
       updated_at: new Date(),
     });
@@ -288,5 +342,53 @@ export class UsersService {
 
   async deleteUser(userId: string) {
     await this.userRepo.delete({ id: userId });
+  }
+
+  /* ────────────────────────────────────────────────
+     ADDRESS MANAGEMENT
+  ──────────────────────────────────────────────── */
+  async addUserAddress(userId: string, data: Partial<UserAddress>) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const addressCount = await this.addressRepo.count({ where: { user_id: userId } });
+    
+    // If it's their first address or they set it to default, ensure it represents the default
+    const isNewDefault = data.is_default || addressCount === 0;
+
+    if (isNewDefault) {
+      await this.addressRepo.update({ user_id: userId }, { is_default: false });
+    }
+
+    const newAddress = this.addressRepo.create({
+      ...data,
+      user_id: userId,
+      is_default: isNewDefault,
+    });
+
+    await this.addressRepo.save(newAddress);
+    return { message: 'Address added successfully', address: newAddress };
+  }
+
+  async updateUserAddress(userId: string, addressId: string, data: Partial<UserAddress>) {
+    const address = await this.addressRepo.findOne({ where: { id: addressId, user_id: userId } });
+    if (!address) throw new NotFoundException('Address not found');
+
+    if (data.is_default) {
+      await this.addressRepo.update({ user_id: userId }, { is_default: false });
+    }
+
+    Object.assign(address, data);
+    await this.addressRepo.save(address);
+
+    return { message: 'Address updated successfully', address };
+  }
+
+  async deleteUserAddress(userId: string, addressId: string) {
+    const result = await this.addressRepo.delete({ id: addressId, user_id: userId });
+    if (result.affected === 0) {
+      throw new NotFoundException('Address not found');
+    }
+    return { message: 'Address deleted successfully' };
   }
 }

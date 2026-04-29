@@ -15,7 +15,11 @@ export function sanitizeUser(user: User) {
     rating_count: user.rating_count,
     review_count: user.review_count,
     address: user.address,
+    addresses: user.addresses,
     payout_verified: user.payout_verified,
+    bank_code: user.bank_code,
+    account_number: user.account_number,
+    bank_name: user.bank_name,
     created_at: user.created_at,
     updated_at: user.updated_at,
   };

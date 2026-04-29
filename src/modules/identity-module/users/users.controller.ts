@@ -107,4 +107,32 @@ export class UsersController {
   async deleteBankAccount(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.usersService.deleteBankAccount(user.sub);
   }
+
+  // ------------------------------------------------------------------
+  // MULTI-ADDRESS MANAGEMENT
+  // ------------------------------------------------------------------
+  @Post('me/addresses')
+  async addAddress(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body() body: any,
+  ) {
+    return this.usersService.addUserAddress(user.sub, body);
+  }
+
+  @Patch('me/addresses/:id')
+  async updateAddress(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.usersService.updateUserAddress(user.sub, id, body);
+  }
+
+  @Delete('me/addresses/:id')
+  async deleteAddress(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.deleteUserAddress(user.sub, id);
+  }
 }

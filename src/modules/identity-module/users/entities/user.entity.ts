@@ -14,6 +14,7 @@ import {
   OneToMany,
   OneToOne,
 } from 'typeorm';
+import { UserAddress } from './user-address.entity';
 
 /* ENUMS */
 export type AccountType = 'user' | 'vendor' | 'admin';
@@ -26,7 +27,7 @@ export type SalesChannel =
   | 'other';
 export type SignupMedium = 'signed' | 'google';
 
-/* JSONB Address */
+/* JSONB Address (DEPRECATED: Use UserAddress Entity instead) */
 export interface IUserAddress {
   street?: string | null;
   city?: string | null;
@@ -150,6 +151,9 @@ export class User {
   @Column({ type: 'jsonb', nullable: true })
   address: IUserAddress | null;
 
+  @OneToMany(() => UserAddress, (address) => address.user, { cascade: true })
+  addresses: UserAddress[];
+
   /* PAYOUT */
   @Column({ type: 'varchar', length: 20, nullable: true })
   account_number: string | null;
@@ -168,6 +172,9 @@ export class User {
 
   @Column({ type: 'boolean', default: false })
   payout_verified: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_bank_update: Date | null;
 
   /* OTHER RELATIONS */
   @OneToMany(() => Escrow, (e) => e.buyer)

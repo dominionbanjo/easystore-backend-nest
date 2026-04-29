@@ -49,7 +49,7 @@ export class OrderQueryService {
   async getOrderForApi(id: string, user_id: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      relations: ['delivery', 'vendor', 'vendor.store'],
+      relations: ['delivery', 'vendor', 'vendor.store', 'delivery_address'],
       select: {
         delivery: {
           id: true,
@@ -58,6 +58,14 @@ export class OrderQueryService {
           estimated_delivery: true,
           delivered_at: true,
           address: true,
+          city: true,
+          state: true,
+          country: true,
+          postal_code: true,
+        },
+        delivery_address: {
+          id: true,
+          street: true,
           city: true,
           state: true,
           country: true,
@@ -82,6 +90,7 @@ export class OrderQueryService {
         },
         id: true,
         buyer_id: true,
+        vendor_id: true,
         status: true,
         payment_status: true,
         created_at: true,
@@ -100,8 +109,8 @@ export class OrderQueryService {
 
     if (!order) throw new NotFoundException('Order not found');
 
-    // Check if the user is the buyer of this order
-    if (order.buyer_id !== user_id) {
+    // Check if the user is the buyer or vendor of this order
+    if (order.buyer_id !== user_id && order.vendor_id !== user_id) {
       throw new NotFoundException('Order not found');
     }
 
@@ -198,6 +207,7 @@ export class OrderQueryService {
     // Join relations
     qb.leftJoinAndSelect('order.delivery', 'delivery');
     qb.leftJoinAndSelect('order.buyer', 'buyer');
+    qb.leftJoinAndSelect('order.delivery_address', 'delivery_address');
 
     qb.where('order.vendor_id = :vendor_id', { vendor_id });
 
@@ -244,6 +254,12 @@ export class OrderQueryService {
       'delivery.state',
       'delivery.country',
       'delivery.postal_code',
+      'delivery_address.id',
+      'delivery_address.street',
+      'delivery_address.city',
+      'delivery_address.state',
+      'delivery_address.country',
+      'delivery_address.postal_code',
       'buyer.id',
       'buyer.first_name',
       'buyer.last_name',

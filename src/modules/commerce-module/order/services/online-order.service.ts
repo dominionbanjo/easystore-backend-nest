@@ -44,6 +44,7 @@ export class OnlineOrderService {
     email: string;
     order_items: ICartItem[];
     delivery_rate_id?: string;
+    delivery_address_id?: string;
   }) {
     const { buyer_id, email, order_items } = data;
 
@@ -182,6 +183,7 @@ export class OnlineOrderService {
           payment_access_code: payment.access_code,
           payment_status: 'pending',
           status: 'pending',
+          delivery_address_id: data.delivery_address_id,
           notes: JSON.stringify({
             subtotal_kobo: vendorSubtotalKobo,
             shipping_fee_kobo: vendorShippingFeeKobo,
@@ -228,6 +230,7 @@ export class OnlineOrderService {
     email: string;
     order_items: ICartItem[];
     delivery_rate_id?: string;
+    delivery_address_id?: string;
   }) {
     const { buyer_id, email, order_items } = data;
 
@@ -441,6 +444,7 @@ export class OnlineOrderService {
           payment_status: 'pending',
           status: 'pending',
           order_items: items,
+          delivery_address_id: data.delivery_address_id,
           notes: JSON.stringify({
             platform_fee_kobo: vendorPlatformFeeKobo,
             shipping_fee_kobo: vendorShippingFeeKobo,

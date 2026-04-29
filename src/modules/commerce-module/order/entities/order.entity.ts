@@ -15,6 +15,7 @@ import {
 } from 'typeorm';
 import { ICartItem } from '../../cart/types/types';
 import { Delivery } from '../../delivery/entities/delivery.entity';
+import { UserAddress } from 'src/modules/identity-module/users/entities/user-address.entity';
 
 export type OrderStatus =
   | 'pending'
@@ -91,6 +92,19 @@ export class Order {
     nullable: true,
   })
   delivery: Delivery | null;
+
+  /* ───────────────────────────────────────────────
+     RELATION → DELIVERY ADDRESS
+  ─────────────────────────────────────────────── */
+  @Column({ type: 'uuid', nullable: true })
+  delivery_address_id: string | null;
+
+  @ManyToOne(() => UserAddress, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'delivery_address_id' })
+  delivery_address: UserAddress | null;
 
   /* ───────────────────────────────────────────────
      ORDER AMOUNTS

@@ -71,6 +71,7 @@ export class OrderService {
     order_items: ICartItem[];
     tax?: number;
     notes?: string;
+    delivery_address_id?: string;
   }) {
     return this.offlineOrderService.createOfflineOrder(data);
   }
@@ -96,6 +97,7 @@ export class OrderService {
     email: string;
     order_items: ICartItem[];
     delivery_rate_id?: string;
+    delivery_address_id?: string;
   }) {
     return this.onlineOrderService.createOnlineOrder(data);
   }
@@ -108,6 +110,7 @@ export class OrderService {
     email: string;
     order_items: ICartItem[];
     delivery_rate_id?: string;
+    delivery_address_id?: string;
   }) {
     return this.onlineOrderService.createOnlineOrderNoEscrow(data);
   }

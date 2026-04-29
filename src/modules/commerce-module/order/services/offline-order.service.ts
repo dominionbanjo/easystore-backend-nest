@@ -43,6 +43,7 @@ export class OfflineOrderService {
     order_items: ICartItem[];
     tax?: number;
     notes?: string;
+    delivery_address_id?: string;
   }) {
     const { buyer_id, order_items, tax = 0, notes } = data;
 
@@ -78,6 +79,7 @@ export class OfflineOrderService {
         payment_method: 'offline',
         payment_status: 'unpaid',
         status: 'pending',
+        delivery_address_id: data.delivery_address_id,
         notes: notes ?? null,
       });
 

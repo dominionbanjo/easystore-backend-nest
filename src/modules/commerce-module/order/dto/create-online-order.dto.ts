@@ -25,4 +25,8 @@ export class CreateOnlineOrderDto {
   @IsOptional()
   @IsString()
   delivery_rate_id?: string;
+
+  @IsOptional()
+  @IsString()
+  delivery_address_id?: string;
 }
