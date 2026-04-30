@@ -108,6 +108,17 @@ export class PandaOrderController {
   }
 
   /* ────────────────────────────────────────────────
+     RETRY PAYMENT (BACKEND-DRIVEN)
+  ──────────────────────────────────────────────── */
+  @Post(':id/retry-payment')
+  async retryPayment(
+    @Param('id') id: string,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.orderService.retryOrderPayment(id, user.sub);
+  }
+
+  /* ────────────────────────────────────────────────
      GET SINGLE ORDER
   ──────────────────────────────────────────────── */
   @Get(':id')

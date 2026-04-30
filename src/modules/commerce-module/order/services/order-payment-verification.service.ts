@@ -206,4 +206,67 @@ export class OrderPaymentVerificationService {
       await this.cache.releaseLock(lockKey);
     }
   }
+
+  /**
+   * Retry order payment: verify existing reference first, then re-initialize if needed.
+   */
+  async retryOrderPayment(orderId: string, userId: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ['buyer'],
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.buyer_id !== userId) throw new BadRequestException('Unauthorized');
+
+    if (order.payment_status === 'success') {
+      return { success: true, auto_verified: true, orders: [order] };
+    }
+
+    // 1. Try auto-verification if a reference exists
+    if (order.payment_reference) {
+      try {
+        const verification = await this.paystack.verifyPayment(order.payment_reference);
+        if (verification.status === 'success') {
+          // Idempotent verification call
+          const result = await this.verifyPayment(order.payment_reference);
+          return { ...result, auto_verified: true };
+        }
+      } catch (error) {
+        this.logger.warn(`Auto-verification failed during retry for ${order.id}: ${error.message}`);
+      }
+    }
+
+    // 2. Re-initialize payment if verification failed or no reference exists
+    const amountKobo = Number(order.total);
+    const email = order.buyer.email;
+
+    let metadata: any = {};
+    try {
+      metadata = JSON.parse(order.notes || '{}');
+    } catch (e) {
+      metadata = {};
+    }
+
+    const payment = await this.paystack.initializePayment(email, amountKobo, {
+      metadata: {
+        ...metadata,
+        order_id: order.id,
+        retry: true,
+      },
+    });
+
+    await this.orderRepo.update(order.id, {
+      payment_reference: payment.reference,
+      payment_url: payment.authorization_url,
+      payment_access_code: payment.access_code,
+    });
+
+    return {
+      success: true,
+      auto_verified: false,
+      payment_url: payment.authorization_url,
+      reference: payment.reference,
+    };
+  }
 }

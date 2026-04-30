@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailService } from './email.service';
 import { EmailTemplateService } from './email-template.service';
 import { OrderMailService } from './services/order-mail.service';
@@ -12,12 +13,16 @@ import { AccountStatusMailService } from './services/account-status-mail.service
 import { StoreWelcomeMailService } from './services/store-welcome-mail.service';
 import { VendorAwarenessMailService } from './services/vendor-awareness-mail.service';
 import { BuyerEngagementMailService } from './services/buyer-engagement-mail.service';
+import { EmailLog } from './entities/email-log.entity';
+import { EmailRetryService } from './services/email-retry.service';
 
 
 @Module({
+  imports: [TypeOrmModule.forFeature([EmailLog])],
   providers: [
     EmailService,
     EmailTemplateService,
+    EmailRetryService,
 
     // Mailers
     OrderMailService,
@@ -50,6 +55,7 @@ import { BuyerEngagementMailService } from './services/buyer-engagement-mail.ser
     StoreWelcomeMailService,
     VendorAwarenessMailService,
     BuyerEngagementMailService,
+    EmailRetryService,
   ],
 })
 export class EmailModule {}

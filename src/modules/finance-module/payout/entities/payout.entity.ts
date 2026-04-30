@@ -10,8 +10,16 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Escrow } from '../../escrow/entities/escrow.entity';
+import { User } from 'src/modules/identity-module/users/entities/user.entity';
 
-export type PayoutStatus = 'pending' | 'success' | 'failed' | 'reversed';
+export type PayoutStatus =
+  | 'pending'
+  | 'pending_manual'
+  | 'success'
+  | 'failed'
+  | 'reversed';
+
+export type PayoutType = 'auto' | 'manual';
 
 @Entity({ name: 'payouts' })
 export class Payout {
@@ -50,7 +58,21 @@ export class Payout {
   escrow: Escrow | null;
 
   /* ───────────────────────────────────────────────
-     PAYOUT IDENTIFIERS (Paystack)
+     RELATION: VENDOR (nullable)
+  ─────────────────────────────────────────────── */
+  @Index('IDX_PAYOUT_VENDOR_ID')
+  @Column({ type: 'uuid', nullable: true })
+  vendor_id: string | null;
+
+  @ManyToOne(() => User, {
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'vendor_id' })
+  vendor: User | null;
+
+  /* ───────────────────────────────────────────────
+     PAYOUT IDENTIFIERS (Paystack — used for auto mode)
   ─────────────────────────────────────────────── */
   @Index('IDX_PAYOUT_TRANSFER_CODE')
   @Column({ type: 'varchar', length: 255, nullable: true })
@@ -61,6 +83,12 @@ export class Payout {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   recipient_code: string | null;
+
+  /* ───────────────────────────────────────────────
+     PAYOUT TYPE
+  ─────────────────────────────────────────────── */
+  @Column({ type: 'varchar', length: 10, default: 'manual' })
+  payout_type: PayoutType;
 
   /* ───────────────────────────────────────────────
      TRANSACTION DETAILS
@@ -78,6 +106,17 @@ export class Payout {
     default: 'pending',
   })
   status: PayoutStatus;
+
+  /* ───────────────────────────────────────────────
+     MANUAL TRANSFER FIELDS
+  ─────────────────────────────────────────────── */
+  /** Timestamp when admin confirmed the manual bank transfer was made */
+  @Column({ type: 'timestamptz', nullable: true })
+  transferred_at: Date | null;
+
+  /** Optional admin note when marking as transferred */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  admin_note: string | null;
 
   /* ───────────────────────────────────────────────
      METADATA (JSONB)

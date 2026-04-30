@@ -2,6 +2,23 @@ import { Injectable } from '@nestjs/common';
 import { EmailService } from '../email.service';
 import { EmailTemplateService } from '../email-template.service';
 
+interface OrderItem {
+  name?: string;
+  price?: number;
+  quantity?: number;
+  image?: string;
+  slug?: string;
+  variant?: string;
+}
+
+interface BuyerDetails {
+  name: string;
+  email: string;
+  address?: string;
+  city?: string;
+  state?: string;
+}
+
 @Injectable()
 export class DeliveryMailService {
   private readonly brandColor: string;
@@ -66,6 +83,68 @@ export class DeliveryMailService {
     }
   }
 
+  /** Renders an HTML table of order items with images */
+  private renderOrderItems(items: OrderItem[]): string {
+    if (!items || items.length === 0) return '';
+
+    const rows = items
+      .map((item) => {
+        const price = ((item.price ?? 0) / 100).toLocaleString('en-NG', {
+          minimumFractionDigits: 2,
+        });
+        const lineTotal = (((item.price ?? 0) * (item.quantity ?? 1)) / 100).toLocaleString('en-NG', {
+          minimumFractionDigits: 2,
+        });
+        const imageHtml = item.image
+          ? `<img src="${item.image}" alt="${item.name}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />`
+          : `<div style="width:56px;height:56px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;">📦</div>`;
+
+        return `
+          <tr>
+            <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
+              ${imageHtml}
+            </td>
+            <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
+              <p style="margin:0;font-weight:700;font-size:14px;color:#111827;">${item.name ?? 'Product'}</p>
+              ${item.variant ? `<p style="margin:2px 0 0;font-size:12px;color:#6b7280;">${item.variant}</p>` : ''}
+              <p style="margin:2px 0 0;font-size:12px;color:#6b7280;">Qty: ${item.quantity ?? 1}</p>
+            </td>
+            <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;vertical-align:middle;text-align:right;">
+              <p style="margin:0;font-size:13px;color:#6b7280;">₦${price} × ${item.quantity ?? 1}</p>
+              <p style="margin:4px 0 0;font-weight:800;font-size:14px;color:#111827;">₦${lineTotal}</p>
+            </td>
+          </tr>`;
+      })
+      .join('');
+
+    return `
+      <div style="margin:25px 0;">
+        <p style="margin:0 0 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;">Order Items</p>
+        <table style="width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #f3f4f6;border-radius:${this.tpl.borderRadius};overflow:hidden;">
+          <thead>
+            <tr style="background:#f9fafb;">
+              <th style="padding:10px 8px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;width:72px;">Image</th>
+              <th style="padding:10px 8px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Item</th>
+              <th style="padding:10px 8px;text-align:right;font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Price</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  /** Renders a buyer info block for vendor emails */
+  private renderBuyerDetails(buyer: BuyerDetails): string {
+    const addr = [buyer.address, buyer.city, buyer.state].filter(Boolean).join(', ');
+    return `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:${this.tpl.borderRadius};padding:20px;margin:20px 0;">
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;">Buyer Details</p>
+        <p style="margin:0;font-weight:700;color:#111827;font-size:14px;">${buyer.name}</p>
+        <p style="margin:2px 0 0;font-size:13px;color:#4b5563;">${buyer.email}</p>
+        ${addr ? `<p style="margin:4px 0 0;font-size:13px;color:#4b5563;">📍 ${addr}</p>` : ''}
+      </div>`;
+  }
+
   /* ----------------------------------------------------
      1) DELIVERY CREATED
   ---------------------------------------------------- */
@@ -74,20 +153,24 @@ export class DeliveryMailService {
     email,
     name,
     order_id,
+    order_items = [],
   }: {
     email: string;
     name: string;
     order_id: string;
+    order_items?: OrderItem[];
   }) {
     const title = 'Delivery Started! 🚚';
     const content = `
       <p>Hi <b>${name}</b>,</p>
-      <p>Your order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been processed for delivery. Our team is working to get it to you as soon as possible.</p>
+      <p>Your order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been processed for delivery. The vendor is now preparing your items and will dispatch them shortly.</p>
       
       <div style="background-color: #f3f4f6; padding: 25px; border-radius: ${this.tpl.borderRadius}; margin: 30px 0; border-left: 4px solid ${this.brandColor};">
-        <p style="margin: 0; font-weight: 700; color: #111827;">Status: Processing</p>
+        <p style="margin: 0; font-weight: 700; color: #111827;">Status: Processing for Delivery</p>
         <p style="margin: 5px 0 0; font-size: 14px; color: #6b7280;">We will notify you once your package is on the way!</p>
       </div>
+
+      ${this.renderOrderItems(order_items)}
 
       <div style="text-align: center; margin-top: 30px;">
         ${this.tpl.button('Track Order', `${this.baseUrl}/account/orders/${order_id}`)}
@@ -107,17 +190,29 @@ export class DeliveryMailService {
     email,
     name,
     order_id,
+    order_items = [],
+    buyer,
   }: {
     email: string;
     name: string;
     order_id: string;
+    order_items?: OrderItem[];
+    buyer?: BuyerDetails;
   }) {
-    const title = 'Delivery Initialized';
+    const title = 'New Order to Fulfill 📦';
     const content = `
       <p>Hello <b>${name}</b>,</p>
-      <p>A new delivery has been initialized for order <b>#${order_id.split('-')[0].toUpperCase()}</b>.</p>
-      <p>Please ensure the package is properly packed and ready for pickup. Our courier will be arriving shortly.</p>
+      <p>A new order <b>#${order_id.split('-')[0].toUpperCase()}</b> requires fulfillment. As you handle your own deliveries, please package the items below and deliver them to the buyer as soon as possible.</p>
       
+      ${buyer ? this.renderBuyerDetails(buyer) : ''}
+      ${this.renderOrderItems(order_items)}
+
+      <div style="background:#fefce8;border:1px solid #fef08a;padding:16px;border-radius:${this.tpl.borderRadius};margin:20px 0;">
+        <p style="margin:0;color:#854d0e;font-size:14px;">
+          <b>Reminder:</b> You are responsible for packaging and delivering this order directly to the buyer. Funds will be released from escrow once the buyer confirms receipt.
+        </p>
+      </div>
+
       <div style="text-align: center; margin-top: 30px;">
         ${this.tpl.button('View Order Details', `${this.baseUrl}/vendor/orders`)}
       </div>
@@ -127,7 +222,7 @@ export class DeliveryMailService {
 
     return this.email.sendEmail({
       to: email,
-      subject: `New Delivery: Order #${order_id.split('-')[0].toUpperCase()}`,
+      subject: `New Order to Fulfill: #${order_id.split('-')[0].toUpperCase()}`,
       html,
     });
   }
@@ -207,11 +302,13 @@ export class DeliveryMailService {
     name,
     order_id,
     status,
+    order_items = [],
   }: {
     email: string;
     name: string;
     order_id: string;
     status: string;
+    order_items?: OrderItem[];
   }) {
     const { title, message, color } = this.getStatusMessage(status);
 
@@ -225,6 +322,8 @@ export class DeliveryMailService {
         </div>
         <p style="margin-top: 20px; font-size: 16px; color: #4b5563;">${message}</p>
       </div>
+
+      ${this.renderOrderItems(order_items)}
 
       <div style="text-align: center; margin-top: 30px;">
         ${this.tpl.button('View Detailed Tracking', `${this.baseUrl}/account/orders/${order_id}`)}
@@ -279,10 +378,12 @@ export class DeliveryMailService {
     email,
     name,
     order_id,
+    order_items = [],
   }: {
     email: string;
     name: string;
     order_id: string;
+    order_items?: OrderItem[];
   }) {
     const title = 'Your Package has Arrived! 🎁';
     const content = `
@@ -292,6 +393,8 @@ export class DeliveryMailService {
         <p style="font-size: 18px; color: #111827;">Your order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been delivered.</p>
       </div>
       
+      ${this.renderOrderItems(order_items)}
+
       <p style="text-align: center; color: #4b5563;">
         We hope you love your purchase! Please log in to confirm receipt and share your experience.
       </p>
@@ -325,8 +428,13 @@ export class DeliveryMailService {
       <p>Order <b>#${order_id.split('-')[0].toUpperCase()}</b> has been marked as delivered by the courier.</p>
       <div style="background-color: #fefce8; border: 1px solid #fef08a; padding: 20px; border-radius: ${this.tpl.borderRadius}; margin-top: 25px;">
         <p style="margin: 0; color: #854d0e; font-size: 14px;">
-          <b>Fulfillment Tip:</b> We are now waiting for the customer to confirm receipt. Once confirmed, your funds will be released from escrow immediately.
+          <b>Fulfillment Final Step:</b> Please contact the buyer to receive the <b>Delivery Confirmation Code (OTP)</b>. 
+          Input this code on your dashboard to confirm receipt and release your funds from escrow immediately.
         </p>
+      </div>
+
+      <div style="text-align: center; margin-top: 30px;">
+        ${this.tpl.button('Input Confirmation Code', `${this.baseUrl}/vendor/orders`)}
       </div>
     `;
 
@@ -396,7 +504,7 @@ export class DeliveryMailService {
         </p>
       </div>
       <p style="text-align: center; color: #4b5563;">
-        The funds have been released from escrow and are now available in your vendor wallet.
+        The funds have been released from escrow. Your payout is now <b>pending</b> and will be processed to your registered bank account shortly.
       </p>
 
       <div style="text-align: center; margin-top: 30px;">

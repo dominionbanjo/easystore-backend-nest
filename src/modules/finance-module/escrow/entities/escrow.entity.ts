@@ -21,6 +21,8 @@ export type EscrowStatus =
   | 'disputed'
   | 'refunded';
 
+export type EscrowPayoutType = 'auto' | 'manual';
+
 @Entity({ name: 'escrows' })
 export class Escrow {
   /* ───────────────────────────────────────────────
@@ -84,6 +86,14 @@ export class Escrow {
 
   @Column({ type: 'bigint', default: 0 })
   amount: number;
+
+  /* Escrow service fee (3% of order total, capped at 300000 kobo = ₦3,000) */
+  @Column({ type: 'bigint', default: 0 })
+  escrow_fee: number;
+
+  /* Payout mode: 'manual' = admin transfers manually; 'auto' = Paystack transfer */
+  @Column({ type: 'varchar', length: 10, default: 'manual' })
+  payout_type: EscrowPayoutType;
 
   @Column({ type: 'timestamptz', nullable: true })
   hold_until: Date | null;

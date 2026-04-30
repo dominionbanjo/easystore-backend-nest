@@ -181,6 +181,9 @@ export class Order {
   @Column({ type: 'boolean', default: false })
   analytics_processed: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  confirmed: boolean;
+
   @OneToMany(() => Payout, (payout) => payout.order)
   payouts: Payout[];
   /* ───────────────────────────────────────────────

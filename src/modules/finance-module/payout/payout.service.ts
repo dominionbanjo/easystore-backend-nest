@@ -5,9 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Payout } from './entities/payout.entity';
+import { Payout, PayoutType } from './entities/payout.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
+import { buildPagination } from 'src/utils/response/pagination.util';
+import { PayoutQueryDto } from './dto/payout-query.dto';
 
 /* -----------------------------------------
  *  Paystack Transfer Payload
@@ -35,9 +38,11 @@ export interface PaystackTransferData {
 export interface CreatePendingPayoutInput {
   order_id?: string | null;
   escrow_id?: string | null;
-  recipient_code: string;
+  vendor_id?: string | null;
+  recipient_code?: string | null;
   amount: number;
   currency?: string;
+  payout_type?: PayoutType;
   transfer_data?: PaystackTransferData | null;
 }
 
@@ -46,6 +51,9 @@ export class PayoutService {
   constructor(
     @InjectRepository(Payout)
     private readonly payoutRepo: Repository<Payout>,
+
+    @InjectRepository(Order)
+    private readonly orderRepo: Repository<Order>,
 
     private readonly cache: CacheService,
     private readonly transactionService: TransactionsService,
@@ -57,28 +65,30 @@ export class PayoutService {
   async createPendingPayout({
     order_id,
     escrow_id,
+    vendor_id,
     recipient_code,
     amount,
     currency = 'NGN',
+    payout_type = 'manual',
     transfer_data,
   }: CreatePendingPayoutInput): Promise<Payout> {
-    if (!recipient_code) {
-      throw new BadRequestException('recipient_code is required');
-    }
-
     if (!amount || amount <= 0) {
       throw new BadRequestException('Invalid payout amount');
     }
 
+    const isManual = payout_type === 'manual';
+
     const payout = this.payoutRepo.create({
       order_id: order_id ?? null,
       escrow_id: escrow_id ?? null,
+      vendor_id: vendor_id ?? null,
       transfer_code: transfer_data?.transfer_code ?? null,
       transfer_reference: transfer_data?.reference ?? null,
-      recipient_code,
+      recipient_code: recipient_code ?? null,
       amount,
       currency,
-      status: 'pending',
+      payout_type,
+      status: isManual ? 'pending_manual' : 'pending',
       metadata: transfer_data ?? null,
     });
 
@@ -86,7 +96,6 @@ export class PayoutService {
 
     await this.cache.clearPrefix('svc:payout');
 
-    /* 🔑 CRITICAL FIX: null → undefined */
     await this.transactionService.create({
       order_id: order_id ?? undefined,
       escrow_id: escrow_id ?? undefined,
@@ -95,7 +104,9 @@ export class PayoutService {
       currency,
       reference:
         transfer_data?.transfer_code ?? transfer_data?.reference ?? undefined,
-      description: 'Payout initiated (pending)',
+      description: isManual
+        ? 'Manual payout pending (awaiting admin transfer)'
+        : 'Payout initiated via Paystack (pending)',
       status: 'pending',
       metadata: transfer_data ?? undefined,
     });
@@ -127,7 +138,78 @@ export class PayoutService {
   }
 
   /* ────────────────────────────────────────────────
-     MARK PAYOUT SUCCESS (IDEMPOTENT)
+     FIND PAYOUT BY ID
+  ──────────────────────────────────────────────── */
+  async findById(id: string): Promise<Payout> {
+    const payout = await this.payoutRepo.findOne({
+      where: { id },
+      relations: ['vendor'],
+    });
+    if (!payout) throw new NotFoundException('Payout not found');
+    return payout;
+  }
+
+  /* ────────────────────────────────────────────────
+     GET PENDING MANUAL PAYOUTS (ADMIN)
+  ──────────────────────────────────────────────── */
+  async getPendingManualPayouts(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.payoutRepo.findAndCount({
+      where: { status: 'pending_manual', payout_type: 'manual' },
+      relations: ['vendor', 'order', 'escrow'],
+      order: { created_at: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    return buildPagination(data, total, page, limit);
+  }
+
+  /* ────────────────────────────────────────────────
+     MARK PAYOUT AS MANUALLY TRANSFERRED (ADMIN)
+  ──────────────────────────────────────────────── */
+  async markManuallyTransferred(
+    payout_id: string,
+    admin_note?: string,
+  ): Promise<Payout> {
+    const payout = await this.findById(payout_id);
+
+    if (payout.status === 'success') return payout; // idempotent
+
+    if (payout.payout_type !== 'manual') {
+      throw new BadRequestException(
+        'This payout is not a manual payout. Use the Paystack webhook flow.',
+      );
+    }
+
+    payout.status = 'success';
+    payout.transferred_at = new Date();
+    payout.admin_note = admin_note ?? null;
+
+    const updated = await this.payoutRepo.save(payout);
+    await this.cache.clearPrefix('svc:payout');
+
+    // Mark the linked order as completed
+    if (payout.order_id) {
+      await this.orderRepo.update(payout.order_id, { status: 'completed' });
+    }
+
+    await this.transactionService.create({
+      order_id: payout.order_id ?? undefined,
+      escrow_id: payout.escrow_id ?? undefined,
+      type: 'payout',
+      amount: payout.amount,
+      currency: payout.currency ?? 'NGN',
+      description: `Manual payout confirmed by admin${admin_note ? ': ' + admin_note : ''}`,
+      status: 'success',
+    });
+
+    return updated;
+  }
+
+  /* ────────────────────────────────────────────────
+     MARK PAYOUT SUCCESS (IDEMPOTENT — AUTO PAYSTACK)
   ──────────────────────────────────────────────── */
   async markSuccess(
     transfer_code: string,
@@ -154,7 +236,7 @@ export class PayoutService {
       amount: payout.amount,
       currency: payout.currency ?? 'NGN',
       reference: transfer_code,
-      description: 'Payout succeeded',
+      description: 'Payout succeeded (Paystack)',
       status: 'success',
       metadata: payload,
     });
@@ -232,5 +314,38 @@ export class PayoutService {
     });
 
     return updated;
+  }
+
+  /* ────────────────────────────────────────────────
+     GET PAYOUTS BY VENDOR (BUYER)
+  ──────────────────────────────────────────────── */
+  async getVendorPayouts(vendor_id: string, query?: PayoutQueryDto) {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const qb = this.payoutRepo.createQueryBuilder('payout');
+    qb.leftJoinAndSelect('payout.order', 'order');
+    qb.leftJoinAndSelect('payout.escrow', 'escrow');
+
+    qb.where('payout.vendor_id = :vendor_id', { vendor_id });
+
+    if (query?.status && query.status !== 'all') {
+      qb.andWhere('payout.status = :status', { status: query.status });
+    }
+
+    if (query?.search) {
+      qb.andWhere(
+        '(payout.transfer_reference ILIKE :search OR payout.transfer_code ILIKE :search OR CAST(payout.order_id AS TEXT) ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    qb.orderBy('payout.created_at', 'DESC');
+    qb.skip(skip).take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+
+    return buildPagination(data, total, page, limit);
   }
 }

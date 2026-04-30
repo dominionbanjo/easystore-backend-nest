@@ -164,6 +164,7 @@ export class DeliveryService {
           email: buyerEmail,
           name: buyerName,
           order_id,
+          order_items: (order.order_items ?? []) as any[],
         });
       } catch (error) {
         console.error('Failed to send delivery email to buyer:', error);
@@ -176,6 +177,14 @@ export class DeliveryService {
           email: vendorEmail,
           name: vendorName,
           order_id,
+          order_items: (order.order_items ?? []) as any[],
+          buyer: {
+            name: buyerName,
+            email: buyerEmail,
+            address: buyer.address?.street ?? undefined,
+            city: buyer.address?.city ?? undefined,
+            state: buyer.address?.state ?? undefined,
+          },
         });
       } catch (error) {
         console.error('Failed to send delivery email to vendor:', error);
@@ -401,9 +410,21 @@ export class DeliveryService {
         );
       }
 
-      if (nextIndex < currentIndex && !['failed', 'returned'].includes(status)) {
+      if (
+        nextIndex < currentIndex &&
+        !['failed', 'returned'].includes(status)
+      ) {
         throw new BadRequestException(
           `Invalid status transition ${delivery.delivery_status} → ${status}`,
+        );
+      }
+
+      if (
+        status === 'failed' &&
+        ['delivered', 'confirmed'].includes(delivery.delivery_status)
+      ) {
+        throw new BadRequestException(
+          `Cannot mark as failed once order is ${delivery.delivery_status}`,
         );
       }
 
@@ -442,6 +463,7 @@ export class DeliveryService {
           name: buyer.first_name ?? 'Customer',
           order_id: delivery.order_id!,
           status,
+          order_items: (delivery.order_items ?? []) as any[],
         });
       } catch (error) {
         console.error('Failed to send status update email to buyer:', error);
@@ -512,7 +534,7 @@ export class DeliveryService {
   /* ────────────────────────────────────────────────
      5️⃣ CONFIRM DELIVERY (RELEASE ESCROW)
   ──────────────────────────────────────────────── */
-  async confirmDelivery(order_id: string, code: string, vendor_id: string) {
+  async confirmDelivery(order_id: string, code: string | undefined, vendor_id: string) {
     const lockKey = `lock:delivery:confirm:${order_id}`;
     const acquired = await this.cache.acquireLock(lockKey, 15);
     if (!acquired) {
@@ -540,10 +562,31 @@ export class DeliveryService {
         };
       }
 
+      const order = await this.orderRepo.findOne({
+        where: { id: order_id },
+        relations: ['escrow'],
+      });
+
+      if (!order) throw new NotFoundException('Order not found');
+
+      // 🔐 Escrow Check: Only online orders with escrow require a code
+      const isEscrowOrder = order.payment_method === 'online' && order.escrow;
+
+      if (isEscrowOrder && !code) {
+        throw new BadRequestException('Confirmation code is required for escrow orders');
+      }
+
       delivery.delivery_status = 'confirmed';
       delivery.delivered_at = new Date();
 
       await this.deliveryRepo.save(delivery);
+      await this.orderRepo.update(order_id, { confirmed: true });
+
+      // For non-escrow orders, we mark as completed immediately
+      if (!isEscrowOrder) {
+        await this.orderRepo.update(order_id, { status: 'completed' });
+      }
+
       await this.cache.clearPrefix('delivery');
 
       const buyer = await this.userRepo.findOne({
@@ -588,7 +631,14 @@ export class DeliveryService {
       // Trigger analytics
       await this.processAnalytics(order_id);
 
-      return this.escrowService.releaseEscrow(order_id, code);
+      if (isEscrowOrder && code) {
+        return this.escrowService.releaseEscrow(order_id, code);
+      }
+
+      return {
+        success: true,
+        message: 'Delivery confirmed successfully',
+      };
     } finally {
       await this.cache.releaseLock(lockKey);
     }

@@ -49,7 +49,7 @@ export class OrderQueryService {
   async getOrderForApi(id: string, user_id: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      relations: ['delivery', 'vendor', 'vendor.store', 'delivery_address'],
+      relations: ['delivery', 'vendor', 'vendor.store', 'delivery_address', 'escrow'],
       select: {
         delivery: {
           id: true,
@@ -62,6 +62,12 @@ export class OrderQueryService {
           state: true,
           country: true,
           postal_code: true,
+          confirmation_code: true,
+        },
+        escrow: {
+          id: true,
+          status: true,
+          release_code: true,
         },
         delivery_address: {
           id: true,
@@ -112,6 +118,17 @@ export class OrderQueryService {
     // Check if the user is the buyer or vendor of this order
     if (order.buyer_id !== user_id && order.vendor_id !== user_id) {
       throw new NotFoundException('Order not found');
+    }
+
+    // 🔒 SECURITY: Only the buyer should see the delivery confirmation code
+    if (order.vendor_id === user_id) {
+      if (order.delivery) (order.delivery as any).confirmation_code = null;
+      if (order.escrow) (order.escrow as any).release_code = null;
+
+      // 💰 FINANCIAL: Vendors only see their net payout (Total - Platform Fee)
+      // We overwrite the total field so the frontend doesn't need complex math
+      const platformFee = Number(order.platform_fee || 0);
+      order.total = Number(order.total) - platformFee;
     }
 
     return {
@@ -273,6 +290,15 @@ export class OrderQueryService {
 
     const [data, total] = await qb.getManyAndCount();
 
-    return buildPagination(data, total, page, limit);
+    // 💰 FINANCIAL: Map orders to exclude platform fee for vendor view
+    const vendorData = data.map((order) => {
+      const platformFee = Number(order.platform_fee || 0);
+      return {
+        ...order,
+        total: Number(order.total) - platformFee,
+      };
+    });
+
+    return buildPagination(vendorData, total, page, limit);
   }
 }

@@ -126,6 +126,13 @@ export class OrderService {
     return this.paymentVerificationService.verifyPayment(reference);
   }
 
+  /**
+   * Retry order payment (backend logic: verify first, then retry if needed)
+   */
+  async retryOrderPayment(id: string, user_id: string) {
+    return this.paymentVerificationService.retryOrderPayment(id, user_id);
+  }
+
   /* ────────────────────────────────────────────────
      ORDER QUERY METHODS
   ──────────────────────────────────────────────── */

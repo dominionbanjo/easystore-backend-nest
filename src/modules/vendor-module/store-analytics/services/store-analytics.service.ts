@@ -64,11 +64,20 @@ export class StoreAnalyticsService {
     const year = now.getFullYear();
     const month = now.getMonth() + 1; // 1–12
 
-    // ✅ SOURCE OF TRUTH: compute order total
-    const orderTotal = items.reduce(
+    // ✅ SOURCE OF TRUTH: compute order gross total
+    const orderGrossTotal = items.reduce(
       (sum, item) => sum + Number(item.price) * Number(item.quantity),
       0,
     );
+
+    // 💰 FINANCIAL: Calculate net amount (Gross - Platform Fee)
+    // In this context, 'amount' passed from OrderManagementService is the order.total (which includes platform_fee)
+    // We want the analytics to reflect what the vendor actually EARNS.
+    const platformFee = amount - orderGrossTotal;
+    const orderNetTotal = orderGrossTotal; // For now, net is the subtotal of items. Shipping is usually handled separately or passed through.
+    // However, the user wants "price of things bought + delivery fee - service charge".
+    // So Net = (Subtotal + Shipping) = order.total - order.platform_fee.
+    const netRevenue = Math.max(0, amount - platformFee);
 
     await this.analyticsRepo.manager.transaction(async (manager) => {
       /* ────────────────────────────────────────────────
@@ -147,7 +156,7 @@ export class StoreAnalyticsService {
               { id: existingCustomer.id },
               {
                 orders_count: () => `"orders_count" + 1`,
-                total_spent: () => `"total_spent" + ${orderTotal}`,
+                total_spent: () => `"total_spent" + ${netRevenue}`,
                 last_order_at: now,
                 phone_number: user.phone_number,
               },
@@ -161,7 +170,7 @@ export class StoreAnalyticsService {
               location,
               phone_number: user.phone_number,
               orders_count: 1,
-              total_spent: orderTotal,
+              total_spent: netRevenue,
               rating: 0,
               last_order_at: now,
             });
@@ -186,9 +195,9 @@ export class StoreAnalyticsService {
         AND month = $7
       `,
         [
-          orderTotal, 
-          isOffline ? 0 : orderTotal, 
-          isOffline ? orderTotal : 0, 
+          netRevenue, 
+          isOffline ? 0 : netRevenue, 
+          isOffline ? netRevenue : 0, 
           isFirstOrderForStore ? 1 : 0, 
           storeId, 
           year, 
@@ -204,9 +213,9 @@ export class StoreAnalyticsService {
       const currentOrders = Number(analyticsRow.total_orders || 0);
       const currentCustomers = Number(analyticsRow.total_customers || 0);
 
-      analyticsRow.total_revenue = currentRevenue + orderTotal;
-      analyticsRow.online_revenue = Number(analyticsRow.online_revenue || 0) + (isOffline ? 0 : orderTotal);
-      analyticsRow.offline_revenue = Number(analyticsRow.offline_revenue || 0) + (isOffline ? orderTotal : 0);
+      analyticsRow.total_revenue = currentRevenue + netRevenue;
+      analyticsRow.online_revenue = Number(analyticsRow.online_revenue || 0) + (isOffline ? 0 : netRevenue);
+      analyticsRow.offline_revenue = Number(analyticsRow.offline_revenue || 0) + (isOffline ? netRevenue : 0);
       analyticsRow.total_orders = currentOrders + 1;
 
       if (isFirstOrderForStore) {
@@ -382,7 +391,7 @@ export class StoreAnalyticsService {
       p.slug,
       p.image,
       p.total_sold,
-      (p.total_sold * p.price) AS total_revenue
+      (p.total_sold * COALESCE(NULLIF(p.discount_price, 0), p.price)) AS total_revenue
     FROM products p
     WHERE p.store_id = $1
     ORDER BY p.total_sold DESC
@@ -408,7 +417,15 @@ export class StoreAnalyticsService {
       })) as any;
 
     const [{ count: pendingOrders }] = await this.analyticsRepo.manager.query(
-      `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1 AND status IN ('pending', 'paid', 'processing')`,
+      `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1 AND status IN ('pending', 'paid', 'processing', 'shipped')`,
+      [storeRow?.user_id],
+    );
+
+    /* ────────────────────────────────────────────────
+     6.5️⃣ PENDING PAYOUTS (TOTAL AMOUNT)
+  ──────────────────────────────────────────────── */
+    const [{ total: pendingPayouts }] = await this.analyticsRepo.manager.query(
+      `SELECT SUM(amount) as total FROM payouts WHERE vendor_id = $1 AND status IN ('pending', 'pending_manual')`,
       [storeRow?.user_id],
     );
 
@@ -426,6 +443,7 @@ export class StoreAnalyticsService {
         total_products: totalProducts,
         out_of_stock_count: Number(outOfStock),
         pending_orders_count: Number(pendingOrders),
+        pending_payouts: Number(pendingPayouts || 0),
         store_status: storeRow?.status || 'pending',
         account_status: storeRow?.user?.account_status || 'active',
         payout_verified: !!storeRow?.payout_verified,
