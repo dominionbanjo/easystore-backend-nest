@@ -112,6 +112,10 @@ export class StoreService {
     return this.writeService.storeNameExists(name);
   }
 
+  checkSubdomainAvailability(subdomain: string, storeId?: string) {
+    return this.writeService.checkSubdomainAvailability(subdomain, storeId);
+  }
+
   registerBankAccount(
     storeId: string,
     bank_code: string,

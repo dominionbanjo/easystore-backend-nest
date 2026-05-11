@@ -138,6 +138,7 @@ export class StoreWriteService {
 
     const allowed = [
       'store_name',
+      'subdomain',
       'description',
       'category',
       'category_ids',
@@ -193,6 +194,18 @@ export class StoreWriteService {
     }
 
     const coverFile = files?.cover_image?.[0];
+    if (filtered.subdomain !== undefined) {
+      if (filtered.subdomain === '' || filtered.subdomain === null) {
+        filtered.subdomain = null;
+      } else {
+        const cleanSub = filtered.subdomain.trim().toLowerCase();
+        if (cleanSub !== (store.subdomain || '').toLowerCase()) {
+          await this.checkSubdomainAvailability(cleanSub, storeId);
+        }
+        filtered.subdomain = cleanSub;
+      }
+    }
+
     if (coverFile) {
       const up = await this.upload.uploadSingle(
         coverFile,
@@ -267,6 +280,62 @@ export class StoreWriteService {
       throw new BadRequestException('Store name not Available');
     }
     return { message: 'Store name Available' };
+  }
+
+  async checkSubdomainAvailability(subdomain: string, storeId?: string) {
+    const cleanSubdomain = subdomain.trim().toLowerCase();
+
+    // Reserved subdomains list
+    const reserved = [
+      'www',
+      'admin',
+      'vendor',
+      'api',
+      'easystore',
+      'store',
+      'lookup',
+      'assets',
+      'public',
+      'dashboard',
+      'account',
+      'categories',
+      'products',
+      'auth',
+    ];
+
+    if (reserved.includes(cleanSubdomain)) {
+      throw new BadRequestException('This subdomain name is reserved and cannot be used');
+    }
+
+    const regex = /^[a-z0-9-]+$/;
+    if (!regex.test(cleanSubdomain)) {
+      throw new BadRequestException(
+        'Subdomain can only contain lowercase letters, numbers, and dashes',
+      );
+    }
+
+    // Check if another store has this subdomain as custom subdomain
+    // OR if their slug matches this subdomain when they have no custom subdomain set.
+    const query = this.storeRepo
+      .createQueryBuilder('store')
+      .where(
+        '(LOWER(store.subdomain) = :subdomain OR (store.subdomain IS NULL AND LOWER(store.slug) = :subdomain))',
+        { subdomain: cleanSubdomain },
+      );
+
+    if (storeId) {
+      query.andWhere('store.id != :storeId', { storeId });
+    }
+
+    const exists = await query.getOne();
+
+    if (exists) {
+      throw new BadRequestException(
+        'This subdomain is already taken or clashes with an existing store',
+      );
+    }
+
+    return { available: true, message: 'Subdomain is available' };
   }
 
   async registerBankAccount(

@@ -75,10 +75,18 @@ export class StoreDetailService {
 
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
-    const store = await this.storeRepo.findOne({
-      where: isUUID ? { id: identifier } : { slug: identifier },
-      relations: ['user', 'theme_setting', 'theme_setting.template'],
-    });
+    let store: Store | null = null;
+    if (isUUID) {
+      store = await this.storeRepo.findOne({
+        where: { id: identifier },
+        relations: ['user', 'theme_setting', 'theme_setting.template'],
+      });
+    } else {
+      store = await this.storeRepo.findOne({
+        where: { subdomain: identifier },
+        relations: ['user', 'theme_setting', 'theme_setting.template'],
+      });
+    }
 
     if (
       !store ||

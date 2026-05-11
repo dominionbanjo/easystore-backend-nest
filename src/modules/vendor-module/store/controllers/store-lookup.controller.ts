@@ -20,4 +20,22 @@ export class StoreLookupController {
 
     return exists;
   }
+
+  // GET /store/lookup/check-subdomain?subdomain=my-subdomain&storeId=123
+  @Get('check-subdomain')
+  async checkSubdomain(
+    @Query('subdomain') subdomain: string,
+    @Query('storeId') storeId?: string,
+  ) {
+    if (!subdomain || subdomain.trim().length < 2) {
+      throw new BadRequestException('Subdomain name is required');
+    }
+
+    const result = await this.storeService.checkSubdomainAvailability(
+      subdomain,
+      storeId,
+    );
+
+    return result;
+  }
 }

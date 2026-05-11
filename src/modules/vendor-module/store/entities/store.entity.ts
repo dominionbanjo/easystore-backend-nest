@@ -88,6 +88,10 @@ export class Store {
   @Column({ type: 'varchar', length: 255, unique: true })
   slug: string;
 
+  @Index('IDX_STORE_SUBDOMAIN', { unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
+  subdomain: string | null;
+
   /* CATEGORY + DESCRIPTION */
   @Column({ type: 'varchar', length: 100, nullable: true })
   category: string | null;

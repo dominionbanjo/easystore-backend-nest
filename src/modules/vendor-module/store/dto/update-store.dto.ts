@@ -16,6 +16,10 @@ class UpdateStoreBaseDto {
 
   @IsOptional()
   @IsString()
+  subdomain?: string | null;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @IsOptional()
