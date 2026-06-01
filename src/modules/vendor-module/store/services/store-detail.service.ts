@@ -83,7 +83,10 @@ export class StoreDetailService {
       });
     } else {
       store = await this.storeRepo.findOne({
-        where: { subdomain: identifier },
+        where: [
+          { subdomain: identifier },
+          { slug: identifier },
+        ],
         relations: ['user', 'theme_setting', 'theme_setting.template'],
       });
     }
@@ -287,7 +290,12 @@ export class StoreDetailService {
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
     const store = await this.storeRepo.findOne({
-      where: isUUID ? { id: identifier } : { slug: identifier },
+      where: isUUID
+        ? { id: identifier }
+        : [
+            { subdomain: identifier },
+            { slug: identifier },
+          ],
       relations: ['user'],
       select: [
         'id',
@@ -414,7 +422,12 @@ export class StoreDetailService {
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
     const store = await this.storeRepo.findOne({
-      where: isUUID ? { id: identifier } : { slug: identifier },
+      where: isUUID
+        ? { id: identifier }
+        : [
+            { subdomain: identifier },
+            { slug: identifier },
+          ],
       relations: ['user'],
       select: [
         'id',
@@ -529,7 +542,12 @@ export class StoreDetailService {
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
     const store = await this.storeRepo.findOne({
-      where: isUUID ? { id: identifier } : { slug: identifier },
+      where: isUUID
+        ? { id: identifier }
+        : [
+            { subdomain: identifier },
+            { slug: identifier },
+          ],
       relations: ['user'],
       select: ['id', 'store_name', 'user_id', 'status', 'slug'],
     });

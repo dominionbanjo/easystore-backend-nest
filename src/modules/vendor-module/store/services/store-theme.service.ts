@@ -28,7 +28,10 @@ export class StoreThemeService {
 
   async getStoreTheme(slug: string) {
     const store = await this.storeRepo.findOne({
-      where: { subdomain: slug },
+      where: [
+        { subdomain: slug },
+        { slug },
+      ],
       relations: ['user', 'theme_setting', 'theme_setting.template'],
       select: ['id', 'slug', 'subdomain', 'user_id', 'status'],
     });

@@ -1,5 +1,5 @@
 // src/common/controllers/upload.controller.ts
-import { Body, Controller, Delete, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Query, UseGuards } from '@nestjs/common';
 import cloudinary from 'cloudinary';
 
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
@@ -23,13 +23,20 @@ export class UploadController {
    * GET /uploads/cloudinary-signature
    */
   @Get('cloudinary-signature')
-  getCloudinarySignature(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+  getCloudinarySignature(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Query('subfolder') subfolder?: string,
+  ) {
     const timestamp = Math.floor(Date.now() / 1000);
 
     // 🔒 Lock uploads to store or user scope
-    const folder = user.store_id
+    let folder = user.store_id
       ? `easystore/stores/${user.store_id}`
       : `easystore/users/${user.sub}`;
+
+    if (subfolder) {
+      folder = `${folder}/${subfolder}`;
+    }
 
     const signature = cloudinary.v2.utils.api_sign_request(
       {
