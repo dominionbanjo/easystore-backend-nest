@@ -96,6 +96,10 @@ export class ProductService {
     return this.searchService.getVendorProducts(storeId, params);
   }
 
+  getSalesTerminalProducts(storeId: string) {
+    return this.searchService.getSalesTerminalProducts(storeId);
+  }
+
   /* ────────────────────────────────────────────────
      WRITE OPERATIONS
   ──────────────────────────────────────────────── */

@@ -73,6 +73,23 @@ export class VendorProductController {
   }
 
   /* ────────────────────────────────────────────────
+     💰 SALES TERMINAL: GET ALL PRODUCTS (FLAT LIST)
+     GET /vendor/products/sales-terminal
+  ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get sales terminal products', description: 'Returns all active products grouped by category for the sales terminal UI' })
+  @ApiOkResponse({ description: 'Sales terminal products returned' })
+  @ApiStandardErrorResponses()
+  @Get('sales-terminal')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.VIEW_PRODUCT)
+  getSalesTerminalProducts(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    if (!user.store_id) {
+      throw new NotFoundException('User does not own a store');
+    }
+    return this.productService.getSalesTerminalProducts(user.store_id);
+  }
+
+  /* ────────────────────────────────────────────────
      🔍 VENDOR: SEARCH PRODUCTS IN MY STORE
      GET /vendor/products/store/me/search
   ──────────────────────────────────────────────── */

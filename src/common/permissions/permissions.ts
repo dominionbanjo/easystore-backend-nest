@@ -52,6 +52,12 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.VIEW_TRANSACTIONS,
   ],
 
+  staff: [
+    Permission.VIEW_PRODUCT,
+    Permission.VIEW_ORDERS,
+    Permission.MANAGE_ORDERS,
+  ],
+
   user: [
     Permission.VIEW_PRODUCT,
     Permission.VIEW_ORDERS,

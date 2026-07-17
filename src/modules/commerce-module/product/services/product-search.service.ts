@@ -539,4 +539,49 @@ export class ProductSearchService {
       data: buildPagination(items, total, page, limit),
     };
   }
+
+  async getSalesTerminalProducts(storeId: string) {
+    const products = await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category_ref', 'category')
+      .leftJoinAndSelect('product.variants', 'variants')
+      .where('product.store_id = :storeId', { storeId })
+      .andWhere('product.status = :status', { status: ProductStatus.ACTIVE })
+      .orderBy('category.name', 'ASC')
+      .addOrderBy('product.name', 'ASC')
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.price',
+        'product.image',
+        'product.stock',
+        'product.options',
+        'category.name',
+        'variants.id',
+        'variants.price',
+        'variants.stock',
+        'variants.combinations',
+        'variants.image_url',
+      ])
+      .getMany();
+
+    return products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      image: p.image?.url ?? null,
+      stock: p.stock,
+      category: p.category_ref?.name ?? null,
+      options: p.options || [],
+      variants: (p.variants || []).map((v) => ({
+        id: v.id,
+        price: Number(v.price),
+        stock: v.stock,
+        combinations: v.combinations,
+        image_url: v.image_url,
+      })),
+    }));
+  }
 }

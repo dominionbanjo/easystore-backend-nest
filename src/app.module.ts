@@ -24,6 +24,7 @@ import { EmailModule } from './modules/shared-module/email/email.module';
 import { StoreAnalyticsModule } from './modules/vendor-module/store-analytics/store-analytics.module';
 import { StoreModule } from './modules/vendor-module/store/store.module';
 import { AdminModule } from './modules/admin-module/admin-module.module';
+import { StaffModule } from './modules/staff/staff.module';
 import { MessagingModule } from './modules/shared-module/messaging/messaging.module';
 import { NotificationModule } from './modules/shared-module/notification/notification.module';
 
@@ -84,6 +85,9 @@ import { NotificationModule } from './modules/shared-module/notification/notific
     EmailModule,
     CacheModule,
     AdminModule,
+
+    // 👥 STAFF
+    StaffModule,
 
     // 💬 MESSAGING
     MessagingModule,

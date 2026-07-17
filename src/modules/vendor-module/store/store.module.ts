@@ -13,12 +13,16 @@ import { StoreLookupController } from './controllers/store-lookup.controller';
 import { StoreOwnerGuard } from './guards/store-owner.guard';
 import { StoreAnalyticsModule } from '../store-analytics/store-analytics.module';
 import { StoreDeliveryRate } from './entities/store-delivery-rate.entity';
+import { StoreStaff } from './entities/store-staff.entity';
 import { StoreTemplate } from './entities/store-template.entity';
 import { ThemeSetting } from './entities/theme-setting.entity';
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 import { Wishlist } from 'src/modules/commerce-module/wishlist/entities/wishlist.entity';
 import { StoreDeliveryRateController } from './controllers/store-delivery-rate.controller';
+import { StoreStaffController } from './controllers/store-staff.controller';
 import { StoreDeliveryRateService } from 'src/modules/vendor-module/store/services/store-delivery-rate.service';
+import { StoreStaffService } from './services/store-staff.service';
+import { StaffInviteMailService } from 'src/modules/shared-module/email/services/staff-invite-mail.service';
 import { StoreService } from './services/store.service';
 import { StoreReadService } from './services/store-read.service';
 import { StoreWriteService } from './services/store-write.service';
@@ -33,6 +37,7 @@ import { StoreThemeService } from './services/store-theme.service';
   imports: [
     TypeOrmModule.forFeature([
       Store,
+      StoreStaff,
       StoreTemplate,
       ThemeSetting,
       Product,
@@ -52,6 +57,7 @@ import { StoreThemeService } from './services/store-theme.service';
     StoreLookupController,
     StoreAdminController,
     StoreDeliveryRateController,
+    StoreStaffController,
   ],
   providers: [
     StoreService,
@@ -65,6 +71,8 @@ import { StoreThemeService } from './services/store-theme.service';
     StoreCatalogService,
     StoreDetailService,
     StoreThemeService,
+    StoreStaffService,
+    StaffInviteMailService,
   ],
   exports: [
     StoreService,

@@ -13,6 +13,7 @@ import { AccountStatusMailService } from './services/account-status-mail.service
 import { StoreWelcomeMailService } from './services/store-welcome-mail.service';
 import { VendorAwarenessMailService } from './services/vendor-awareness-mail.service';
 import { BuyerEngagementMailService } from './services/buyer-engagement-mail.service';
+import { StaffInviteMailService } from './services/staff-invite-mail.service';
 import { EmailLog } from './entities/email-log.entity';
 import { EmailRetryService } from './services/email-retry.service';
 
@@ -36,6 +37,7 @@ import { EmailRetryService } from './services/email-retry.service';
     StoreWelcomeMailService,
     VendorAwarenessMailService,
     BuyerEngagementMailService,
+    StaffInviteMailService,
   ],
 
 
@@ -55,6 +57,7 @@ import { EmailRetryService } from './services/email-retry.service';
     StoreWelcomeMailService,
     VendorAwarenessMailService,
     BuyerEngagementMailService,
+    StaffInviteMailService,
     EmailRetryService,
   ],
 })

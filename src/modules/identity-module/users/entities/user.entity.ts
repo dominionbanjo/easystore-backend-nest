@@ -17,7 +17,7 @@ import {
 import { UserAddress } from './user-address.entity';
 
 /* ENUMS */
-export type AccountType = 'user' | 'vendor' | 'admin';
+export type AccountType = 'user' | 'vendor' | 'admin' | 'staff';
 export type AccountStatus = 'active' | 'pending' | 'restricted' | 'banned';
 export type SalesChannel =
   | 'whatsapp'
@@ -62,7 +62,7 @@ export class User {
   @Index('IDX_USER_ACCOUNT_TYPE')
   @Column({
     type: 'enum',
-    enum: ['user', 'vendor', 'admin'],
+    enum: ['user', 'vendor', 'admin', 'staff'],
     default: 'user',
   })
   account_type: AccountType;
