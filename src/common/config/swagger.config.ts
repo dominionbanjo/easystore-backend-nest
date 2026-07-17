@@ -1,0 +1,37 @@
+import { DocumentBuilder } from '@nestjs/swagger';
+
+export const swaggerConfig = new DocumentBuilder()
+  .setTitle('EasyStore API')
+  .setDescription('E-commerce platform API with multi-vendor support, escrow payments, and real-time messaging')
+  .setVersion('1.0')
+  .addBearerAuth(
+    { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
+    'JWT-auth',
+  )
+  .addTag('Auth', 'Authentication & user registration')
+  .addTag('Users', 'User profile & address management')
+  .addTag('Products', 'Product catalog, detail & search')
+  .addTag('Vendor Products', 'Vendor product management')
+  .addTag('Orders', 'Customer order management & checkout')
+  .addTag('Cart', 'Shopping cart operations')
+  .addTag('Delivery', 'Delivery & fulfillment tracking')
+  .addTag('Reviews', 'Product reviews & ratings')
+  .addTag('Wishlist', 'User wishlist management')
+  .addTag('Categories', 'Product category management')
+  .addTag('Stores', 'Vendor store front & management')
+  .addTag('Store Analytics', 'Vendor analytics dashboard')
+  .addTag('Store Customers', 'Vendor customer management')
+  .addTag('Transactions', 'Financial transactions')
+  .addTag('Payouts', 'Vendor payout management')
+  .addTag('Admin Orders', 'Admin order management')
+  .addTag('Admin Users', 'Admin user & vendor management')
+  .addTag('Admin Transactions', 'Admin transaction oversight')
+  .addTag('Admin Escrow', 'Admin escrow & payout management')
+  .addTag('Admin Broadcasts', 'Admin broadcast notifications')
+  .addTag('Admin Analytics', 'Admin analytics & reporting')
+  .addTag('Messaging', 'Conversations & real-time chat')
+  .addTag('Notifications', 'Automated notification management')
+  .addTag('Uploads', 'Cloudinary file upload & management')
+  .addTag('Payments', 'Paystack payment integration')
+  .addTag('Colors', 'Product color management')
+  .build();

@@ -7,6 +7,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
+import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
+import { OrderListItemDto } from '../../../common/dto/response/order-response.dto';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -15,6 +19,8 @@ import * as orderEntity from 'src/modules/commerce-module/order/entities/order.e
 import { AdminOrderService } from '../services/admin-order.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 
+@ApiTags('Admin Orders')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin/orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -24,9 +30,13 @@ export class AdminOrderController {
     private readonly adminOrderService: AdminOrderService,
   ) {}
 
-  /* ────────────────────────────────────────────────
-     GET ALL ORDERS (ADMIN)
-  ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get all orders', description: 'Retrieve paginated list of all orders with optional status and search filters' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by order status' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
+  @ApiPaginatedResponse(OrderListItemDto)
+  @ApiStandardErrorResponses()
   @Get()
   async getAllOrders(
     @Query() query: PaginationQueryDto & { status?: string; search?: string },
@@ -34,17 +44,20 @@ export class AdminOrderController {
     return this.adminOrderService.getAllOrders(query);
   }
 
-  /* ────────────────────────────────────────────────
-     GET SINGLE ORDER (ADMIN)
-  ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get order by ID', description: 'Retrieve a single order by its ID' })
+  @ApiParam({ name: 'id', description: 'Order ID', type: String })
+  @ApiOkResponse({ description: 'Order details' })
+  @ApiStandardErrorResponses()
   @Get(':id')
   async getOrder(@Param('id') id: string) {
     return this.adminOrderService.getOne(id);
   }
 
-  /* ────────────────────────────────────────────────
-     UPDATE ORDER STATUS (ADMIN OVERRIDE)
-  ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Update order status', description: 'Override the status of an order (admin only)' })
+  @ApiParam({ name: 'id', description: 'Order ID', type: String })
+  @ApiBody({ description: 'New status', type: Object })
+  @ApiOkResponse({ description: 'Order status updated successfully' })
+  @ApiStandardErrorResponses()
   @Patch(':id/status')
   async updateOrderStatus(
     @Param('id') id: string,

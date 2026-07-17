@@ -71,16 +71,19 @@ export class ProductWriteService {
     }
   }
 
-  private resolveRootPriceAndStock(dto: any) {
+  private resolveRootPriceAndStock(dto: {
+    price?: number;
+    stock?: number;
+    variants?: { price?: number; stock?: number }[];
+  }) {
     const variants = dto.variants || [];
     let price = dto.price;
     let stock = dto.stock;
 
     if (variants.length > 0) {
-      // Force recalculation from variants if they exist
-      price = Math.min(...variants.map((v: any) => Number(v.price) || 0));
+      price = Math.min(...variants.map((v) => Number(v.price) || 0));
       stock = variants.reduce(
-        (sum: number, v: any) => sum + (Number(v.stock) || 0),
+        (sum: number, v) => sum + (Number(v.stock) || 0),
         0,
       );
     }
@@ -133,13 +136,17 @@ export class ProductWriteService {
   }
 
   async create(
-    user: { sub: string; store_id: string | null },
+    user: { sub: string; store_id: string | null; status: string },
     dto: CreateProductDto,
     files?: {
       image?: Express.Multer.File[];
       gallery?: Express.Multer.File[];
     },
   ) {
+    if (user.status === 'restricted') {
+      throw new BadRequestException('Your account is restricted from adding new products.');
+    }
+
     if (!user.store_id) {
       throw new BadRequestException('Vendor does not have a store');
     }
@@ -194,7 +201,8 @@ export class ProductWriteService {
     const saved = await this.productRepo.save(product);
     return {
       message: 'Product created successfully',
-      product: saved,
+      success: true,
+      id: saved.id,
     };
   }
 
@@ -238,14 +246,19 @@ export class ProductWriteService {
 
     return {
       message: 'Product created successfully',
-      product: saved,
+      success: true,
+      id: saved.id,
     };
   }
 
   async createMany(
-    user: { sub: string; store_id: string | null },
+    user: { sub: string; store_id: string | null; status: string },
     dtos: CreateProductDto[],
   ) {
+    if (user.status === 'restricted') {
+      throw new BadRequestException('Your account is restricted from adding new products.');
+    }
+
     if (!user.store_id) {
       throw new BadRequestException('Vendor does not have a store');
     }
@@ -303,8 +316,9 @@ export class ProductWriteService {
 
     return {
       message: 'Products created successfully',
+      success: true,
       count: saved.length,
-      products: saved,
+      ids: saved.map((s) => s.id),
     };
   }
 
@@ -326,7 +340,7 @@ export class ProductWriteService {
         });
 
       // Prepare explicit update object for the root product
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         price: Math.round(Number(rootPrice) * 100),
         updated_at: new Date(),
       };
@@ -398,18 +412,19 @@ export class ProductWriteService {
         await manager.delete(ProductVariant, { product_id: id });
       }
 
-      const updated = await manager.findOne(Product, {
+      const updatedStock = await manager.findOne(Product, {
         where: { id },
-        relations: ['variants'],
+        select: ['id', 'stock'],
       });
 
-      if (updated && updated.stock <= 0) {
+      if (updatedStock && updatedStock.stock <= 0) {
         await this.handleOutOfStock(id, manager);
       }
 
       return {
         message: 'Product updated successfully',
-        product: updated,
+        success: true,
+        id,
       };
     });
   }
@@ -431,7 +446,7 @@ export class ProductWriteService {
           variants: dto.variants ?? [],
         });
 
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         price: Math.round(Number(rootPrice) * 100),
         updated_at: new Date(),
       };
@@ -505,18 +520,19 @@ export class ProductWriteService {
         await manager.delete(ProductVariant, { product_id: id });
       }
 
-      const updated = await manager.findOne(Product, {
+      const updatedStock = await manager.findOne(Product, {
         where: { id },
-        relations: ['variants'],
+        select: ['id', 'stock'],
       });
 
-      if (updated && updated.stock <= 0) {
+      if (updatedStock && updatedStock.stock <= 0) {
         await this.handleOutOfStock(id, manager);
       }
 
       return {
         message: 'Product updated successfully',
-        product: updated,
+        success: true,
+        id,
       };
     });
   }

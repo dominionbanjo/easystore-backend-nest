@@ -1,35 +1,28 @@
-// src/common/controllers/upload.controller.ts
-import { Body, Controller, Delete, Get, Query, UseGuards } from '@nestjs/common';
-import cloudinary from 'cloudinary';
+import { BadRequestException, Body, Controller, Delete, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 
+import { ApiStandardErrorResponses } from '../decorators/api-standard-errors.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { UploadService } from '../services/upload.service';
 
+@ApiTags('Uploads')
+@ApiBearerAuth('JWT-auth')
 @Controller('uploads')
 @UseGuards(JwtAuthGuard)
 export class UploadController {
-  constructor() {
-    // ✅ Ensure Cloudinary is configured once
-    cloudinary.v2.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
-  }
+  constructor(private readonly uploadService: UploadService) {}
 
-  /**
-   * 🔐 Generate Cloudinary signature for direct browser uploads
-   * GET /uploads/cloudinary-signature
-   */
   @Get('cloudinary-signature')
+  @ApiOperation({ summary: 'Generate Cloudinary upload signature', description: 'Generates a signed signature for direct browser-to-Cloudinary uploads.' })
+  @ApiQuery({ name: 'subfolder', required: false, type: String, description: 'Subfolder within the store or user folder' })
+  @ApiOkResponse({ description: 'Cloudinary signature generated' })
+  @ApiStandardErrorResponses()
   getCloudinarySignature(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Query('subfolder') subfolder?: string,
   ) {
-    const timestamp = Math.floor(Date.now() / 1000);
-
-    // 🔒 Lock uploads to store or user scope
     let folder = user.store_id
       ? `easystore/stores/${user.store_id}`
       : `easystore/users/${user.sub}`;
@@ -38,37 +31,26 @@ export class UploadController {
       folder = `${folder}/${subfolder}`;
     }
 
-    const signature = cloudinary.v2.utils.api_sign_request(
-      {
-        timestamp,
-        folder,
-      },
-      process.env.CLOUD_API_SECRET!,
-    );
+    const data = this.uploadService.generateCloudinarySignature(folder);
 
     return {
       status: 'success',
       message: 'Cloudinary signature generated',
-      data: {
-        signature,
-        timestamp,
-        folder,
-        apiKey: process.env.CLOUD_API_KEY,
-        cloudName: process.env.CLOUD_NAME,
-      },
+      data,
     };
   }
 
   @Delete('cloudinary')
-  async deleteCloudinaryImage(
-    @Body('public_id') publicId: string,
-    @CurrentUser() user: jwtStrategy.JwtAuthUser,
-  ) {
+  @ApiOperation({ summary: 'Delete Cloudinary image', description: 'Deletes an image from Cloudinary by its public ID.' })
+  @ApiBody({ description: 'Public ID of the image to delete', schema: { properties: { public_id: { type: 'string' } } } })
+  @ApiOkResponse({ description: 'Image deleted successfully' })
+  @ApiStandardErrorResponses()
+  async deleteCloudinaryImage(@Body('public_id') publicId: string) {
     if (!publicId) {
-      return { status: 'error', message: 'public_id required' };
+      throw new BadRequestException('public_id is required');
     }
 
-    await cloudinary.v2.uploader.destroy(publicId);
+    await this.uploadService.deleteSingle(publicId);
 
     return {
       status: 'success',

@@ -31,7 +31,23 @@ export class UsersService {
   ) {}
 
   findByEmail(email: string) {
-    return this.userRepo.findOne({ where: { email } });
+    return this.userRepo.findOne({
+      where: { email },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        username: true,
+        phone_number: true,
+        avatar: true,
+        account_type: true,
+        account_status: true,
+        email_verified: true,
+        token_version: true,
+        created_at: true,
+      },
+    });
   }
 
   async findByEmailWithPassword(email: string) {
@@ -53,7 +69,23 @@ export class UsersService {
   // }
 
   findById(id: string) {
-    return this.userRepo.findOne({ where: { id } });
+    return this.userRepo.findOne({
+      where: { id },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        username: true,
+        phone_number: true,
+        avatar: true,
+        account_type: true,
+        account_status: true,
+        email_verified: true,
+        token_version: true,
+        created_at: true,
+      },
+    });
   }
   findByGoogleId(googleId: string) {
     return this.userRepo.findOne({
@@ -163,6 +195,27 @@ export class UsersService {
   async getProfile(userId: string) {
     const user2 = await this.userRepo.findOne({
       where: { id: userId },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        phone_number: true,
+        username: true,
+        avatar: true,
+        account_type: true,
+        bank_code: true,
+        account_number: true,
+        payout_verified: true,
+        addresses: {
+          id: true,
+          street: true,
+          city: true,
+          state: true,
+          country: true,
+          postal_code: true,
+        },
+      },
       relations: ['addresses'],
     });
     if (!user2) throw new NotFoundException('User not found');
@@ -273,7 +326,7 @@ export class UsersService {
     user.updated_at = new Date();
 
     await this.userRepo.save(user);
-    return this.getProfile(userId);
+    return { success: true };
   }
 
   /* ────────────────────────────────────────────────
@@ -366,8 +419,8 @@ export class UsersService {
       is_default: isNewDefault,
     });
 
-    await this.addressRepo.save(newAddress);
-    return { message: 'Address added successfully', address: newAddress };
+    const saved = await this.addressRepo.save(newAddress);
+    return { success: true, id: saved.id, message: 'Address added successfully' };
   }
 
   async updateUserAddress(userId: string, addressId: string, data: Partial<UserAddress>) {
@@ -379,9 +432,9 @@ export class UsersService {
     }
 
     Object.assign(address, data);
-    await this.addressRepo.save(address);
+    const updated = await this.addressRepo.save(address);
 
-    return { message: 'Address updated successfully', address };
+    return { success: true, id: updated.id, message: 'Address updated successfully' };
   }
 
   async deleteUserAddress(userId: string, addressId: string) {

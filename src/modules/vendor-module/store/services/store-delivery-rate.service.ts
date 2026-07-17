@@ -48,7 +48,8 @@ export class StoreDeliveryRateService {
       notes: dto.notes ?? null,
     });
 
-    return this.rateRepo.save(rate);
+    const saved = await this.rateRepo.save(rate);
+    return { success: true, id: saved.id };
   }
 
   /* ────────────────────────────────────────────────
@@ -85,6 +86,14 @@ export class StoreDeliveryRateService {
 
     return this.rateRepo.find({
       where: { store_id: storeId },
+      select: {
+        id: true,
+        state: true,
+        location: true,
+        fee: true,
+        duration: true,
+        notes: true,
+      },
       order: {
         state: 'ASC',
         location: 'ASC',
@@ -97,7 +106,18 @@ export class StoreDeliveryRateService {
      GET SINGLE RATE
   ──────────────────────────────────────────────── */
   async getRateById(id: string) {
-    return this.rateRepo.findOne({ where: { id } });
+    return this.rateRepo.findOne({
+      where: { id },
+      select: {
+        id: true,
+        store_id: true,
+        state: true,
+        location: true,
+        fee: true,
+        duration: true,
+        notes: true,
+      },
+    });
   }
 
   /* ────────────────────────────────────────────────

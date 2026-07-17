@@ -9,7 +9,18 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 
+import { ApiPaginatedResponse } from '../../../../common/decorators/api-paginated-response.decorator';
+import { OrderListItemDto } from '../../../../common/dto/response/order-response.dto';
 import { OrderService } from '../services/order.service';
 import { CreateOfflineOrderDto } from '../dto/create-offline-order.dto';
 import { CreateOnlineOrderDto } from '../dto/create-online-order.dto';
@@ -22,7 +33,10 @@ import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard'
 import { ICartItem } from '../../cart/types/types';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
+import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
+@ApiTags('Orders')
+@ApiBearerAuth('JWT-auth')
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class PandaOrderController {
@@ -31,6 +45,9 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      CREATE OFFLINE ORDER
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Create an offline order', description: 'Creates a new order processed outside of online payment (e.g. cash on delivery).' })
+  @ApiCreatedResponse({ description: 'Offline order created successfully' })
+  @ApiStandardErrorResponses()
   @Post('offline')
   async createOfflineOrder(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -48,6 +65,9 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      GET CHECKOUT SUMMARY
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get checkout summary', description: 'Calculates and returns a summary of the order including totals, taxes, and delivery fees before placing the order.' })
+  @ApiOkResponse({ description: 'Checkout summary calculated successfully' })
+  @ApiStandardErrorResponses()
   @Post('summary')
   async getCheckoutSummary(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -62,6 +82,9 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      CREATE ONLINE ORDER (PAYSTACK)
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Create an online order', description: 'Creates an order with Paystack escrow payment. Funds are held in escrow until delivery is confirmed.' })
+  @ApiCreatedResponse({ description: 'Online order created successfully. Returns payment authorization URL.' })
+  @ApiStandardErrorResponses()
   @Post('online')
   async createOnlineOrder(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -81,6 +104,9 @@ export class PandaOrderController {
      NOTE: This endpoint is for direct payment with 2% platform fee
      No escrow protection - immediate payment to vendor
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Create a direct online order (no escrow)', description: 'Creates an order with direct Paystack payment. Funds go directly to vendor with a 2% platform fee. No escrow protection.' })
+  @ApiCreatedResponse({ description: 'Direct online order created successfully. Returns payment authorization URL.' })
+  @ApiStandardErrorResponses()
   @Post('online/direct')
   async createOnlineOrderNoEscrow(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -98,6 +124,10 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      VERIFY PAYMENT (PAYSTACK CALLBACK)
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Verify a payment', description: 'Verifies a Paystack payment using the payment reference returned after checkout.' })
+  @ApiParam({ name: 'reference', description: 'Paystack payment reference', type: String })
+  @ApiOkResponse({ description: 'Payment verification result' })
+  @ApiStandardErrorResponses()
   @Post('verify/:reference')
   async verifyPayment(@Param('reference') reference: string) {
     if (!reference) {
@@ -110,6 +140,10 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      RETRY PAYMENT (BACKEND-DRIVEN)
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Retry a failed payment', description: 'Generates a new Paystack payment link for an order that previously failed payment.' })
+  @ApiParam({ name: 'id', description: 'Order ID', type: String })
+  @ApiOkResponse({ description: 'New payment authorization URL generated' })
+  @ApiStandardErrorResponses()
   @Post(':id/retry-payment')
   async retryPayment(
     @Param('id') id: string,
@@ -121,6 +155,10 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      GET SINGLE ORDER
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get order by ID', description: 'Retrieves the details of a specific order by its ID for the authenticated user.' })
+  @ApiParam({ name: 'id', description: 'Order ID', type: String })
+  @ApiOkResponse({ description: 'Order details retrieved successfully' })
+  @ApiStandardErrorResponses()
   @Get(':id')
   async getOrder(
     @Param('id') id: string,
@@ -132,6 +170,13 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      GET ORDERS — CURRENT USER (BUYER)
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get my orders', description: 'Retrieves all orders placed by the currently authenticated user (buyer). Supports search, status filter, and pagination.' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term to filter orders' })
+  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by order status' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
+  @ApiPaginatedResponse(OrderListItemDto)
+  @ApiStandardErrorResponses()
   @Get()
   async getMyOrders(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -151,6 +196,13 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      GET ORDERS — VENDOR
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get vendor orders', description: 'Retrieves all orders belonging to the currently authenticated vendor store. Supports search, status filter, and pagination.' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term to filter orders' })
+  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by order status' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items per page' })
+  @ApiPaginatedResponse(OrderListItemDto)
+  @ApiStandardErrorResponses()
   @Get('vendor/me')
   @UseGuards(RolesGuard, StoreOwnerGuard)
   @Roles('vendor')
@@ -175,6 +227,9 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      RECORD OFFLINE SALE (VENDOR)
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Record an offline sale', description: 'Allows a vendor to manually record a sale that was processed outside the platform (e.g. in-person payment).' })
+  @ApiCreatedResponse({ description: 'Offline sale recorded successfully' })
+  @ApiStandardErrorResponses()
   @Post('vendor/offline-sale')
   @UseGuards(RolesGuard, StoreOwnerGuard)
   @Roles('vendor')
@@ -194,6 +249,10 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      UPDATE ORDER STATUS (VENDOR / ADMIN)
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Update order status', description: 'Updates the status of an order (e.g. processing, shipped, delivered). Restricted to sellers and admins.' })
+  @ApiParam({ name: 'id', description: 'Order ID', type: String })
+  @ApiOkResponse({ description: 'Order status updated successfully' })
+  @ApiStandardErrorResponses()
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles('seller', 'admin')
@@ -207,6 +266,10 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      CANCEL ORDER (BUYER OR VENDOR)
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Cancel an order', description: 'Cancels an order by its ID. Can be performed by the buyer who placed it or the vendor fulfilling it.' })
+  @ApiParam({ name: 'id', description: 'Order ID', type: String })
+  @ApiOkResponse({ description: 'Order cancelled successfully' })
+  @ApiStandardErrorResponses()
   @Patch(':id/cancel')
   async cancelOrder(
     @Param('id') id: string,
@@ -218,6 +281,10 @@ export class PandaOrderController {
   /* ────────────────────────────────────────────────
      DOWNLOAD RECEIPT
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Download order receipt', description: 'Generates and returns a PDF receipt for the specified order as a base64-encoded string.' })
+  @ApiParam({ name: 'id', description: 'Order ID', type: String })
+  @ApiOkResponse({ description: 'Receipt PDF generated successfully as base64' })
+  @ApiStandardErrorResponses()
   @Get(':id/receipt')
   async downloadReceipt(
     @Param('id') id: string,

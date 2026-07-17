@@ -24,10 +24,31 @@ export class AdminTransactionsService {
 
     const qb = this.transactionRepo
       .createQueryBuilder('tx')
-      .leftJoinAndSelect('tx.user', 'user')
-      .leftJoinAndSelect('tx.vendor', 'vendor')
-      .leftJoinAndSelect('vendor.store', 'store')
+      .leftJoin('tx.user', 'user')
+      .leftJoin('tx.vendor', 'vendor')
+      .leftJoin('vendor.store', 'store')
       .orderBy('tx.created_at', 'DESC');
+
+    qb.select([
+      'tx.id',
+      'tx.reference',
+      'tx.type',
+      'tx.amount',
+      'tx.currency',
+      'tx.status',
+      'tx.description',
+      'tx.is_flagged',
+      'tx.created_at',
+      'user.id',
+      'user.first_name',
+      'user.last_name',
+      'user.username',
+      'vendor.id',
+      'vendor.first_name',
+      'vendor.last_name',
+      'store.id',
+      'store.store_name',
+    ]);
 
     if (query.status && query.status !== 'all') {
       qb.andWhere('tx.status = :status', { status: query.status });
@@ -56,20 +77,45 @@ export class AdminTransactionsService {
   }
 
   async getOne(id: string) {
-    const tx = await this.transactionRepo.findOne({
-      where: { id },
-      relations: ['user', 'vendor', 'vendor.store'],
-    });
+    const tx = await this.transactionRepo
+      .createQueryBuilder('tx')
+      .leftJoin('tx.user', 'user')
+      .leftJoin('tx.vendor', 'vendor')
+      .leftJoin('vendor.store', 'store')
+      .where('tx.id = :id', { id })
+      .select([
+        'tx.id',
+        'tx.reference',
+        'tx.type',
+        'tx.amount',
+        'tx.currency',
+        'tx.status',
+        'tx.description',
+        'tx.is_flagged',
+        'tx.created_at',
+        'user.id',
+        'user.first_name',
+        'user.last_name',
+        'user.email',
+        'user.username',
+        'vendor.id',
+        'vendor.first_name',
+        'vendor.last_name',
+        'vendor.email',
+        'store.id',
+        'store.store_name',
+      ])
+      .getOne();
+
     if (!tx) throw new NotFoundException('Transaction not found');
     return { message: 'Transaction retrieved', data: tx };
   }
 
   async flagTransaction(id: string) {
-    const tx = await this.transactionRepo.findOne({ where: { id } });
-    if (!tx) throw new NotFoundException('Transaction not found');
+    const exists = await this.transactionRepo.exists({ where: { id } });
+    if (!exists) throw new NotFoundException('Transaction not found');
 
-    tx.is_flagged = true;
-    await this.transactionRepo.save(tx);
+    await this.transactionRepo.update(id, { is_flagged: true });
 
     return {
       message: 'Transaction flagged for review',

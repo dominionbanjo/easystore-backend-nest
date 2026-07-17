@@ -33,7 +33,7 @@ export class ProductReviewService {
     user_id: string;
     rating: number;
     comment?: string;
-  }): Promise<ProductReview> {
+  }) {
     const { product_id, user_id, rating, comment } = data;
 
     if (!product_id || !user_id) {
@@ -89,7 +89,7 @@ export class ProductReviewService {
     await this.cache.clearPrefix('review');
     await this.cache.clearPrefix('product');
 
-    return saved;
+    return { success: true, id: saved.id, message: 'Review added successfully' };
   }
 
   /* ────────────────────────────────────────────────
@@ -139,6 +139,19 @@ export class ProductReviewService {
 
     const reviews = await this.reviewRepo.find({
       where: { product_id: productId },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        created_at: true,
+        user: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          avatar: true,
+        },
+      },
+      relations: ['user'],
       order: { created_at: 'DESC' },
     });
 
@@ -157,6 +170,7 @@ export class ProductReviewService {
 
     const review = await this.reviewRepo.findOne({
       where: { id: reviewId },
+      select: { id: true, product_id: true },
     });
 
     if (!review) {

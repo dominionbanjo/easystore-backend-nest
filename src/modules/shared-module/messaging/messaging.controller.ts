@@ -8,6 +8,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+
+import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { MessagingService } from './messaging.service';
 import { MessagingGateway } from './messaging.gateway';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -17,6 +20,8 @@ import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.g
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 
+@ApiTags('Messaging')
+@ApiBearerAuth('JWT-auth')
 @Controller('messaging')
 @UseGuards(JwtAuthGuard)
 export class MessagingController {
@@ -25,25 +30,19 @@ export class MessagingController {
     private readonly messagingGateway: MessagingGateway,
   ) {}
 
-  /* ══════════════════════════════════════════════
-     PUBLIC CHATROOM
-  ══════════════════════════════════════════════ */
-
-  /**
-   * GET /messaging/chatroom
-   * Fetch paginated chatroom messages (newest last)
-   */
   @Get('chatroom')
+  @ApiOperation({ summary: 'Get chatroom messages', description: 'Fetches paginated public chatroom messages (newest last).' })
+  @ApiOkResponse({ description: 'Chatroom messages returned' })
+  @ApiStandardErrorResponses()
   async getChatroomMessages(@Query() dto: GetMessagesDto) {
     const result = await this.messagingService.getChatroomMessages(dto);
     return { message: 'Chatroom messages fetched', data: result };
   }
 
-  /**
-   * POST /messaging/chatroom
-   * Send a message to the public chatroom
-   */
   @Post('chatroom')
+  @ApiOperation({ summary: 'Send chatroom message', description: 'Sends a message to the public chatroom.' })
+  @ApiCreatedResponse({ description: 'Message sent to chatroom' })
+  @ApiStandardErrorResponses()
   async sendChatroomMessage(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() dto: SendMessageDto,
@@ -53,17 +52,15 @@ export class MessagingController {
       dto,
     );
 
-    // Broadcast to all chatroom subscribers
     this.messagingGateway.emitChatroomMessage(message);
 
     return { message: 'Message sent', data: message };
   }
 
-  /**
-   * GET /messaging/chatroom/status
-   * How many users are currently in the chatroom
-   */
   @Get('chatroom/status')
+  @ApiOperation({ summary: 'Get chatroom status', description: 'Returns the number of users currently online in the chatroom.' })
+  @ApiOkResponse({ description: 'Chatroom status returned' })
+  @ApiStandardErrorResponses()
   getChatroomStatus() {
     return {
       message: 'Chatroom status',
@@ -71,11 +68,11 @@ export class MessagingController {
     };
   }
 
-  /**
-   * POST /messaging/chatroom/:messageId/read
-   * Mark a chatroom message as read by current user
-   */
   @Post('chatroom/:messageId/read')
+  @ApiOperation({ summary: 'Mark chatroom message as read', description: 'Marks a specific chatroom message as read by the current user.' })
+  @ApiParam({ name: 'messageId', description: 'Message ID', type: String })
+  @ApiOkResponse({ description: 'Message marked as read' })
+  @ApiStandardErrorResponses()
   async markChatroomMessageRead(
     @Param('messageId') messageId: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -84,25 +81,19 @@ export class MessagingController {
     return { message: 'Message marked as read' };
   }
 
-  /* ══════════════════════════════════════════════
-     CONVERSATIONS
-  ══════════════════════════════════════════════ */
-
-  /**
-   * GET /messaging/conversations
-   * List all conversations for the current user
-   */
   @Get('conversations')
+  @ApiOperation({ summary: 'List user conversations', description: 'Returns all conversations for the currently authenticated user.' })
+  @ApiOkResponse({ description: 'Conversations returned' })
+  @ApiStandardErrorResponses()
   async getUserConversations(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     const data = await this.messagingService.getUserConversations(user.sub);
     return { message: 'Conversations fetched', data };
   }
 
-  /**
-   * POST /messaging/conversations
-   * Start a 1-to-1 conversation (idempotent)
-   */
   @Post('conversations')
+  @ApiOperation({ summary: 'Start a conversation', description: 'Starts or retrieves an existing 1-to-1 conversation with another user.' })
+  @ApiCreatedResponse({ description: 'Conversation started or retrieved' })
+  @ApiStandardErrorResponses()
   async startConversation(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() dto: StartConversationDto,
@@ -127,11 +118,11 @@ export class MessagingController {
     };
   }
 
-  /**
-   * GET /messaging/conversations/:id
-   * Get details of a single conversation
-   */
   @Get('conversations/:id')
+  @ApiOperation({ summary: 'Get conversation details', description: 'Returns details of a single conversation by ID.' })
+  @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
+  @ApiOkResponse({ description: 'Conversation details returned' })
+  @ApiStandardErrorResponses()
   async getConversation(
     @Param('id') id: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -140,11 +131,11 @@ export class MessagingController {
     return { message: 'Conversation fetched', data };
   }
 
-  /**
-   * GET /messaging/conversations/:id/messages
-   * Fetch messages in a conversation (paginated, newest last)
-   */
   @Get('conversations/:id/messages')
+  @ApiOperation({ summary: 'Get conversation messages', description: 'Fetches paginated messages for a conversation (newest last).' })
+  @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
+  @ApiOkResponse({ description: 'Conversation messages returned' })
+  @ApiStandardErrorResponses()
   async getConversationMessages(
     @Param('id') id: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -158,11 +149,11 @@ export class MessagingController {
     return { message: 'Messages fetched', data };
   }
 
-  /**
-   * POST /messaging/conversations/:id/messages
-   * Send a direct message within a conversation
-   */
   @Post('conversations/:id/messages')
+  @ApiOperation({ summary: 'Send direct message', description: 'Sends a direct message within a conversation.' })
+  @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
+  @ApiCreatedResponse({ description: 'Message sent' })
+  @ApiStandardErrorResponses()
   async sendDirectMessage(
     @Param('id') conversationId: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -174,17 +165,16 @@ export class MessagingController {
       dto,
     );
 
-    // Push real-time to the conversation room
     this.messagingGateway.emitDirectMessage(conversationId, message);
 
     return { message: 'Message sent', data: message };
   }
 
-  /**
-   * PATCH /messaging/conversations/:id/read
-   * Mark all messages in a conversation as read
-   */
   @Patch('conversations/:id/read')
+  @ApiOperation({ summary: 'Mark conversation as read', description: 'Marks all messages in a conversation as read by the current user.' })
+  @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
+  @ApiOkResponse({ description: 'Conversation marked as read' })
+  @ApiStandardErrorResponses()
   async markConversationRead(
     @Param('id') conversationId: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -194,15 +184,11 @@ export class MessagingController {
     return { message: 'Conversation marked as read' };
   }
 
-  /* ══════════════════════════════════════════════
-     MESSAGE DETAIL
-  ══════════════════════════════════════════════ */
-
-  /**
-   * GET /messaging/messages/:id
-   * Full detail for a single message (read time, delivered, read_count)
-   */
   @Get('messages/:id')
+  @ApiOperation({ summary: 'Get message details', description: 'Returns full details for a single message including read time and delivery status.' })
+  @ApiParam({ name: 'id', description: 'Message ID', type: String })
+  @ApiOkResponse({ description: 'Message details returned' })
+  @ApiStandardErrorResponses()
   async getMessageById(
     @Param('id') id: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -211,15 +197,11 @@ export class MessagingController {
     return { message: 'Message details', data };
   }
 
-  /* ══════════════════════════════════════════════
-     PRESENCE
-  ══════════════════════════════════════════════ */
-
-  /**
-   * GET /messaging/presence/:userId
-   * Check if a user is online + last seen timestamp
-   */
   @Get('presence/:userId')
+  @ApiOperation({ summary: 'Get user presence', description: 'Checks if a user is currently online and returns their last seen timestamp.' })
+  @ApiParam({ name: 'userId', description: 'User ID', type: String })
+  @ApiOkResponse({ description: 'Presence info returned' })
+  @ApiStandardErrorResponses()
   getUserPresence(@Param('userId') userId: string) {
     const online = this.messagingGateway.isUserOnline(userId);
     const last_seen = this.messagingGateway.getLastSeen(userId);

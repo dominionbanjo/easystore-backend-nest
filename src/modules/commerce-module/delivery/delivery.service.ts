@@ -207,6 +207,22 @@ export class DeliveryService {
 
     const delivery = await this.deliveryRepo.findOne({
       where: { id },
+      select: {
+        id: true,
+        delivery_status: true,
+        tracking_number: true,
+        estimated_delivery: true,
+        delivered_at: true,
+        confirmation_code: true,
+        address: true,
+        city: true,
+        state: true,
+        country: true,
+        postal_code: true,
+        order_id: true,
+        buyer_id: true,
+        vendor_id: true,
+      },
     });
 
     if (!delivery) throw new NotFoundException('Delivery not found');
@@ -358,7 +374,7 @@ export class DeliveryService {
       }
     }
 
-    return updated;
+    return { success: true, id: updated.id };
   }
 
   /* ────────────────────────────────────────────────
@@ -692,9 +708,6 @@ export class DeliveryService {
       }
     }
 
-    return {
-      message: 'Proof of delivery uploaded successfully',
-      delivery: updated,
-    };
+    return { success: true, message: 'Proof of delivery uploaded successfully' };
   }
 }

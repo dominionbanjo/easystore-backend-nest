@@ -8,7 +8,16 @@ import {
   Delete,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
+import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { ProductCategoryService } from './product-category.service';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
@@ -18,7 +27,10 @@ import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard'
 import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
+@ApiTags('Categories')
+@ApiBearerAuth('JWT-auth')
 @Controller('categories')
 export class ProductCategoryController {
   constructor(
@@ -29,9 +41,12 @@ export class ProductCategoryController {
      CREATE CATEGORY
      POST /product-categories
   ──────────────────────────────────────────────── */
+  @Post()
+  @ApiOperation({ summary: 'Create a category', description: 'Creates a new product category. Restricted to admin and vendor roles.' })
+  @ApiCreatedResponse({ description: 'Category created successfully' })
+  @ApiStandardErrorResponses()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'vendor')
-  @Post()
   create(
     @Body() dto: CreateProductCategoryDto,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -45,6 +60,9 @@ export class ProductCategoryController {
      GET /product-categories
   ──────────────────────────────────────────────── */
   @Get()
+  @ApiOperation({ summary: 'Get all categories', description: 'Retrieves all product categories in a tree structure. Optional authentication for vendor-specific categories.' })
+  @ApiPaginatedResponse(Object)
+  @ApiStandardErrorResponses()
   @UseGuards(OptionalJwtAuthGuard)
   findAll(@CurrentUser() user?: jwtStrategy.JwtAuthUser) {
     return this.productCategoryService.findAll(user?.store_id ?? undefined);
@@ -55,6 +73,10 @@ export class ProductCategoryController {
      GET /product-categories/:identifier
   ──────────────────────────────────────────────── */
   @Get(':identifier')
+  @ApiOperation({ summary: 'Get a category', description: 'Retrieves a single category by its ID or slug.' })
+  @ApiParam({ name: 'identifier', description: 'Category ID or slug', type: String })
+  @ApiOkResponse({ description: 'Category retrieved successfully' })
+  @ApiStandardErrorResponses()
   findOne(@Param('identifier') identifier: string) {
     return this.productCategoryService.findOne(identifier);
   }
@@ -63,9 +85,13 @@ export class ProductCategoryController {
      UPDATE CATEGORY
      PATCH /product-categories/:id
   ──────────────────────────────────────────────── */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin') // 🔒 ALL routes admin-only
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a category', description: 'Updates an existing product category. Restricted to admin role.' })
+  @ApiParam({ name: 'id', description: 'Category ID', type: String })
+  @ApiOkResponse({ description: 'Category updated successfully' })
+  @ApiStandardErrorResponses()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   update(@Param('id') id: string, @Body() dto: UpdateProductCategoryDto) {
     return this.productCategoryService.update(id, dto);
   }
@@ -74,9 +100,13 @@ export class ProductCategoryController {
      DELETE CATEGORY
      DELETE /product-categories/:id
   ──────────────────────────────────────────────── */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin') // 🔒 ALL routes admin-only
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a category', description: 'Permanently removes a product category. Restricted to admin role.' })
+  @ApiParam({ name: 'id', description: 'Category ID', type: String })
+  @ApiOkResponse({ description: 'Category deleted successfully' })
+  @ApiStandardErrorResponses()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   remove(@Param('id') id: string) {
     return this.productCategoryService.remove(id);
   }

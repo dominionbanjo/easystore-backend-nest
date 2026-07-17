@@ -19,6 +19,28 @@ export class OrderQueryService {
     return this.orderRepo.find({
       where: { payment_reference: reference },
       relations: ['buyer', 'vendor'],
+      select: {
+        id: true,
+        buyer_id: true,
+        vendor_id: true,
+        status: true,
+        payment_status: true,
+        total: true,
+        order_items: true,
+        created_at: true,
+        buyer: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          email: true,
+        },
+        vendor: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          email: true,
+        },
+      },
     });
   }
 
@@ -26,7 +48,26 @@ export class OrderQueryService {
      GET SINGLE ORDER
   ──────────────────────────────────────────────── */
   async getOrder(id: string) {
-    const order = await this.orderRepo.findOne({ where: { id } });
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      select: {
+        id: true,
+        buyer_id: true,
+        vendor_id: true,
+        status: true,
+        payment_status: true,
+        payment_method: true,
+        payment_reference: true,
+        subtotal: true,
+        shipping_fee: true,
+        platform_fee: true,
+        tax: true,
+        total: true,
+        order_items: true,
+        notes: true,
+        created_at: true,
+      },
+    });
     if (!order) throw new NotFoundException('Order not found');
     return order;
   }
@@ -38,6 +79,40 @@ export class OrderQueryService {
     const order = await this.orderRepo.findOne({
       where: { id },
       relations: ['buyer', 'vendor', 'vendor.store'],
+      select: {
+        id: true,
+        buyer_id: true,
+        vendor_id: true,
+        status: true,
+        payment_status: true,
+        payment_method: true,
+        payment_reference: true,
+        subtotal: true,
+        shipping_fee: true,
+        platform_fee: true,
+        tax: true,
+        total: true,
+        order_items: true,
+        created_at: true,
+        buyer: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          email: true,
+        },
+        vendor: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          email: true,
+          store: {
+            id: true,
+            store_name: true,
+            slug: true,
+            logo: true,
+          },
+        },
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
     return order;
@@ -122,8 +197,8 @@ export class OrderQueryService {
 
     // 🔒 SECURITY: Only the buyer should see the delivery confirmation code
     if (order.vendor_id === user_id) {
-      if (order.delivery) (order.delivery as any).confirmation_code = null;
-      if (order.escrow) (order.escrow as any).release_code = null;
+      if (order.delivery) order.delivery.confirmation_code = null;
+      if (order.escrow) order.escrow.release_code = null;
 
       // 💰 FINANCIAL: Vendors only see their net payout (Total - Platform Fee)
       // We overwrite the total field so the frontend doesn't need complex math

@@ -5,9 +5,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import { Order } from '../entities/order.entity';
+import { Order, PaymentMethod } from '../entities/order.entity';
 import { ICartItem } from '../../cart/types/types';
 import { OrderValidationService } from './order-validation.service';
 import { TransactionsService } from 'src/modules/finance-module/transactions/transactions.service';
@@ -33,6 +33,7 @@ export class OfflineOrderService {
     @Inject(forwardRef(() => StoreAnalyticsService))
     private readonly storeAnalyticsService: StoreAnalyticsService,
     private readonly storeService: StoreService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -68,22 +69,25 @@ export class OfflineOrderService {
       const taxKobo = tax;
       const totalKobo = subtotalKobo + taxKobo;
 
-      const order = this.orderRepo.create({
-        id: uuidv4(),
-        buyer_id,
-        vendor_id,
-        order_items: vendorItems,
-        subtotal: subtotalKobo,
-        tax: taxKobo,
-        total: totalKobo,
-        payment_method: 'offline',
-        payment_status: 'unpaid',
-        status: 'pending',
-        delivery_address_id: data.delivery_address_id,
-        notes: notes ?? null,
+      const saved = await this.dataSource.transaction(async (manager) => {
+        const orderEntity = manager.create(Order, {
+          id: uuidv4(),
+          buyer_id,
+          vendor_id,
+          order_items: vendorItems,
+          subtotal: subtotalKobo,
+          tax: taxKobo,
+          total: totalKobo,
+          payment_method: 'offline',
+          payment_status: 'unpaid',
+          status: 'pending',
+          delivery_address_id: data.delivery_address_id,
+          notes: notes ?? null,
+        });
+
+        return manager.save(Order, orderEntity);
       });
 
-      const saved = await this.orderRepo.save(order);
       orders.push(saved);
 
       await this.transactions.create({
@@ -109,7 +113,7 @@ export class OfflineOrderService {
 
     return {
       success: true,
-      orders,
+      order_ids: orders.map(o => o.id),
     };
   }
 
@@ -191,7 +195,7 @@ export class OfflineOrderService {
       subtotal: subtotalKobo,
       shipping_fee: 0,
       total: subtotalKobo,
-      payment_method: 'offline' as any,
+      payment_method: 'offline' as PaymentMethod,
       payment_status: 'success',
       status: 'completed',
       notes:
@@ -251,7 +255,7 @@ export class OfflineOrderService {
 
     return {
       success: true,
-      order: savedOrder,
+      order_id: savedOrder.id,
     };
   }
 }

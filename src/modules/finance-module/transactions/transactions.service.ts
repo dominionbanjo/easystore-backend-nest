@@ -33,8 +33,8 @@ export class TransactionsService {
     const saved = await this.transactionRepo.save(tx);
 
     return {
-      message: 'Transaction created successfully',
-      transaction: saved,
+      success: true,
+      id: saved.id,
     };
   }
 
@@ -42,7 +42,19 @@ export class TransactionsService {
      GET SINGLE TRANSACTION
   ──────────────────────────────────────────────── */
   async getOne(id: string) {
-    const tx = await this.transactionRepo.findOne({ where: { id } });
+    const tx = await this.transactionRepo.findOne({
+      where: { id },
+      select: {
+        id: true,
+        reference: true,
+        type: true,
+        amount: true,
+        currency: true,
+        status: true,
+        description: true,
+        created_at: true,
+      },
+    });
 
     if (!tx) {
       throw new NotFoundException('Transaction not found');
@@ -59,6 +71,17 @@ export class TransactionsService {
     const limit = query.limit ?? 20;
 
     const qb = this.transactionRepo.createQueryBuilder('tx');
+
+    qb.select([
+      'tx.id',
+      'tx.reference',
+      'tx.type',
+      'tx.amount',
+      'tx.currency',
+      'tx.status',
+      'tx.description',
+      'tx.created_at',
+    ]);
 
     if (query.order_id) qb.andWhere('tx.order_id = :order_id', query);
     if (query.user_id) qb.andWhere('tx.user_id = :user_id', query);
@@ -111,9 +134,6 @@ export class TransactionsService {
     original.status = 'reversed';
     await this.transactionRepo.save(original);
 
-    return {
-      message: 'Transaction reversed successfully',
-      reversal,
-    };
+    return { success: true, message: 'Transaction reversed successfully' };
   }
 }

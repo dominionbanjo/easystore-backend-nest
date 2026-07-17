@@ -120,7 +120,7 @@ export class StoreWriteService {
     await this.cache.clearPrefix('svc:store');
     await this.cache.clearPrefix('svc:store:list');
 
-    return saved;
+    return { success: true, id: saved.id };
   }
 
   async updateStore(
@@ -254,12 +254,12 @@ export class StoreWriteService {
     await this.cache.clearPrefix('svc:store:products');
     await this.cache.clearPrefix('svc:store:analytics');
 
-    return updated;
+    return { success: true, id: storeId };
   }
 
   async deleteStore(storeId: string) {
-    const store = await this.storeRepo.findOne({ where: { id: storeId } });
-    if (!store) throw new NotFoundException('Store not found');
+    const exists = await this.storeRepo.exists({ where: { id: storeId } });
+    if (!exists) throw new NotFoundException('Store not found');
 
     await this.storeRepo.delete(storeId);
 
@@ -397,7 +397,6 @@ export class StoreWriteService {
     return {
       success: true,
       message: 'Bank account registered',
-      store: updated,
     };
   }
 
@@ -485,8 +484,6 @@ export class StoreWriteService {
       message: verified
         ? 'Bank verified & updated'
         : 'Settlement email updated',
-      store: updated,
-      verified,
     };
   }
 
@@ -508,7 +505,7 @@ export class StoreWriteService {
     await this.cache.clearPrefix('svc:store');
     await this.cache.clearPrefix('svc:store:list');
 
-    return { success: true, message: 'Bank account removed', store: updated };
+    return { success: true, message: 'Bank account removed' };
   }
 
   /* ────────────────────────────────────────────────

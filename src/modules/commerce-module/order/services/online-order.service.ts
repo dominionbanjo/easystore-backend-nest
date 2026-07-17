@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Order } from '../entities/order.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
@@ -34,6 +34,7 @@ export class OnlineOrderService {
     private readonly cache: CacheService,
     private readonly cartService: CartService,
     private readonly deliveryRateService: StoreDeliveryRateService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -142,15 +143,15 @@ export class OnlineOrderService {
       );
       const reference = payment.reference;
 
-      /* CREATE ORDER + ESCROW */
-      const order = this.orderRepo.create({
+      /* CREATE ORDER + ESCROW (ATOMIC TRANSACTION) */
+      const orderData = this.orderRepo.create({
         id: uuidv4(),
         buyer_id,
         vendor_id,
         order_items: groups[vendor_id]!,
         subtotal: subtotalKobo,
         shipping_fee: shippingKobo,
-        platform_fee: platformFeeKobo, // Store total fee (incl. escrow) for accounting
+        platform_fee: platformFeeKobo,
         total: grandTotalKobo,
         payment_method: 'online',
         payment_reference: reference,
@@ -167,18 +168,19 @@ export class OnlineOrderService {
         }),
       });
 
-      const savedOrder = await this.orderRepo.save(order);
+      const { savedOrder, escrow } = await this.dataSource.transaction(async (manager) => {
+        const saved = await manager.save(Order, orderData);
 
-      /* CREATE ESCROW RECORD */
-      const escrow = await this.escrowService.createEscrow({
-        order_id: savedOrder.id,
-        buyer_id,
-        vendor_id,
-        amount: subtotalKobo + shippingKobo,
-      });
+        const escrowRecord = await this.escrowService.createEscrow({
+          order_id: saved.id,
+          buyer_id,
+          vendor_id,
+          amount: subtotalKobo + shippingKobo,
+        });
 
-      await this.orderRepo.update(savedOrder.id, {
-        escrow_id: escrow.id,
+        await manager.update(Order, saved.id, { escrow_id: escrowRecord.id });
+
+        return { savedOrder: saved, escrow: escrowRecord };
       });
 
       await this.cache.clearPrefix('svc:order');
@@ -188,7 +190,7 @@ export class OnlineOrderService {
         success: true,
         payment_url: payment.authorization_url,
         reference,
-        orders: [savedOrder],
+        order_id: savedOrder.id,
       };
     } finally {
       await this.cache.releaseLock(lockKey);
@@ -269,7 +271,7 @@ export class OnlineOrderService {
 
       const splitPayload = {
         name: `Direct Sale Split - ${reference}`,
-        type: 'flat',
+        type: 'flat' as const,
         currency: 'NGN',
         subaccounts: [
           {
@@ -277,11 +279,11 @@ export class OnlineOrderService {
             share: vendorShare,
           },
         ],
-        bearer_type: 'subaccount',
+        bearer_type: 'subaccount' as const,
         bearer_subaccount: store.paystack_subaccount_code,
       };
 
-      const splitData = await this.paystack.createSplit(splitPayload as any);
+      const splitData = await this.paystack.createSplit(splitPayload);
 
       /* INIT PAYMENT */
       const payment = await this.paystack.initializePayment(
@@ -304,7 +306,7 @@ export class OnlineOrderService {
         },
       );
 
-      const order = this.orderRepo.create({
+      const orderData = this.orderRepo.create({
         id: uuidv4(),
         buyer_id,
         vendor_id,
@@ -329,7 +331,9 @@ export class OnlineOrderService {
         }),
       });
 
-      const savedOrder = await this.orderRepo.save(order);
+      const savedOrder = await this.dataSource.transaction(async (manager) => {
+        return manager.save(Order, orderData);
+      });
 
       await this.cache.clearPrefix('svc:order');
       await this.cartService.removeSpecificItems(buyer_id, validatedItems);
@@ -338,7 +342,7 @@ export class OnlineOrderService {
         success: true,
         payment_url: payment.authorization_url,
         reference,
-        orders: [savedOrder],
+        order_id: savedOrder.id,
       };
     } finally {
       await this.cache.releaseLock(lockKey);
@@ -448,7 +452,7 @@ export class OnlineOrderService {
       }
 
       await this.cartService.clearCart(buyer_id);
-      return { success: true, payment_url: payment.authorization_url, orders };
+      return { success: true, payment_url: payment.authorization_url, order_ids: orders.map(o => o.id) };
     } finally {
       await this.cache.releaseLock(lockKey);
     }

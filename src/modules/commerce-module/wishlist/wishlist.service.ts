@@ -10,6 +10,7 @@ import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { Product } from '../product/entities/product.entity';
 import { CartService } from '../cart/cart.service';
 
+
 @Injectable()
 export class WishlistService {
   constructor(
@@ -61,11 +62,38 @@ export class WishlistService {
 
     if (cached) return cached;
 
-    const wishlist = await this.wishlistRepo.find({
-      where: { user_id: userId },
-      relations: ['product', 'product.variants'],
-      order: { created_at: 'DESC' },
-    });
+    const qb = this.wishlistRepo
+      .createQueryBuilder('w')
+      .leftJoinAndSelect('w.product', 'product')
+      .leftJoinAndSelect('product.variants', 'variants')
+      .leftJoin('product.store', 'store')
+      .where('w.user_id = :userId', { userId })
+      .orderBy('w.created_at', 'DESC');
+
+    qb.addSelect([
+      'product.id',
+      'product.name',
+      'product.slug',
+      'product.price',
+      'product.image',
+      'product.rating_average',
+      'product.stock',
+      'product.created_at',
+      'product.options',
+      'product.discount_price',
+      'product.on_sale',
+      'store.id',
+      'store.store_name',
+      'store.slug',
+      'w.id',
+      'w.product_id',
+      'w.name',
+      'w.image',
+      'w.price',
+      'w.created_at',
+    ]);
+
+    const wishlist = await qb.getMany();
 
     const response = {
       message: 'Wishlist retrieved successfully',
@@ -119,10 +147,7 @@ export class WishlistService {
     });
 
     if (existing) {
-      return {
-        message: 'Product already in wishlist',
-        wishlist: existing,
-      };
+      return { success: true, id: existing.id, message: 'Product already in wishlist' };
     }
 
     const wishlistItem = wRepo.create({
@@ -137,10 +162,7 @@ export class WishlistService {
 
     await this.cache.clearPrefix('wishlist');
 
-    return {
-      message: 'Added to wishlist',
-      wishlist: saved,
-    };
+    return { success: true, id: saved.id, message: 'Added to wishlist' };
   }
 
   /* ────────────────────────────────────────────────

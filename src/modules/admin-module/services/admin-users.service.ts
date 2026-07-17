@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import {
   User,
   AccountStatus,
@@ -25,11 +25,8 @@ export class AdminUsersService {
     private readonly adminNotifyMail: AdminNotifyMailService,
   ) {}
 
-  private buildBaseQuery(type?: string) {
-    const qb = this.userRepo
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('user.store', 'store')
-      .orderBy('user.created_at', 'DESC');
+  private buildBaseQuery(type?: string): SelectQueryBuilder<User> {
+    const qb = this.userRepo.createQueryBuilder('user').leftJoin('user.store', 'store');
 
     if (type) {
       qb.andWhere('user.account_type = :type', { type });
@@ -54,6 +51,18 @@ export class AdminUsersService {
       .skip((page - 1) * limit)
       .take(limit);
 
+    qb.select([
+      'user.id',
+      'user.first_name',
+      'user.last_name',
+      'user.username',
+      'user.email',
+      'user.account_type',
+      'user.account_status',
+      'user.email_verified',
+      'user.created_at',
+    ]);
+
     if (query.status && query.status !== 'all') {
       qb.andWhere('user.account_status = :status', { status: query.status });
     }
@@ -64,6 +73,8 @@ export class AdminUsersService {
         { search: `%${query.search.toLowerCase()}%` },
       );
     }
+
+    qb.orderBy('user.created_at', 'DESC');
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -83,6 +94,23 @@ export class AdminUsersService {
       .skip((page - 1) * limit)
       .take(limit);
 
+    qb.select([
+      'user.id',
+      'user.first_name',
+      'user.last_name',
+      'user.email',
+      'user.account_type',
+      'user.account_status',
+      'user.created_at',
+      'store.id',
+      'store.store_name',
+      'store.logo',
+      'store.status',
+      'store.address_city',
+      'store.address_state',
+      'store.address_country',
+    ]);
+
     if (query.status && query.status !== 'all') {
       qb.andWhere('store.status = :status', { status: query.status });
     }
@@ -93,6 +121,8 @@ export class AdminUsersService {
         { search: `%${query.search.toLowerCase()}%` },
       );
     }
+
+    qb.orderBy('user.created_at', 'DESC');
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -105,8 +135,40 @@ export class AdminUsersService {
   async getOne(userId: string) {
     const user = await this.userRepo
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.store', 'store')
+      .leftJoin('user.store', 'store')
       .where('user.id = :userId', { userId })
+      .select([
+        'user.id',
+        'user.first_name',
+        'user.last_name',
+        'user.username',
+        'user.email',
+        'user.phone_number',
+        'user.avatar',
+        'user.account_type',
+        'user.account_status',
+        'user.email_verified',
+        'user.created_at',
+        'store.id',
+        'store.store_name',
+        'store.slug',
+        'store.logo',
+        'store.cover_image',
+        'store.description',
+        'store.status',
+        'store.email',
+        'store.phone_number',
+        'store.address_street',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
+        'store.bank_code',
+        'store.account_number',
+        'store.bank_name',
+        'store.payout_verified',
+        'store.setup_stage',
+      ])
       .getOne();
 
     if (!user) throw new NotFoundException('User not found');
@@ -118,6 +180,20 @@ export class AdminUsersService {
     const user = await this.userRepo.findOne({
       where: { id: userId },
       relations: ['store'],
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        account_type: true,
+        account_status: true,
+        token_version: true,
+        updated_at: true,
+        store: {
+          id: true,
+          store_name: true,
+        },
+      },
     });
     if (!user) throw new NotFoundException('User not found');
 
@@ -158,7 +234,7 @@ export class AdminUsersService {
         )
         .catch((e) => console.error('Status Update Email Error:', e.message));
 
-      // Notify Admin about the change (as requested: "o both admin and the vendors or users")
+      // Notify Admin about the change
       this.adminNotifyMail
         .notifyStatusUpdate(
           {
@@ -180,6 +256,17 @@ export class AdminUsersService {
     const store = await this.storeRepo.findOne({
       where: { id: storeId },
       relations: ['user'],
+      select: {
+        id: true,
+        store_name: true,
+        status: true,
+        updated_at: true,
+        user: {
+          id: true,
+          first_name: true,
+          email: true,
+        },
+      },
     });
 
     if (!store) throw new NotFoundException('Store not found');
@@ -200,14 +287,13 @@ export class AdminUsersService {
         .catch((e) => console.error('Store Approval Email Error:', e.message));
     } else if (store.user) {
       // General status update for store
-      // (Using the same status update email for now, or could create a store-specific one)
       this.accountStatusMail
         .sendStatusUpdateEmail(
           {
             name: store.user.first_name,
             email: store.user.email,
           },
-          newStatus as any,
+          newStatus,
         )
         .catch((e) => console.error('Status Update Email Error:', e.message));
     }

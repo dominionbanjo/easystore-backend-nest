@@ -14,6 +14,15 @@ export class NotificationService {
   async findAll(params: { type?: string; status?: string; search?: string }) {
     const query = this.notificationRepo.createQueryBuilder('n');
 
+    query.select([
+      'n.id',
+      'n.title',
+      'n.message',
+      'n.type',
+      'n.status',
+      'n.created_at',
+    ]);
+
     if (params.type && params.type !== 'all') {
       query.andWhere('n.type = :type', { type: params.type });
     }
@@ -36,7 +45,7 @@ export class NotificationService {
 
   async update(id: string, data: Partial<Notification>) {
     await this.notificationRepo.update(id, data);
-    return this.notificationRepo.findOne({ where: { id } });
+    return { success: true, id };
   }
 
   async create(data: Partial<Notification>) {
@@ -49,7 +58,9 @@ export class NotificationService {
       notification.scheduled_at = this.calculateNextExecutionTime(notification);
     }
 
-    return this.notificationRepo.save(notification);
+    const saved = await this.notificationRepo.save(notification);
+
+    return { success: true, id: saved.id };
   }
 
   async delete(id: string) {

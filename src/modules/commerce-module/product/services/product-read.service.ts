@@ -283,38 +283,86 @@ export class ProductReadService {
   async getSingle(identifier: string, userId?: string) {
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
-    const product = await this.productRepo.findOne({
-      where: isUUID ? { id: identifier } : { slug: identifier },
-      relations: [
-        'category_ref',
-        'store',
-        'store.user',
-        'reviews',
-        'reviews.user',
-        'variants',
-      ],
-      order: {
-        reviews: {
-          created_at: 'DESC',
-        },
-      },
-    });
+    const product = await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoin('product.variants', 'variants')
+      .leftJoin('product.category_ref', 'category')
+      .leftJoin('product.store', 'store')
+      .leftJoin('store.user', 'storeUser')
+      .leftJoin('product.reviews', 'reviews')
+      .leftJoin('reviews.user', 'reviewUser')
+      .where(
+        isUUID ? 'product.id = :identifier' : 'product.slug = :identifier',
+        { identifier },
+      )
+      .andWhere('product.status = :status', {
+        status: ProductStatus.ACTIVE,
+      })
+      .andWhere('store.status = :storeStatus', { storeStatus: 'active' })
+      .andWhere('storeUser.account_status = :userStatus', {
+        userStatus: 'active',
+      })
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.description',
+        'product.price',
+        'product.discount_price',
+        'product.on_sale',
+        'product.stock',
+        'product.image',
+        'product.gallery',
+        'product.highlights',
+        'product.specs',
+        'product.shipping_note',
+        'product.returns_note',
+        'product.options',
+        'product.rating_average',
+        'product.review_count',
+        'product.vendor_id',
+        'product.category_id',
+        'product.store_id',
+        'variants.id',
+        'variants.product_id',
+        'variants.sku',
+        'variants.combinations',
+        'variants.price',
+        'variants.discount_price',
+        'variants.stock',
+        'variants.image_url',
+        'category.id',
+        'category.name',
+        'store.id',
+        'store.store_name',
+        'store.slug',
+        'store.rating_average',
+        'store.rating_count',
+        'store.logo',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
+        'reviews.id',
+        'reviews.rating',
+        'reviews.comment',
+        'reviews.created_at',
+        'reviewUser.id',
+        'reviewUser.first_name',
+        'reviewUser.last_name',
+        'reviewUser.avatar',
+      ])
+      .orderBy('reviews.created_at', 'DESC')
+      .addOrderBy('product.created_at', 'DESC')
+      .getOne();
 
-    if (
-      !product ||
-      product.status !== ProductStatus.ACTIVE ||
-      !product.store ||
-      product.store.status !== 'active' ||
-      product.store.user?.account_status !== 'active'
-    ) {
+    if (!product) {
       throw new NotFoundException('Product not found or is inactive');
     }
 
     const wishlistSet = userId
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
-
-
 
     const store = product.store
       ? {
@@ -331,7 +379,7 @@ export class ProductReadService {
         }
       : null;
 
-    const reviews = product.reviews.map((review) => ({
+    const reviews = (product.reviews || []).map((review) => ({
       id: review.id,
       rating: review.rating,
       comment: review.comment,
@@ -354,9 +402,38 @@ export class ProductReadService {
 
     const related = await this.productRepo
       .createQueryBuilder('p')
-      .leftJoinAndSelect('p.store', 'store')
-      .leftJoinAndSelect('p.category_ref', 'category')
-      .leftJoinAndSelect('p.variants', 'variants')
+      .leftJoin('p.store', 'store')
+      .leftJoin('p.category_ref', 'category')
+      .leftJoin('p.variants', 'variants')
+      .select([
+        'p.id',
+        'p.name',
+        'p.slug',
+        'p.price',
+        'p.image',
+        'p.rating_average',
+        'p.stock',
+        'p.created_at',
+        'p.options',
+        'p.discount_price',
+        'p.on_sale',
+        'category.id',
+        'category.name',
+        'category.slug',
+        'store.id',
+        'store.store_name',
+        'store.slug',
+        'store.address_city',
+        'store.address_state',
+        'store.address_country',
+        'store.address_postal_code',
+        'variants.id',
+        'variants.combinations',
+        'variants.price',
+        'variants.discount_price',
+        'variants.stock',
+        'variants.image_url',
+      ])
       .where('p.category_id = :categoryId', {
         categoryId: product.category_id,
       })
@@ -385,14 +462,14 @@ export class ProductReadService {
 
     return {
       message: 'Product retrieved successfully',
-      product, // Raw entity with Kobo prices (used by internal services like OrderValidation)
+      product,
       data: {
         product: {
           ...productOnly,
           price: Number(product.price) / 100,
-            discount_price: product.discount_price
-              ? Number(product.discount_price) / 100
-              : null,
+          discount_price: product.discount_price
+            ? Number(product.discount_price) / 100
+            : null,
           options: product.options || [],
           variants,
           is_in_wishlist: wishlistSet.has(product.id),
@@ -408,12 +485,55 @@ export class ProductReadService {
   async getVendorSingle(identifier: string, storeId: string) {
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
-    const product = await this.productRepo.findOne({
-      where: isUUID
-        ? { id: identifier, store_id: storeId }
-        : { slug: identifier, store_id: storeId },
-      relations: ['category_ref', 'store', 'variants'],
-    });
+    const product = await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoin('product.variants', 'variants')
+      .leftJoin('product.category_ref', 'category')
+      .leftJoin('product.store', 'store')
+      .where(
+        isUUID
+          ? 'product.id = :identifier AND product.store_id = :storeId'
+          : 'product.slug = :identifier AND product.store_id = :storeId',
+        { identifier, storeId },
+      )
+      .select([
+        'product.id',
+        'product.name',
+        'product.slug',
+        'product.description',
+        'product.price',
+        'product.discount_price',
+        'product.on_sale',
+        'product.stock',
+        'product.image',
+        'product.gallery',
+        'product.highlights',
+        'product.specs',
+        'product.shipping_note',
+        'product.returns_note',
+        'product.options',
+        'product.rating_average',
+        'product.tags',
+        'product.status',
+        'product.featured',
+        'product.total_sold',
+        'product.vendor_id',
+        'product.category_id',
+        'product.store_id',
+        'variants.id',
+        'variants.product_id',
+        'variants.sku',
+        'variants.combinations',
+        'variants.price',
+        'variants.discount_price',
+        'variants.stock',
+        'variants.image_url',
+        'category.id',
+        'category.name',
+        'store.id',
+        'store.store_name',
+      ])
+      .getOne();
 
     if (!product) {
       throw new NotFoundException('Product not found in your store');

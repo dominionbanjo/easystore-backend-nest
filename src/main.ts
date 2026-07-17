@@ -2,10 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { SwaggerModule } from '@nestjs/swagger';
 
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { configureCloudinary } from './common/config/cloudinary.config';
+import { swaggerConfig } from './common/config/swagger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -47,6 +49,16 @@ async function bootstrap() {
 
   // 🔌 WebSocket adapter
   app.useWebSocketAdapter(new IoAdapter(app));
+
+  // 📖 Swagger documentation
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'method',
+    },
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }

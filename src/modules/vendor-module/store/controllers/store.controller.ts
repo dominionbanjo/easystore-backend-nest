@@ -11,6 +11,11 @@ import {
   UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { ApiStandardErrorResponses } from '../../../../common/decorators/api-standard-errors.decorator';
+import { ApiPaginatedResponse } from '../../../../common/decorators/api-paginated-response.decorator';
+import { StoreListItemDto } from '../../../../common/dto/response/store-response.dto';
+import { ProductCardResponseDto } from '../../../../common/dto/response/product-response.dto';
 import { UpdateStoreDto } from '../dto/update-store.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
@@ -25,6 +30,8 @@ import { RequirePermissions } from 'src/common/permissions/permissions.decorator
 import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
 import { mapToOwnerStore } from '../utils/store-sanitizer.util';
 
+@ApiTags('Stores')
+@ApiBearerAuth('JWT-auth')
 @Controller('store')
 export class StoreController {
   constructor(private readonly storeService: StoreService) {}
@@ -33,7 +40,9 @@ export class StoreController {
      PUBLIC STORE ROUTES
   ──────────────────────────────────────────────── */
 
-  // POST /store
+  @ApiOperation({ summary: 'Create a store', description: 'Create a new store for the authenticated user' })
+  @ApiCreatedResponse({ description: 'Store created successfully' })
+  @ApiStandardErrorResponses()
   @Post()
   @UseGuards(JwtAuthGuard)
   async create(
@@ -41,11 +50,12 @@ export class StoreController {
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
     dto.user_id = user.sub;
-    const store = await this.storeService.createStore(dto);
-    return mapToOwnerStore(store);
+    return this.storeService.createStore(dto);
   }
 
-  // GET /store/me
+  @ApiOperation({ summary: 'Get my store', description: 'Retrieve the store associated with the authenticated user' })
+  @ApiOkResponse({ description: 'Store details for the current user' })
+  @ApiStandardErrorResponses()
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMyStore(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
@@ -53,13 +63,22 @@ export class StoreController {
     return mapToOwnerStore(store);
   }
 
-  // GET /store
+  @ApiOperation({ summary: 'Get all stores', description: 'Retrieve paginated list of all stores (public)' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiPaginatedResponse(StoreListItemDto)
+  @ApiStandardErrorResponses()
   @Get()
   findAll(@Query() pagination: PaginationQueryDto) {
     return this.storeService.getAllStores(pagination);
   }
 
-  // GET /store/search?q=tech&page=1&limit=20
+  @ApiOperation({ summary: 'Search stores', description: 'Search stores by query string with pagination (public)' })
+  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search query' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiPaginatedResponse(StoreListItemDto)
+  @ApiStandardErrorResponses()
   @Get('search')
   searchStores(@Query('q') q: string, @Query() pagination: PaginationQueryDto) {
     return this.storeService.searchStores(q, pagination);
@@ -69,19 +88,30 @@ export class StoreController {
      THEME / TEMPLATE PUBLIC ROUTES
   ──────────────────────────────────────────────── */
 
-  // GET /store/templates
+  @ApiOperation({ summary: 'Get store templates', description: 'Retrieve available store theme templates (public)' })
+  @ApiOkResponse({ description: 'List of available templates' })
+  @ApiStandardErrorResponses()
   @Get('templates')
   getTemplates() {
     return this.storeService.getTemplates();
   }
 
-  // GET /store/:slug/theme
+  @ApiOperation({ summary: 'Get store theme', description: 'Retrieve the theme configuration for a store by slug (public)' })
+  @ApiParam({ name: 'slug', description: 'Store slug', type: String })
+  @ApiOkResponse({ description: 'Store theme configuration' })
+  @ApiStandardErrorResponses()
   @Get(':slug/theme')
   getStoreTheme(@Param('slug') slug: string) {
     return this.storeService.getStoreTheme(slug);
   }
 
-  // GET /store/:identifier/category/:categoryId/products
+  @ApiOperation({ summary: 'Get store products by category', description: 'Retrieve products for a store filtered by category (public, with optional auth for pricing)' })
+  @ApiParam({ name: 'identifier', description: 'Store ID or slug', type: String })
+  @ApiParam({ name: 'categoryId', description: 'Category ID', type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiPaginatedResponse(ProductCardResponseDto)
+  @ApiStandardErrorResponses()
   @Get(':identifier/category/:categoryId/products')
   @UseGuards(OptionalJwtAuthGuard)
   getStoreProductsByCategory(
@@ -98,7 +128,12 @@ export class StoreController {
     );
   }
 
-  // GET /store/:identifier/products
+  @ApiOperation({ summary: 'Get store products', description: 'Retrieve paginated products for a store by identifier (public, with optional auth for pricing)' })
+  @ApiParam({ name: 'identifier', description: 'Store ID or slug', type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiPaginatedResponse(ProductCardResponseDto)
+  @ApiStandardErrorResponses()
   @Get(':identifier/products')
   @UseGuards(OptionalJwtAuthGuard)
   getStoreProducts(
@@ -108,7 +143,14 @@ export class StoreController {
   ) {
     return this.storeService.getStoreProducts(identifier, query, user?.sub);
   }
-  // GET /store/:identifier
+  @ApiOperation({ summary: 'Get store by identifier', description: 'Retrieve a store by slug or ID with optional products and categories (public, with optional auth)' })
+  @ApiParam({ name: 'identifier', description: 'Store ID or slug', type: String })
+  @ApiQuery({ name: 'includeProducts', required: false, type: Boolean, description: 'Include products in response' })
+  @ApiQuery({ name: 'includeCategories', required: false, type: Boolean, description: 'Include categories in response' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiOkResponse({ description: 'Store details' })
+  @ApiStandardErrorResponses()
   @Get(':identifier')
   @UseGuards(OptionalJwtAuthGuard)
   findOne(
@@ -128,7 +170,12 @@ export class StoreController {
     });
   }
 
-  // GET /store/:identifier/products/grouped-by-category
+  @ApiOperation({ summary: 'Get store products grouped by category', description: 'Retrieve products grouped by category for a store (public, with optional auth)' })
+  @ApiParam({ name: 'identifier', description: 'Store ID or slug', type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiOkResponse({ description: 'Products grouped by category' })
+  @ApiStandardErrorResponses()
   @Get(':identifier/products/grouped-by-category')
   @UseGuards(OptionalJwtAuthGuard)
   getStoreProductsGroupedByCategory(
@@ -146,6 +193,10 @@ export class StoreController {
   /* ────────────────────────────────────────────────
      UPDATE / DELETE STORE
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Update store', description: 'Update store details including logo and cover image' })
+  @ApiParam({ name: 'id', description: 'Store ID', type: String })
+  @ApiOkResponse({ description: 'Store updated successfully' })
+  @ApiStandardErrorResponses()
   @Patch(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   @RequirePermissions(Permission.MANAGE_STORE)
@@ -164,11 +215,13 @@ export class StoreController {
       cover_image?: Express.Multer.File[];
     },
   ) {
-    const store = await this.storeService.updateStore(id, dto, files);
-    return mapToOwnerStore(store);
+    return this.storeService.updateStore(id, dto, files);
   }
 
-  // PATCH /store/:id/theme
+  @ApiOperation({ summary: 'Update store theme', description: 'Update the theme configuration for a store' })
+  @ApiParam({ name: 'id', description: 'Store ID', type: String })
+  @ApiOkResponse({ description: 'Store theme updated successfully' })
+  @ApiStandardErrorResponses()
   @Patch(':id/theme')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   @RequirePermissions(Permission.MANAGE_STORE)
@@ -180,7 +233,10 @@ export class StoreController {
     return this.storeService.updateStoreTheme(id, user.sub, dto);
   }
 
-  // DELETE /store/:id
+  @ApiOperation({ summary: 'Delete store', description: 'Permanently delete a store (admin or store owner only)' })
+  @ApiParam({ name: 'id', description: 'Store ID', type: String })
+  @ApiOkResponse({ description: 'Store deleted successfully' })
+  @ApiStandardErrorResponses()
   @Delete(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   @RequirePermissions(Permission.MANAGE_SETTINGS) // Only high-level or admin can delete
@@ -192,7 +248,11 @@ export class StoreController {
      BANK ROUTES (STORE SUB-RESOURCE)
   ──────────────────────────────────────────────── */
 
-  // POST /store/:id/bank
+  @ApiOperation({ summary: 'Register bank account', description: 'Register a bank account for a store to receive payouts' })
+  @ApiParam({ name: 'id', description: 'Store ID', type: String })
+  @ApiBody({ description: 'Bank account details', type: Object })
+  @ApiCreatedResponse({ description: 'Bank account registered successfully' })
+  @ApiStandardErrorResponses()
   @Post(':id/bank')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.MANAGE_STORE)
@@ -210,7 +270,11 @@ export class StoreController {
     );
   }
 
-  // PATCH /store/:id/bank
+  @ApiOperation({ summary: 'Update bank account', description: 'Update the bank account details for a store' })
+  @ApiParam({ name: 'id', description: 'Store ID', type: String })
+  @ApiBody({ description: 'Updated bank account details', type: Object })
+  @ApiOkResponse({ description: 'Bank account updated successfully' })
+  @ApiStandardErrorResponses()
   @Patch(':id/bank')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.MANAGE_STORE)
@@ -226,7 +290,10 @@ export class StoreController {
     return this.storeService.updateBankAccount(storeId, updates);
   }
 
-  // DELETE /store/:id/bank
+  @ApiOperation({ summary: 'Delete bank account', description: 'Remove the bank account associated with a store' })
+  @ApiParam({ name: 'id', description: 'Store ID', type: String })
+  @ApiOkResponse({ description: 'Bank account deleted successfully' })
+  @ApiStandardErrorResponses()
   @Delete(':id/bank')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.MANAGE_STORE)

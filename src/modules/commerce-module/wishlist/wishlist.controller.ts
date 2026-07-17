@@ -8,11 +8,24 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 import { WishlistService } from './wishlist.service';
+import { CreateWishlistDto } from './dto/create-wishlist.dto';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
+@ApiTags('Wishlist')
+@ApiBearerAuth('JWT-auth')
 @Controller('wishlist')
 @UseGuards(JwtAuthGuard)
 export class WishlistController {
@@ -21,6 +34,9 @@ export class WishlistController {
   /* ────────────────────────────────────────────────
      📄 GET MY WISHLIST
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get wishlist', description: 'Retrieves the wishlist for the authenticated user.' })
+  @ApiOkResponse({ description: 'Wishlist retrieved successfully' })
+  @ApiStandardErrorResponses()
   @Get()
   async getMyWishlist(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.wishlistService.getWishlist(user.sub);
@@ -29,6 +45,10 @@ export class WishlistController {
   /* ────────────────────────────────────────────────
      ➕ ADD TO WISHLIST
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Add to wishlist', description: 'Adds a product to the authenticated user wishlist.' })
+  @ApiBody({ description: 'Product to add to wishlist', type: CreateWishlistDto })
+  @ApiCreatedResponse({ description: 'Item added to wishlist successfully' })
+  @ApiStandardErrorResponses()
   @Post()
   async addToWishlist(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -55,6 +75,10 @@ export class WishlistController {
   /* ────────────────────────────────────────────────
      🗑️ REMOVE FROM WISHLIST
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Remove from wishlist', description: 'Removes a specific product from the authenticated user wishlist.' })
+  @ApiParam({ name: 'productId', description: 'Product ID', type: String })
+  @ApiOkResponse({ description: 'Item removed from wishlist successfully' })
+  @ApiStandardErrorResponses()
   @Delete(':productId')
   async removeFromWishlist(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -70,6 +94,9 @@ export class WishlistController {
   /* ────────────────────────────────────────────────
      ❌ CLEAR WISHLIST
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Clear wishlist', description: 'Removes all items from the authenticated user wishlist.' })
+  @ApiOkResponse({ description: 'Wishlist cleared successfully' })
+  @ApiStandardErrorResponses()
   @Delete()
   async clearWishlist(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.wishlistService.clearWishlist(user.sub);
@@ -78,6 +105,9 @@ export class WishlistController {
   /* ────────────────────────────────────────────────
      🛒 MOVE TO CART
   ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Move wishlist items to cart', description: 'Moves all items from the authenticated user wishlist to the cart.' })
+  @ApiCreatedResponse({ description: 'Wishlist items moved to cart successfully' })
+  @ApiStandardErrorResponses()
   @Post('move-to-cart')
   async moveToCart(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.wishlistService.moveToCart(user.sub);

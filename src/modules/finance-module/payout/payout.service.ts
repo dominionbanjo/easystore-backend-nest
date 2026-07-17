@@ -108,7 +108,7 @@ export class PayoutService {
         ? 'Manual payout pending (awaiting admin transfer)'
         : 'Payout initiated via Paystack (pending)',
       status: 'pending',
-      metadata: transfer_data ?? undefined,
+      metadata: (transfer_data ?? undefined) as Record<string, unknown> | undefined,
     });
 
     return saved;
@@ -143,6 +143,18 @@ export class PayoutService {
   async findById(id: string): Promise<Payout> {
     const payout = await this.payoutRepo.findOne({
       where: { id },
+      select: {
+        id: true,
+        order_id: true,
+        amount: true,
+        status: true,
+        payout_type: true,
+        transfer_reference: true,
+        created_at: true,
+        transferred_at: true,
+        currency: true,
+        admin_note: true,
+      },
       relations: ['vendor'],
     });
     if (!payout) throw new NotFoundException('Payout not found');
@@ -172,10 +184,10 @@ export class PayoutService {
   async markManuallyTransferred(
     payout_id: string,
     admin_note?: string,
-  ): Promise<Payout> {
+  ) {
     const payout = await this.findById(payout_id);
 
-    if (payout.status === 'success') return payout; // idempotent
+    if (payout.status === 'success') return { success: true }; // idempotent
 
     if (payout.payout_type !== 'manual') {
       throw new BadRequestException(
@@ -205,7 +217,7 @@ export class PayoutService {
       status: 'success',
     });
 
-    return updated;
+    return { success: true };
   }
 
   /* ────────────────────────────────────────────────
@@ -214,11 +226,11 @@ export class PayoutService {
   async markSuccess(
     transfer_code: string,
     payload: PaystackTransferData,
-  ): Promise<Payout> {
+  ) {
     const payout = await this.findByTransferCode(transfer_code);
     if (!payout) throw new NotFoundException('Payout not found');
 
-    if (payout.status === 'success') return payout;
+    if (payout.status === 'success') return { success: true };
 
     payout.status = 'success';
     payout.metadata = {
@@ -226,7 +238,7 @@ export class PayoutService {
       webhook: payload,
     };
 
-    const updated = await this.payoutRepo.save(payout);
+    await this.payoutRepo.save(payout);
     await this.cache.clearPrefix('svc:payout');
 
     await this.transactionService.create({
@@ -238,10 +250,10 @@ export class PayoutService {
       reference: transfer_code,
       description: 'Payout succeeded (Paystack)',
       status: 'success',
-      metadata: payload,
+      metadata: payload as unknown as Record<string, unknown>,
     });
 
-    return updated;
+    return { success: true };
   }
 
   /* ────────────────────────────────────────────────
@@ -250,11 +262,11 @@ export class PayoutService {
   async markFailed(
     transfer_code: string,
     payload: PaystackTransferData,
-  ): Promise<Payout> {
+  ) {
     const payout = await this.findByTransferCode(transfer_code);
     if (!payout) throw new NotFoundException('Payout not found');
 
-    if (payout.status === 'failed') return payout;
+    if (payout.status === 'failed') return { success: true };
 
     payout.status = 'failed';
     payout.metadata = {
@@ -262,7 +274,7 @@ export class PayoutService {
       webhook: payload,
     };
 
-    const updated = await this.payoutRepo.save(payout);
+    await this.payoutRepo.save(payout);
     await this.cache.clearPrefix('svc:payout');
 
     await this.transactionService.create({
@@ -274,10 +286,10 @@ export class PayoutService {
       reference: transfer_code,
       description: 'Payout failed',
       status: 'failed',
-      metadata: payload,
+      metadata: payload as unknown as Record<string, unknown>,
     });
 
-    return updated;
+    return { success: true };
   }
 
   /* ────────────────────────────────────────────────
@@ -286,11 +298,11 @@ export class PayoutService {
   async markReversed(
     transfer_code: string,
     payload: PaystackTransferData,
-  ): Promise<Payout> {
+  ) {
     const payout = await this.findByTransferCode(transfer_code);
     if (!payout) throw new NotFoundException('Payout not found');
 
-    if (payout.status === 'reversed') return payout;
+    if (payout.status === 'reversed') return { success: true };
 
     payout.status = 'reversed';
     payout.metadata = {
@@ -298,7 +310,7 @@ export class PayoutService {
       webhook: payload,
     };
 
-    const updated = await this.payoutRepo.save(payout);
+    await this.payoutRepo.save(payout);
     await this.cache.clearPrefix('svc:payout');
 
     await this.transactionService.create({
@@ -310,10 +322,10 @@ export class PayoutService {
       reference: transfer_code,
       description: 'Payout reversed',
       status: 'reversed',
-      metadata: payload,
+      metadata: payload as unknown as Record<string, unknown>,
     });
 
-    return updated;
+    return { success: true };
   }
 
   /* ────────────────────────────────────────────────
@@ -325,8 +337,20 @@ export class PayoutService {
     const skip = (page - 1) * limit;
 
     const qb = this.payoutRepo.createQueryBuilder('payout');
-    qb.leftJoinAndSelect('payout.order', 'order');
-    qb.leftJoinAndSelect('payout.escrow', 'escrow');
+    qb.select([
+      'payout.id',
+      'payout.order_id',
+      'payout.amount',
+      'payout.status',
+      'payout.payout_type',
+      'payout.transfer_reference',
+      'payout.created_at',
+      'payout.transferred_at',
+      'payout.currency',
+      'payout.admin_note',
+    ]);
+    qb.leftJoin('payout.order', 'order');
+    qb.leftJoin('payout.escrow', 'escrow');
 
     qb.where('payout.vendor_id = :vendor_id', { vendor_id });
 

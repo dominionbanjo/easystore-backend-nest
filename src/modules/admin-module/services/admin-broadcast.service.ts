@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -44,7 +44,10 @@ export class AdminBroadcastService {
   }
 
   async updateBroadcast(id: string, dto: Partial<CreateBroadcastDto>) {
-    const broadcast = await this.broadcastRepo.findOne({ where: { id } });
+    const broadcast = await this.broadcastRepo.findOne({
+      where: { id },
+      select: { id: true, status: true, scheduled_at: true },
+    });
     if (!broadcast) throw new BadRequestException('Broadcast not found');
     if (broadcast.status !== 'pending' || (broadcast.scheduled_at && broadcast.scheduled_at < new Date())) {
       throw new BadRequestException('Cannot edit a broadcast that has been sent or is currently being processed');
@@ -56,7 +59,7 @@ export class AdminBroadcastService {
     };
 
     await this.broadcastRepo.update(id, updated);
-    return this.broadcastRepo.findOne({ where: { id } });
+    return { success: true };
   }
 
   async findAll() {
@@ -66,9 +69,17 @@ export class AdminBroadcastService {
   }
 
   async deleteBroadcast(id: string) {
-    const broadcast = await this.broadcastRepo.findOne({ where: { id } });
-    if (broadcast && broadcast.status === 'pending') {
-      return this.broadcastRepo.remove(broadcast);
+    const exists = await this.broadcastRepo.exists({ where: { id } });
+    if (!exists) throw new NotFoundException('Broadcast not found');
+
+    const broadcast = await this.broadcastRepo.findOne({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (broadcast!.status === 'pending') {
+      await this.broadcastRepo.delete(id);
+      return { success: true, message: 'Broadcast deleted successfully' };
     }
     return {
       message: 'Cannot delete a broadcast that is already sent or processing',
