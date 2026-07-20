@@ -62,6 +62,13 @@ export class UsersService {
       .getOne();
   }
 
+  async findByEmailWithToken(email: string) {
+    return this.userRepo
+      .createQueryBuilder('user')
+      .where('user.email = :email', { email })
+      .getOne();
+  }
+
   async existsByUsername(username: string): Promise<boolean> {
     return this.userRepo.exist({
       where: { username },

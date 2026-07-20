@@ -449,7 +449,7 @@ export class AuthService implements OnModuleInit {
   // FORGOT PASSWORD
   // ------------------------------------------------------------------
   async forgotPassword(dto: ForgotPasswordDto) {
-    const user = await this.users.findByEmail(dto.email);
+    const user = await this.users.findByEmailWithToken(dto.email);
 
     // Always return generic response for security
     if (!user) {
@@ -493,7 +493,7 @@ export class AuthService implements OnModuleInit {
   // RESET PASSWORD
   // ------------------------------------------------------------------
   async resetPassword(dto: ResetPasswordDto) {
-    const user = await this.users.findByEmail(dto.email);
+    const user = await this.users.findByEmailWithToken(dto.email);
     if (!user) throw new UnauthorizedException('Invalid request');
 
     const hashedToken = createHash(dto.token);
@@ -512,6 +512,7 @@ export class AuthService implements OnModuleInit {
       password_token: null,
       password_token_expiration_date: null,
       must_change_password: false,
+      token_version: (user.token_version ?? 0) + 1,
     });
 
     return { message: 'Password reset successful' };
