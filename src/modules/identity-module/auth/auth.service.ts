@@ -12,7 +12,8 @@ import {
   GoogleAuth,
   JWT,
 } from 'google-auth-library';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -26,6 +27,7 @@ import { ResetPasswordMailService } from 'src/modules/shared-module/email/servic
 import { WelcomeMailService } from 'src/modules/shared-module/email/services/welcome-mail.service';
 import { AdminNotifyMailService } from 'src/modules/shared-module/email/services/admin-notify-mail.service';
 import { StoreWelcomeMailService } from 'src/modules/shared-module/email/services/store-welcome-mail.service';
+import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { SalesChannel, User } from '../users/entities/user.entity';
 import { toUTCDate } from 'src/utils/time/toUTCDate';
 import { comparePassword, hashPassword } from 'src/utils/auth/passwordUtil';
@@ -47,6 +49,8 @@ export class AuthService implements OnModuleInit {
     private readonly adminNotifyMail: AdminNotifyMailService,
     private readonly storeWelcomeMail: StoreWelcomeMailService,
     private readonly dataSource: DataSource,
+    @InjectRepository(StoreStaff)
+    private readonly storeStaffRepo: Repository<StoreStaff>,
   ) {}
 
   private async generateUniqueUsername(
@@ -239,6 +243,13 @@ export class AuthService implements OnModuleInit {
     const match = await comparePassword(dto.password, user.password);
     if (!match) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.account_type === 'staff') {
+      await this.storeStaffRepo.update(
+        { user_id: user.id },
+        { last_login_at: new Date() },
+      );
     }
 
     const { access_token } = this.generateJwt(user);
@@ -500,6 +511,7 @@ export class AuthService implements OnModuleInit {
       password: hashedPassword,
       password_token: null,
       password_token_expiration_date: null,
+      must_change_password: false,
     });
 
     return { message: 'Password reset successful' };

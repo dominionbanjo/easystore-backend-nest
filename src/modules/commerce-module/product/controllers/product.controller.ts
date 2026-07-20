@@ -36,6 +36,10 @@ import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
 import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
+import { StoreGuard } from 'src/common/permissions/store.guard';
+import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
+import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
+import { Permission } from 'src/common/permissions/permissions';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
 @ApiTags('Products')
@@ -124,15 +128,12 @@ export class ProductController {
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('store/me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, StoreGuard)
   getMyStoreProducts(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Query() pagination: PaginationQueryDto,
   ) {
-    if (!user.store_id) {
-      throw new NotFoundException('User does not own a store');
-    }
-    return this.productService.getByStore(user.store_id, pagination, user.sub);
+    return this.productService.getByStore(user.store_id!, pagination, user.sub);
   }
   /**
    * 4️⃣ Products by store
@@ -219,7 +220,8 @@ export class ProductController {
   @ApiCreatedResponse({ description: 'Product created successfully' })
   @ApiStandardErrorResponses()
   @Post()
-  @UseGuards(JwtAuthGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.CREATE_PRODUCT)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'image', maxCount: 1 },
@@ -242,7 +244,8 @@ export class ProductController {
   @ApiCreatedResponse({ description: 'Products created in bulk successfully' })
   @ApiStandardErrorResponses()
   @Post('bulk')
-  @UseGuards(JwtAuthGuard, StoreOwnerGuard)
+  @RequirePermissions(Permission.CREATE_PRODUCT)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   createMany(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() dto: CreateManyProductsDto,
@@ -257,6 +260,8 @@ export class ProductController {
   @ApiOkResponse({ description: 'Product updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id')
+  @RequirePermissions(Permission.UPDATE_PRODUCT)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
     return this.productService.update(id, dto);
   }
@@ -269,6 +274,8 @@ export class ProductController {
   @ApiOkResponse({ description: 'Product deleted successfully' })
   @ApiStandardErrorResponses()
   @Delete(':id')
+  @RequirePermissions(Permission.DELETE_PRODUCT)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   remove(@Param('id') id: string) {
     return this.productService.remove(id);
   }

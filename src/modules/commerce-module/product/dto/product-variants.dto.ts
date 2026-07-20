@@ -7,6 +7,7 @@ import {
   IsObject,
   IsUUID,
   Min,
+  MaxLength,
   IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -34,6 +35,12 @@ export class ProductVariantDto {
   @IsString()
   @IsOptional()
   sku?: string;
+
+  @ApiPropertyOptional({ description: 'Variant barcode/UPC', example: '8901234567891', maxLength: 100 })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  barcode?: string;
 
   @ApiProperty({ description: 'Variant combination map', example: { Color: 'White', Size: 'M' } })
   @IsObject()

@@ -85,6 +85,8 @@ export class OrderService {
     customer_name?: string;
     customer_email?: string;
     notes?: string;
+    recorded_by?: string;
+    payment_method?: 'cash' | 'transfer' | 'pos';
   }) {
     return this.offlineOrderService.recordVendorOfflineSale(data);
   }
@@ -154,6 +156,21 @@ export class OrderService {
   /**
    * Get order receipt as PDF buffer
    */
+  getSalesHistory(vendorId: string, query: {
+    page?: number;
+    limit?: number;
+    staffId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+  }) {
+    return this.queryService.getSalesHistory(vendorId, query);
+  }
+
+  getReceiptData(orderId: string, userId: string) {
+    return this.queryService.getReceiptData(orderId, userId);
+  }
+
   async getOrderReceiptPdf(id: string, userId: string) {
     const order = await this.queryService.getOrderForReceipt(id);
 
@@ -223,14 +240,14 @@ export class OrderService {
   /**
    * Update order status
    */
-  async updateOrderStatus(id: string, status: OrderStatus) {
-    return this.managementService.updateOrderStatus(id, status);
+  async updateOrderStatus(id: string, status: OrderStatus, storeId?: string) {
+    return this.managementService.updateOrderStatus(id, status, storeId);
   }
 
   /**
    * Cancel order
    */
-  async cancelOrder(id: string, requestedBy: string) {
-    return this.managementService.cancelOrder(id, requestedBy);
+  async cancelOrder(id: string, requestedBy: string, storeId?: string) {
+    return this.managementService.cancelOrder(id, requestedBy, storeId);
   }
 }

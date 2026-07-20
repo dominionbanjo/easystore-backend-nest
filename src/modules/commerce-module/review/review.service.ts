@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -163,18 +164,22 @@ export class ProductReviewService {
   /* ────────────────────────────────────────────────
      ❌ DELETE REVIEW
   ──────────────────────────────────────────────── */
-  async deleteReview(reviewId: string) {
+  async deleteReview(reviewId: string, userId?: string) {
     if (!reviewId) {
       throw new BadRequestException('Review ID is required');
     }
 
     const review = await this.reviewRepo.findOne({
       where: { id: reviewId },
-      select: { id: true, product_id: true },
+      select: { id: true, product_id: true, user_id: true },
     });
 
     if (!review) {
       throw new NotFoundException('Review not found');
+    }
+
+    if (userId && review.user_id !== userId) {
+      throw new ForbiddenException('You can only delete your own reviews');
     }
 
     await this.reviewRepo.delete(reviewId);

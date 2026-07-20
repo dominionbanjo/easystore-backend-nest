@@ -1,7 +1,5 @@
 import {
   Injectable,
-  forwardRef,
-  Inject,
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -30,7 +28,6 @@ export class OfflineOrderService {
     private readonly cache: CacheService,
     private readonly cartService: CartService,
     private readonly productService: ProductService,
-    @Inject(forwardRef(() => StoreAnalyticsService))
     private readonly storeAnalyticsService: StoreAnalyticsService,
     private readonly storeService: StoreService,
     private readonly dataSource: DataSource,
@@ -126,8 +123,10 @@ export class OfflineOrderService {
     customer_name?: string;
     customer_email?: string;
     notes?: string;
+    recorded_by?: string;
+    payment_method?: 'cash' | 'transfer' | 'pos';
   }) {
-    const { vendor_id, items, customer_name, customer_email, notes } = data;
+    const { vendor_id, items, customer_name, customer_email, notes, recorded_by, payment_method } = data;
 
     if (!items || items.length === 0) {
       throw new BadRequestException('At least one item is required');
@@ -191,11 +190,12 @@ export class OfflineOrderService {
       id: uuidv4(),
       buyer_id: null,
       vendor_id,
+      recorded_by: recorded_by ?? null,
       order_items: orderItems,
       subtotal: subtotalKobo,
       shipping_fee: 0,
       total: subtotalKobo,
-      payment_method: 'offline' as PaymentMethod,
+      payment_method: (payment_method ?? 'cash') as PaymentMethod,
       payment_status: 'success',
       status: 'completed',
       notes:

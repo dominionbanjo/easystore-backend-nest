@@ -64,6 +64,10 @@ export class ProductService {
     return this.readService.getVendorSingle(identifier, storeId);
   }
 
+  lookupByBarcode(barcode: string, storeId: string) {
+    return this.readService.lookupByBarcode(barcode, storeId);
+  }
+
 
   /* ────────────────────────────────────────────────
      SEARCH OPERATIONS
@@ -96,8 +100,12 @@ export class ProductService {
     return this.searchService.getVendorProducts(storeId, params);
   }
 
-  getSalesTerminalProducts(storeId: string) {
-    return this.searchService.getSalesTerminalProducts(storeId);
+  getSalesTerminalProducts(storeId: string, query?: { page?: number; limit?: number; q?: string; category?: string }) {
+    return this.searchService.getSalesTerminalProducts(storeId, query);
+  }
+
+  getSalesTerminalCategories(storeId: string) {
+    return this.searchService.getSalesTerminalCategories(storeId);
   }
 
   /* ────────────────────────────────────────────────

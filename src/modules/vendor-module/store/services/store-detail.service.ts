@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
+import { StoreStaff } from '../entities/store-staff.entity';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
 import { ProductCategory } from 'src/modules/commerce-module/product-category/entities/product-category.entity';
 import {
@@ -46,6 +47,9 @@ export class StoreDetailService {
 
     @InjectRepository(StoreTemplate)
     private readonly templateRepo: Repository<StoreTemplate>,
+
+    @InjectRepository(StoreStaff)
+    private readonly staffRepo: Repository<StoreStaff>,
   ) {}
 
   async getStore(
@@ -268,6 +272,13 @@ export class StoreDetailService {
     }
 
     return store.user_id === userId;
+  }
+
+  async isStoreStaff(storeId: string, userId: string): Promise<boolean> {
+    if (!storeId || !userId) return false;
+    return this.staffRepo.exists({
+      where: { store_id: storeId, user_id: userId, status: 'active' },
+    });
   }
 
   async getStoreProducts(

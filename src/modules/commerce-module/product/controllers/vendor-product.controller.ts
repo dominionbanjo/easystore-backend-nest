@@ -23,6 +23,7 @@ import {
 
 import { ApiPaginatedResponse } from '../../../../common/decorators/api-paginated-response.decorator';
 import { ProductCardResponseDto } from '../../../../common/dto/response/product-response.dto';
+import { SuccessResponseDto, SuccessWithIdDto } from '../../../../common/dto/api-response.dto';
 import { ProductService } from '../services/product.service';
 import { ProductStatus } from '../entities/product.entity';
 import { ProductSearchDto } from '../dto/product-search.dto';
@@ -37,6 +38,7 @@ import { Permission } from 'src/common/permissions/permissions';
 import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
 import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
 import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
+import { StoreGuard } from 'src/common/permissions/store.guard';
 import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
@@ -60,33 +62,56 @@ export class VendorProductController {
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get()
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StoreGuard, PermissionsGuard)
   @RequirePermissions(Permission.VIEW_PRODUCT)
   getAllProducts(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Query() query: ProductSearchDto,
   ) {
-    if (!user.store_id) {
-      throw new NotFoundException('User does not own a store');
-    }
-    return this.productService.getVendorProducts(user.store_id, query);
+    return this.productService.getVendorProducts(user.store_id!, query);
   }
 
   /* ────────────────────────────────────────────────
-     💰 SALES TERMINAL: GET ALL PRODUCTS (FLAT LIST)
+     💰 SALES TERMINAL: GET PAGINATED PRODUCTS
      GET /vendor/products/sales-terminal
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get sales terminal products', description: 'Returns all active products grouped by category for the sales terminal UI' })
-  @ApiOkResponse({ description: 'Sales terminal products returned' })
+  @ApiOperation({ summary: 'Get sales terminal products', description: 'Returns paginated active products for the sales terminal grid' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search by product or category name' })
+  @ApiQuery({ name: 'category', required: false, type: String, description: 'Filter by category name' })
+  @ApiOkResponse({ description: 'Paginated sales terminal products' })
   @ApiStandardErrorResponses()
   @Get('sales-terminal')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StoreGuard, PermissionsGuard)
   @RequirePermissions(Permission.VIEW_PRODUCT)
-  getSalesTerminalProducts(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
-    if (!user.store_id) {
-      throw new NotFoundException('User does not own a store');
-    }
-    return this.productService.getSalesTerminalProducts(user.store_id);
+  getSalesTerminalProducts(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('q') q?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.productService.getSalesTerminalProducts(user.store_id!, {
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      q,
+      category,
+    });
+  }
+
+  /* ────────────────────────────────────────────────
+     💰 SALES TERMINAL: GET CATEGORIES
+     GET /vendor/products/sales-terminal/categories
+  ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Get sales terminal categories', description: 'Returns distinct categories with product counts for the sales terminal' })
+  @ApiOkResponse({ description: 'Sales terminal categories returned' })
+  @ApiStandardErrorResponses()
+  @Get('sales-terminal/categories')
+  @UseGuards(JwtAuthGuard, StoreGuard, PermissionsGuard)
+  @RequirePermissions(Permission.VIEW_PRODUCT)
+  getSalesTerminalCategories(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.productService.getSalesTerminalCategories(user.store_id!);
   }
 
   /* ────────────────────────────────────────────────
@@ -102,17 +127,13 @@ export class VendorProductController {
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('store/me/search')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StoreGuard, PermissionsGuard)
   @RequirePermissions(Permission.VIEW_PRODUCT)
   searchMyStoreProducts(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Query() query: ProductSearchDto,
   ) {
-    if (!user.store_id) {
-      throw new NotFoundException('User does not own a store');
-    }
-
-    return this.productService.searchStoreProductsEntity(user.store_id, query);
+    return this.productService.searchStoreProductsEntity(user.store_id!, query);
   }
 
   /* ────────────────────────────────────────────────
@@ -130,11 +151,7 @@ export class VendorProductController {
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Param('idOrSlug') identifier: string,
   ) {
-    if (!user.store_id) {
-      throw new NotFoundException('User does not own a store');
-    }
-
-    return this.productService.getVendorSingle(identifier, user.store_id);
+    return this.productService.getVendorSingle(identifier, user.store_id!);
   }
 
 
@@ -160,11 +177,29 @@ export class VendorProductController {
   }
 
   /* ────────────────────────────────────────────────
+     📷 BARCODE LOOKUP
+     GET /vendor/products/barcode/:code
+  ──────────────────────────────────────────────── */
+  @ApiOperation({ summary: 'Lookup product by barcode', description: 'Returns the product and optional variant for a scanned barcode.' })
+  @ApiParam({ name: 'code', description: 'Barcode / UPC / EAN', type: String })
+  @ApiOkResponse({ description: 'Product found' })
+  @ApiStandardErrorResponses()
+  @Get('barcode/:code')
+  @UseGuards(JwtAuthGuard, StoreGuard, PermissionsGuard)
+  @RequirePermissions(Permission.VIEW_PRODUCT)
+  lookupByBarcode(
+    @Param('code') code: string,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productService.lookupByBarcode(code, user.store_id!);
+  }
+
+  /* ────────────────────────────────────────────────
      🆕 VENDOR: CREATE PRODUCT (CLOUDINARY)
      POST /vendor/products
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Create a vendor product', description: 'Creates a new product for the authenticated vendor store with Cloudinary image support.' })
-  @ApiCreatedResponse({ description: 'Product created successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Product created successfully' })
   @ApiStandardErrorResponses()
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -182,7 +217,7 @@ export class VendorProductController {
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Update a vendor product', description: 'Updates an existing product for the authenticated vendor store.' })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
-  @ApiOkResponse({ description: 'Product updated successfully' })
+  @ApiOkResponse({ type: SuccessWithIdDto, description: 'Product updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -201,7 +236,7 @@ export class VendorProductController {
   @ApiOperation({ summary: 'Update product status', description: 'Activates or deactivates a product listing for the vendor store.' })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
   @ApiBody({ description: 'New product status', schema: { properties: { status: { type: 'string' } } } })
-  @ApiOkResponse({ description: 'Product status updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Product status updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -220,7 +255,7 @@ export class VendorProductController {
   @ApiOperation({ summary: 'Toggle product on-sale status', description: 'Marks or unmarks a product as being on sale.' })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
   @ApiBody({ description: 'Toggle on sale', schema: { properties: { on_sale: { type: 'boolean' } } } })
-  @ApiOkResponse({ description: 'Product on-sale status updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Product on-sale status updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/on-sale')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -238,7 +273,7 @@ export class VendorProductController {
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Delete a vendor product', description: 'Permanently removes a product from the vendor store.' })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
-  @ApiOkResponse({ description: 'Product deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Product deleted successfully' })
   @ApiStandardErrorResponses()
   @Delete(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)

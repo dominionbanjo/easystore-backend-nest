@@ -11,6 +11,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiParam, ApiQuery
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { OrderListItemDto } from '../../../common/dto/response/order-response.dto';
+import { SuccessResponseDto } from '../../../common/dto/api-response.dto';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -56,7 +57,7 @@ export class AdminOrderController {
   @ApiOperation({ summary: 'Update order status', description: 'Override the status of an order (admin only)' })
   @ApiParam({ name: 'id', description: 'Order ID', type: String })
   @ApiBody({ description: 'New status', type: Object })
-  @ApiOkResponse({ description: 'Order status updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Order status updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/status')
   async updateOrderStatus(

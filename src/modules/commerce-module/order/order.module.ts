@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Order } from './entities/order.entity';
@@ -22,6 +22,8 @@ import { ProductModule } from '../product/product.module';
 import { PandascrowEscrowService } from './services/pandascrow-escrow.service';
 import { HttpModule } from '@nestjs/axios';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
+import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import { ProductCustomer } from '../product/entities/product-customer.entity';
 import { OrderPaymentController } from './controllers/order-payment.controller';
 import { OrderController } from './controllers/pandaOrder.controller';
@@ -34,7 +36,7 @@ import { OrderCronService } from './services/order-cron.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, User, ProductCustomer]),
+    TypeOrmModule.forFeature([Order, User, ProductCustomer, StoreStaff, Store]),
     HttpModule,
     ProductModule,
     CacheModule,
@@ -45,7 +47,7 @@ import { OrderCronService } from './services/order-cron.service';
     CommonModule,
     StoreModule,
     CartModule,
-    forwardRef(() => StoreAnalyticsModule),
+    StoreAnalyticsModule,
   ],
   controllers: [OrderController, PandaOrderController, OrderPaymentController],
   providers: [

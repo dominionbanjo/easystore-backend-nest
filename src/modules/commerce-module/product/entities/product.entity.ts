@@ -100,6 +100,10 @@ export class Product {
   @Column({ type: 'varchar', length: 255, unique: true })
   slug: string;
 
+  @Index('IDX_PRODUCT_BARCODE', { unique: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  barcode: string | null;
+
   @Column({ type: 'text', nullable: true })
   description: string | null;
 

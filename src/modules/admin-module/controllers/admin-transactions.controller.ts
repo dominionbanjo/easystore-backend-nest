@@ -10,6 +10,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiParam, ApiQuery
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { TransactionListItemDto } from '../../../common/dto/response/transaction-response.dto';
+import { SuccessResponseDto } from '../../../common/dto/api-response.dto';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -57,7 +58,7 @@ export class AdminTransactionsController {
 
   @ApiOperation({ summary: 'Flag a transaction', description: 'Flag a transaction for manual review' })
   @ApiParam({ name: 'id', description: 'Transaction ID', type: String })
-  @ApiOkResponse({ description: 'Transaction flagged successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Transaction flagged successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/flag')
   async flagTransaction(@Param('id') id: string) {

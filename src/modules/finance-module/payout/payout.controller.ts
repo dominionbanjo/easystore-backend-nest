@@ -15,6 +15,9 @@ import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard'
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { PermissionsGuard } from '../../../common/permissions/permissions.guard';
+import { RequirePermissions } from '../../../common/permissions/permissions.decorator';
+import { Permission } from '../../../common/permissions/permissions';
 
 import { PayoutQueryDto } from './dto/payout-query.dto';
 
@@ -26,7 +29,8 @@ export class PayoutController {
   constructor(private readonly payoutService: PayoutService) {}
 
   @Get('vendor/me')
-  @UseGuards(RolesGuard)
+  @RequirePermissions(Permission.VIEW_TRANSACTIONS)
+  @UseGuards(PermissionsGuard, RolesGuard)
   @Roles('vendor')
   @ApiOperation({ summary: 'Get vendor payouts', description: 'Retrieves paginated payouts for the currently authenticated vendor.' })
   @ApiPaginatedResponse(PayoutListItemDto)

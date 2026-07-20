@@ -11,6 +11,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiParam, ApiQuery
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { PayoutListItemDto, EscrowListItemDto } from '../../../common/dto/response/transaction-response.dto';
+import { SuccessResponseDto } from '../../../common/dto/api-response.dto';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -71,7 +72,7 @@ export class AdminEscrowController {
   @ApiOperation({ summary: 'Mark payout as manually transferred', description: 'Mark an escrow payout as manually transferred to the vendor' })
   @ApiParam({ name: 'id', description: 'Escrow payout ID', type: String })
   @ApiBody({ description: 'Admin note', type: Object })
-  @ApiOkResponse({ description: 'Payout marked as transferred' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Payout marked as transferred' })
   @ApiStandardErrorResponses()
   @Patch('escrow/:id/mark-transferred')
   async markAsTransferred(

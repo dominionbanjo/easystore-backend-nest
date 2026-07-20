@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto, SuccessWithIdDto } from 'src/common/dto/api-response.dto';
 import { StoreStaffService } from '../services/store-staff.service';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
@@ -19,7 +20,7 @@ export class StoreStaffController {
   @Post('invite')
   @RequirePermissions(Permission.MANAGE_STORE)
   @ApiOperation({ summary: 'Invite a new staff member', description: 'Creates a staff account and sends invite email with temporary password' })
-  @ApiCreatedResponse({ description: 'Staff invited successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Staff invited successfully' })
   @ApiBody({ description: 'Staff details', schema: { properties: { email: { type: 'string' }, first_name: { type: 'string' }, last_name: { type: 'string' } } } })
   @ApiStandardErrorResponses()
   async inviteStaff(
@@ -61,7 +62,7 @@ export class StoreStaffController {
   @Patch(':id')
   @RequirePermissions(Permission.MANAGE_STORE)
   @ApiOperation({ summary: 'Update staff profile', description: 'Update staff first name or last name' })
-  @ApiOkResponse({ description: 'Staff updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Staff updated successfully' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ description: 'Fields to update', schema: { properties: { first_name: { type: 'string' }, last_name: { type: 'string' } } } })
   @ApiStandardErrorResponses()
@@ -76,7 +77,7 @@ export class StoreStaffController {
   @Patch(':id/suspend')
   @RequirePermissions(Permission.MANAGE_STORE)
   @ApiOperation({ summary: 'Suspend a staff member' })
-  @ApiOkResponse({ description: 'Staff suspended' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Staff suspended' })
   @ApiParam({ name: 'id', type: String })
   @ApiStandardErrorResponses()
   async suspendStaff(@CurrentUser() user: jwtStrategy.JwtAuthUser, @Param('id') id: string) {
@@ -86,7 +87,7 @@ export class StoreStaffController {
   @Patch(':id/unsuspend')
   @RequirePermissions(Permission.MANAGE_STORE)
   @ApiOperation({ summary: 'Unsuspend a staff member' })
-  @ApiOkResponse({ description: 'Staff unsuspended' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Staff unsuspended' })
   @ApiParam({ name: 'id', type: String })
   @ApiStandardErrorResponses()
   async unsuspendStaff(@CurrentUser() user: jwtStrategy.JwtAuthUser, @Param('id') id: string) {
@@ -96,7 +97,7 @@ export class StoreStaffController {
   @Post(':id/reset-password')
   @RequirePermissions(Permission.MANAGE_STORE)
   @ApiOperation({ summary: 'Reset staff password', description: 'Generates new temporary password and sends via email' })
-  @ApiOkResponse({ description: 'Password reset successful' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Password reset successful' })
   @ApiParam({ name: 'id', type: String })
   @ApiStandardErrorResponses()
   async resetStaffPassword(@CurrentUser() user: jwtStrategy.JwtAuthUser, @Param('id') id: string) {
@@ -106,7 +107,7 @@ export class StoreStaffController {
   @Delete(':id')
   @RequirePermissions(Permission.MANAGE_STORE)
   @ApiOperation({ summary: 'Remove staff member', description: 'Remove staff from the store' })
-  @ApiOkResponse({ description: 'Staff removed' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Staff removed' })
   @ApiParam({ name: 'id', type: String })
   @ApiStandardErrorResponses()
   async removeStaff(@CurrentUser() user: jwtStrategy.JwtAuthUser, @Param('id') id: string) {

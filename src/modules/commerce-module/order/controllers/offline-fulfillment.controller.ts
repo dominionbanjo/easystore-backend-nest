@@ -7,6 +7,7 @@ import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.st
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto } from 'src/common/dto/api-response.dto';
 
 @ApiTags('Orders')
 @ApiBearerAuth('JWT-auth')
@@ -18,7 +19,7 @@ export class OfflineFulfillmentController {
 
   @ApiOperation({ summary: 'Fulfill an offline order', description: 'Marks an offline order as fulfilled by the seller.' })
   @ApiParam({ name: 'id', description: 'Offline order ID', type: String })
-  @ApiOkResponse({ description: 'Offline order fulfilled successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Offline order fulfilled successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/fulfill')
   async fulfillOfflineOrder(

@@ -21,12 +21,13 @@ import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-r
 import { ProductCategoryService } from './product-category.service';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
-import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
+import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
+import { Permission } from 'src/common/permissions/permissions';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
 @ApiTags('Categories')
@@ -42,11 +43,11 @@ export class ProductCategoryController {
      POST /product-categories
   ──────────────────────────────────────────────── */
   @Post()
+  @RequirePermissions(Permission.MANAGE_CATEGORIES)
   @ApiOperation({ summary: 'Create a category', description: 'Creates a new product category. Restricted to admin and vendor roles.' })
   @ApiCreatedResponse({ description: 'Category created successfully' })
   @ApiStandardErrorResponses()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'vendor')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   create(
     @Body() dto: CreateProductCategoryDto,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -86,14 +87,18 @@ export class ProductCategoryController {
      PATCH /product-categories/:id
   ──────────────────────────────────────────────── */
   @Patch(':id')
+  @RequirePermissions(Permission.MANAGE_CATEGORIES)
   @ApiOperation({ summary: 'Update a category', description: 'Updates an existing product category. Restricted to admin role.' })
   @ApiParam({ name: 'id', description: 'Category ID', type: String })
   @ApiOkResponse({ description: 'Category updated successfully' })
   @ApiStandardErrorResponses()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  update(@Param('id') id: string, @Body() dto: UpdateProductCategoryDto) {
-    return this.productCategoryService.update(id, dto);
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateProductCategoryDto,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productCategoryService.update(id, dto, user);
   }
 
   /* ────────────────────────────────────────────────
@@ -101,13 +106,16 @@ export class ProductCategoryController {
      DELETE /product-categories/:id
   ──────────────────────────────────────────────── */
   @Delete(':id')
+  @RequirePermissions(Permission.MANAGE_CATEGORIES)
   @ApiOperation({ summary: 'Delete a category', description: 'Permanently removes a product category. Restricted to admin role.' })
   @ApiParam({ name: 'id', description: 'Category ID', type: String })
   @ApiOkResponse({ description: 'Category deleted successfully' })
   @ApiStandardErrorResponses()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  remove(@Param('id') id: string) {
-    return this.productCategoryService.remove(id);
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+  ) {
+    return this.productCategoryService.remove(id, user);
   }
 }

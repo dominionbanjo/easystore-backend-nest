@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../entities/order.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
 
 @Injectable()
@@ -10,6 +11,8 @@ export class OrderQueryService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
+    @InjectRepository(StoreStaff)
+    private readonly storeStaffRepo: Repository<StoreStaff>,
   ) {}
 
   /* ────────────────────────────────────────────────
@@ -375,5 +378,167 @@ export class OrderQueryService {
     });
 
     return buildPagination(vendorData, total, page, limit);
+  }
+
+  /* ────────────────────────────────────────────────
+     GET SALES HISTORY (OFFLINE SALES)
+     Filtered by vendor, paginated, staff-attributed
+  ──────────────────────────────────────────────── */
+  async getSalesHistory(
+    vendorId: string,
+    query: {
+      page?: number;
+      limit?: number;
+      staffId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      search?: string;
+    },
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+
+    const qb = this.orderRepo.createQueryBuilder('order');
+    qb.leftJoinAndSelect('order.recordedByUser', 'staff');
+    qb.where('order.vendor_id = :vendorId', { vendorId })
+      .andWhere("order.payment_method = 'offline'")
+      .andWhere("order.status = 'completed'");
+
+    qb.select([
+      'order.id',
+      'order.order_items',
+      'order.subtotal',
+      'order.total',
+      'order.payment_method',
+      'order.payment_status',
+      'order.status',
+      'order.notes',
+      'order.recorded_by',
+      'order.created_at',
+      'staff.id',
+      'staff.first_name',
+      'staff.last_name',
+    ]);
+
+    if (query.staffId) {
+      qb.andWhere('order.recorded_by = :staffId', { staffId: query.staffId });
+    }
+
+    if (query.dateFrom) {
+      qb.andWhere('order.created_at >= :dateFrom', {
+        dateFrom: new Date(query.dateFrom),
+      });
+    }
+
+    if (query.dateTo) {
+      qb.andWhere('order.created_at <= :dateTo', {
+        dateTo: new Date(query.dateTo),
+      });
+    }
+
+    if (query.search) {
+      qb.andWhere(
+        '(order.notes ILIKE :search OR CAST(order.id AS TEXT) ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+
+    qb.orderBy('order.created_at', 'DESC');
+    qb.skip(skip).take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+
+    const items = data.map((order) => {
+      return {
+        id: order.id,
+        items: order.order_items,
+        subtotal: Number(order.subtotal),
+        total: Number(order.total),
+        notes: order.notes,
+        recorded_by: order.recorded_by,
+        staff_name: order.recordedByUser
+          ? `${order.recordedByUser.first_name ?? ''} ${order.recordedByUser.last_name ?? ''}`.trim()
+          : null,
+        created_at: order.created_at,
+      };
+    });
+
+    return buildPagination(items, total, page, limit);
+  }
+
+  /* ────────────────────────────────────────────────
+     GET RECEIPT DATA FOR PRINTING
+     Returns formatted receipt data for an order
+  ──────────────────────────────────────────────── */
+  async getReceiptData(orderId: string, userId: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ['recordedByUser', 'vendor', 'vendor.store'],
+      select: {
+        id: true,
+        order_items: true,
+        subtotal: true,
+        shipping_fee: true,
+        platform_fee: true,
+        tax: true,
+        total: true,
+        payment_method: true,
+        payment_status: true,
+        status: true,
+        notes: true,
+        recorded_by: true,
+        created_at: true,
+        recordedByUser: {
+          id: true,
+          first_name: true,
+          last_name: true,
+        },
+        vendor: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          store: {
+            id: true,
+            store_name: true,
+            slug: true,
+            logo: true,
+          },
+        },
+      },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.vendor_id !== userId && order.recorded_by !== userId) {
+      const storeId = order.vendor?.store?.id;
+      if (!storeId) throw new NotFoundException('Order not found');
+      const isStoreStaff = await this.storeStaffRepo.findOne({
+        where: { user_id: userId, store_id: storeId, status: 'active' },
+        select: { id: true },
+      });
+      if (!isStoreStaff) throw new NotFoundException('Order not found');
+    }
+
+    const idPrefix = order.id.split('-')[0].toUpperCase();
+
+    return {
+      id: order.id,
+      order_reference: `#${idPrefix}`,
+      store_name: order.vendor?.store?.store_name ?? 'Store',
+      store_logo: order.vendor?.store?.logo ?? null,
+      items: order.order_items,
+      subtotal: Number(order.subtotal),
+      shipping_fee: Number(order.shipping_fee),
+      tax: Number(order.tax),
+      total: Number(order.total),
+      payment_method: order.payment_method,
+      payment_status: order.payment_status,
+      status: order.status,
+      staff_name: order.recordedByUser
+        ? `${order.recordedByUser.first_name} ${order.recordedByUser.last_name}`
+        : null,
+      notes: order.notes,
+      created_at: order.created_at,
+    };
   }
 }

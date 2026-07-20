@@ -7,6 +7,7 @@ import {
   IsArray,
   IsObject,
   Min,
+  MaxLength,
   IsNotEmpty,
   ValidateNested,
 } from 'class-validator';
@@ -33,6 +34,12 @@ export class CreateProductCloudinaryDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiPropertyOptional({ description: 'Barcode / UPC / EAN', example: '8901234567890', maxLength: 100 })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  barcode?: string;
 
   @ApiPropertyOptional({ description: 'Product description', example: 'High-quality wireless headphones with noise cancellation' })
   @IsString()

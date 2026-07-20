@@ -25,6 +25,7 @@ import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto } from 'src/common/dto/api-response.dto';
 
 @ApiTags('Cart')
 @ApiBearerAuth('JWT-auth')
@@ -57,7 +58,7 @@ export class CartController {
    * POST /cart/items
    */
   @ApiOperation({ summary: 'Add item to cart', description: 'Adds a product to the authenticated user cart.' })
-  @ApiCreatedResponse({ description: 'Item added to cart successfully' })
+  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Item added to cart successfully' })
   @ApiStandardErrorResponses()
   @Post('items')
   addItem(
@@ -77,7 +78,7 @@ export class CartController {
    */
   @ApiOperation({ summary: 'Update cart item', description: 'Updates the quantity or details of a product in the authenticated user cart.' })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
-  @ApiOkResponse({ description: 'Cart item updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Cart item updated successfully' })
   @ApiStandardErrorResponses()
   @Patch('items/:productId')
   updateItem(
@@ -101,7 +102,7 @@ export class CartController {
   @ApiQuery({ name: 'size', required: false, type: String, description: 'Product size variant to remove' })
   @ApiQuery({ name: 'color', required: false, type: String, description: 'Product color variant to remove' })
   @ApiQuery({ name: 'variant_id', required: false, type: String, description: 'Specific variant ID to remove' })
-  @ApiOkResponse({ description: 'Item removed from cart successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Item removed from cart successfully' })
   @ApiStandardErrorResponses()
   @Delete('items/:productId')
   removeItem(
@@ -128,7 +129,7 @@ export class CartController {
    * DELETE /cart
    */
   @ApiOperation({ summary: 'Clear cart', description: 'Removes all items from the authenticated user cart.' })
-  @ApiOkResponse({ description: 'Cart cleared successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Cart cleared successfully' })
   @ApiStandardErrorResponses()
   @Delete()
   clearCart(@CurrentUser() user: jwtStrategy.JwtAuthUser) {

@@ -13,6 +13,7 @@ import {
   OneToMany,
   OneToOne,
 } from 'typeorm';
+import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { ICartItem } from '../../cart/types/types';
 import { Delivery } from '../../delivery/entities/delivery.entity';
 import { UserAddress } from 'src/modules/identity-module/users/entities/user-address.entity';
@@ -35,7 +36,7 @@ export type PaymentStatus =
   | 'refunded'
   | 'unpaid';
 
-export type PaymentMethod = 'online' | 'offline' | 'panda' | 'cash';
+export type PaymentMethod = 'online' | 'offline' | 'panda' | 'cash' | 'transfer' | 'pos';
 
 @Entity({ name: 'orders' })
 export class Order {
@@ -57,6 +58,14 @@ export class Order {
   })
   @JoinColumn({ name: 'buyer_id' })
   buyer: User;
+
+  @Index('IDX_ORDER_RECORDED_BY')
+  @Column({ type: 'uuid', nullable: true })
+  recorded_by: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'recorded_by' })
+  recordedByUser: User | null;
 
   /* ───────────────────────────────────────────────
      RELATIONS → VENDOR

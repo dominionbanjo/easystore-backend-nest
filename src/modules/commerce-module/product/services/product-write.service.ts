@@ -223,6 +223,13 @@ export class ProductWriteService {
       throw new BadRequestException('Product with same name exists');
     }
 
+    if (dto.barcode) {
+      const barcodeExists = await this.productRepo.exist({ where: { barcode: dto.barcode } });
+      if (barcodeExists) {
+        throw new BadRequestException('Barcode already in use by another product');
+      }
+    }
+
     const { price, stock } = this.resolveRootPriceAndStock(dto);
 
     const product = this.productRepo.create({

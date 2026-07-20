@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Query, UseGuards } 
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../decorators/api-standard-errors.decorator';
+import { SuccessResponseDto } from '../dto/api-response.dto';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
@@ -43,7 +44,7 @@ export class UploadController {
   @Delete('cloudinary')
   @ApiOperation({ summary: 'Delete Cloudinary image', description: 'Deletes an image from Cloudinary by its public ID.' })
   @ApiBody({ description: 'Public ID of the image to delete', schema: { properties: { public_id: { type: 'string' } } } })
-  @ApiOkResponse({ description: 'Image deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Image deleted successfully' })
   @ApiStandardErrorResponses()
   async deleteCloudinaryImage(@Body('public_id') publicId: string) {
     if (!publicId) {

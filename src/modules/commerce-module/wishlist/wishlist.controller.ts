@@ -23,6 +23,7 @@ import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto, SuccessWithIdDto } from 'src/common/dto/api-response.dto';
 
 @ApiTags('Wishlist')
 @ApiBearerAuth('JWT-auth')
@@ -47,7 +48,7 @@ export class WishlistController {
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Add to wishlist', description: 'Adds a product to the authenticated user wishlist.' })
   @ApiBody({ description: 'Product to add to wishlist', type: CreateWishlistDto })
-  @ApiCreatedResponse({ description: 'Item added to wishlist successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Item added to wishlist successfully' })
   @ApiStandardErrorResponses()
   @Post()
   async addToWishlist(
@@ -77,7 +78,7 @@ export class WishlistController {
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Remove from wishlist', description: 'Removes a specific product from the authenticated user wishlist.' })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
-  @ApiOkResponse({ description: 'Item removed from wishlist successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Item removed from wishlist successfully' })
   @ApiStandardErrorResponses()
   @Delete(':productId')
   async removeFromWishlist(
@@ -95,7 +96,7 @@ export class WishlistController {
      ❌ CLEAR WISHLIST
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Clear wishlist', description: 'Removes all items from the authenticated user wishlist.' })
-  @ApiOkResponse({ description: 'Wishlist cleared successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Wishlist cleared successfully' })
   @ApiStandardErrorResponses()
   @Delete()
   async clearWishlist(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
@@ -106,7 +107,7 @@ export class WishlistController {
      🛒 MOVE TO CART
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Move wishlist items to cart', description: 'Moves all items from the authenticated user wishlist to the cart.' })
-  @ApiCreatedResponse({ description: 'Wishlist items moved to cart successfully' })
+  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Wishlist items moved to cart successfully' })
   @ApiStandardErrorResponses()
   @Post('move-to-cart')
   async moveToCart(@CurrentUser() user: jwtStrategy.JwtAuthUser) {

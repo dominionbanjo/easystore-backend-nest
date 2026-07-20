@@ -20,6 +20,7 @@ export function sanitizeUser(user: User) {
     bank_code: user.bank_code,
     account_number: user.account_number,
     bank_name: user.bank_name,
+    must_change_password: user.must_change_password,
     created_at: user.created_at,
     updated_at: user.updated_at,
   };

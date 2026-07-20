@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -9,6 +10,7 @@ import slugify from 'slugify';
 import { ProductCategory } from './entities/product-category.entity';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
+import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 
 @Injectable()
 export class ProductCategoryService {
@@ -191,13 +193,17 @@ export class ProductCategoryService {
   /* ────────────────────────────────────────────────
      UPDATE CATEGORY
   ──────────────────────────────────────────────── */
-  async update(id: string, dto: UpdateProductCategoryDto) {
+  async update(id: string, dto: UpdateProductCategoryDto, user?: jwtStrategy.JwtAuthUser) {
     const category = await this.categoryRepo.findOne({
       where: { id },
     });
 
     if (!category) {
       throw new NotFoundException('Category not found');
+    }
+
+    if (user && user.role !== 'admin' && category.vendor_id && category.vendor_id !== user.sub) {
+      throw new ForbiddenException('You do not own this category');
     }
 
     if (dto.name) {
@@ -228,13 +234,17 @@ export class ProductCategoryService {
      DELETE CATEGORY
      (children become top-level)
   ──────────────────────────────────────────────── */
-  async remove(id: string) {
+  async remove(id: string, user?: jwtStrategy.JwtAuthUser) {
     const category = await this.categoryRepo.findOne({
       where: { id },
     });
 
     if (!category) {
       throw new NotFoundException('Category not found');
+    }
+
+    if (user && user.role !== 'admin' && category.vendor_id && category.vendor_id !== user.sub) {
+      throw new ForbiddenException('You do not own this category');
     }
 
     await this.categoryRepo.delete(id);

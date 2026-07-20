@@ -15,6 +15,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse
 import { ApiStandardErrorResponses } from '../../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../../common/decorators/api-paginated-response.decorator';
 import { StoreListItemDto } from '../../../../common/dto/response/store-response.dto';
+import { SuccessResponseDto, SuccessWithIdDto } from '../../../../common/dto/api-response.dto';
 import { ProductCardResponseDto } from '../../../../common/dto/response/product-response.dto';
 import { UpdateStoreDto } from '../dto/update-store.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
@@ -41,7 +42,7 @@ export class StoreController {
   ──────────────────────────────────────────────── */
 
   @ApiOperation({ summary: 'Create a store', description: 'Create a new store for the authenticated user' })
-  @ApiCreatedResponse({ description: 'Store created successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Store created successfully' })
   @ApiStandardErrorResponses()
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -195,7 +196,7 @@ export class StoreController {
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Update store', description: 'Update store details including logo and cover image' })
   @ApiParam({ name: 'id', description: 'Store ID', type: String })
-  @ApiOkResponse({ description: 'Store updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Store updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -220,7 +221,7 @@ export class StoreController {
 
   @ApiOperation({ summary: 'Update store theme', description: 'Update the theme configuration for a store' })
   @ApiParam({ name: 'id', description: 'Store ID', type: String })
-  @ApiOkResponse({ description: 'Store theme updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Store theme updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/theme')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -235,7 +236,7 @@ export class StoreController {
 
   @ApiOperation({ summary: 'Delete store', description: 'Permanently delete a store (admin or store owner only)' })
   @ApiParam({ name: 'id', description: 'Store ID', type: String })
-  @ApiOkResponse({ description: 'Store deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Store deleted successfully' })
   @ApiStandardErrorResponses()
   @Delete(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -251,10 +252,10 @@ export class StoreController {
   @ApiOperation({ summary: 'Register bank account', description: 'Register a bank account for a store to receive payouts' })
   @ApiParam({ name: 'id', description: 'Store ID', type: String })
   @ApiBody({ description: 'Bank account details', type: Object })
-  @ApiCreatedResponse({ description: 'Bank account registered successfully' })
+  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Bank account registered successfully' })
   @ApiStandardErrorResponses()
   @Post(':id/bank')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StoreOwnerGuard, PermissionsGuard)
   @RequirePermissions(Permission.MANAGE_STORE)
   registerBank(
     @Param('id') storeId: string,
@@ -273,10 +274,10 @@ export class StoreController {
   @ApiOperation({ summary: 'Update bank account', description: 'Update the bank account details for a store' })
   @ApiParam({ name: 'id', description: 'Store ID', type: String })
   @ApiBody({ description: 'Updated bank account details', type: Object })
-  @ApiOkResponse({ description: 'Bank account updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Bank account updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/bank')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StoreOwnerGuard, PermissionsGuard)
   @RequirePermissions(Permission.MANAGE_STORE)
   updateBank(
     @Param('id') storeId: string,
@@ -292,10 +293,10 @@ export class StoreController {
 
   @ApiOperation({ summary: 'Delete bank account', description: 'Remove the bank account associated with a store' })
   @ApiParam({ name: 'id', description: 'Store ID', type: String })
-  @ApiOkResponse({ description: 'Bank account deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Bank account deleted successfully' })
   @ApiStandardErrorResponses()
   @Delete(':id/bank')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, StoreOwnerGuard, PermissionsGuard)
   @RequirePermissions(Permission.MANAGE_STORE)
   removeBank(@Param('id') storeId: string) {
     return this.storeService.deleteBankAccount(storeId);

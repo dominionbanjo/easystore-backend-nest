@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -39,4 +39,9 @@ export class RecordVendorOfflineSaleDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Payment method', example: 'cash', enum: ['cash', 'transfer', 'pos'] })
+  @IsOptional()
+  @IsIn(['cash', 'transfer', 'pos'])
+  payment_method?: 'cash' | 'transfer' | 'pos';
 }

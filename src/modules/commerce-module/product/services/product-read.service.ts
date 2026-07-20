@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Product, ProductStatus } from '../entities/product.entity';
+import { ProductVariant } from '../entities/product-variant.entity';
 import { ProductCategory } from '../../product-category/entities/product-category.entity';
 
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
@@ -25,6 +26,8 @@ export class ProductReadService {
     @InjectRepository(ProductCategory)
     private readonly categoryRepo: Repository<ProductCategory>,
 
+    @InjectRepository(ProductVariant)
+    private readonly variantRepo: Repository<ProductVariant>,
 
     private readonly wishlistService: WishlistService,
     private readonly helpers: ProductHelperService,
@@ -288,7 +291,6 @@ export class ProductReadService {
       .leftJoin('product.variants', 'variants')
       .leftJoin('product.category_ref', 'category')
       .leftJoin('product.store', 'store')
-      .leftJoin('store.user', 'storeUser')
       .leftJoin('product.reviews', 'reviews')
       .leftJoin('reviews.user', 'reviewUser')
       .where(
@@ -299,9 +301,6 @@ export class ProductReadService {
         status: ProductStatus.ACTIVE,
       })
       .andWhere('store.status = :storeStatus', { storeStatus: 'active' })
-      .andWhere('storeUser.account_status = :userStatus', {
-        userStatus: 'active',
-      })
       .select([
         'product.id',
         'product.name',
@@ -613,5 +612,45 @@ export class ProductReadService {
       message: 'Store products retrieved successfully',
       data: buildPagination(items, total, page, limit),
     };
+  }
+
+  async lookupByBarcode(barcode: string, storeId: string) {
+    const product = await this.productRepo.findOne({
+      where: { barcode, store_id: storeId, status: ProductStatus.ACTIVE },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        price: true,
+        image: true,
+        stock: true,
+      },
+    });
+    if (product) return { product, variant: null };
+
+    const variant = await this.variantRepo.findOne({
+      where: { barcode },
+      relations: ['product'],
+      select: {
+        id: true,
+        price: true,
+        stock: true,
+        combinations: true,
+        image_url: true,
+        product: {
+          id: true,
+          name: true,
+          slug: true,
+          image: true,
+          store_id: true,
+          status: true,
+        },
+      },
+    });
+    if (variant && variant.product.store_id === storeId && variant.product.status === ProductStatus.ACTIVE) {
+      return { product: variant.product, variant };
+    }
+
+    throw new NotFoundException('Product not found for this barcode');
   }
 }

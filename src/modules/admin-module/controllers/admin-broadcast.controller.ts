@@ -11,6 +11,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { AdminBroadcastService } from '../services/admin-broadcast.service';
+import { SuccessResponseDto, SuccessWithIdDto } from '../../../common/dto/api-response.dto';
 import { CreateBroadcastDto } from '../dto/create-broadcast.dto';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
@@ -25,7 +26,7 @@ export class AdminBroadcastController {
   constructor(private readonly broadcastService: AdminBroadcastService) {}
 
   @ApiOperation({ summary: 'Create a broadcast', description: 'Create a new broadcast message to be sent to users' })
-  @ApiCreatedResponse({ description: 'Broadcast created successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Broadcast created successfully' })
   @ApiStandardErrorResponses()
   @Post()
   create(@Body() dto: CreateBroadcastDto) {
@@ -42,7 +43,7 @@ export class AdminBroadcastController {
 
   @ApiOperation({ summary: 'Update a broadcast', description: 'Update an existing broadcast message' })
   @ApiParam({ name: 'id', description: 'Broadcast ID', type: String })
-  @ApiOkResponse({ description: 'Broadcast updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Broadcast updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: Partial<CreateBroadcastDto>) {
@@ -51,7 +52,7 @@ export class AdminBroadcastController {
 
   @ApiOperation({ summary: 'Delete a broadcast', description: 'Delete a broadcast message by its ID' })
   @ApiParam({ name: 'id', description: 'Broadcast ID', type: String })
-  @ApiOkResponse({ description: 'Broadcast deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Broadcast deleted successfully' })
   @ApiStandardErrorResponses()
   @Delete(':id')
   remove(@Param('id') id: string) {

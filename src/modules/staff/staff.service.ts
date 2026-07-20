@@ -66,6 +66,7 @@ export class StaffService {
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.userRepo.update(userId, {
       password: hashed,
+      must_change_password: false,
       token_version: user.token_version + 1,
     });
 

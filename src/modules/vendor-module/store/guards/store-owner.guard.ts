@@ -5,19 +5,12 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { JwtAuthUser } from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { StoreService } from '../services/store.service';
-import { StoreStaff } from '../entities/store-staff.entity';
 
 @Injectable()
 export class StoreOwnerGuard implements CanActivate {
-  constructor(
-    private readonly storeService: StoreService,
-    @InjectRepository(StoreStaff)
-    private readonly staffRepo: Repository<StoreStaff>,
-  ) {}
+  constructor(private readonly storeService: StoreService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
@@ -45,11 +38,8 @@ export class StoreOwnerGuard implements CanActivate {
     if (isOwner) return true;
 
     // ✅ Staff check: active staff of this store can access
-    const isStaff = await this.staffRepo.exists({
-      where: { store_id: storeId, user_id: user.sub, status: 'active' },
-    });
+    const isStaff = await this.storeService.isStoreStaff(storeId, user.sub);
     if (isStaff) {
-      // Attach the resolved store_id to the user for downstream use
       req.user.store_id = storeId;
       return true;
     }

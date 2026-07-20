@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto, SuccessWithIdDto } from '../../../common/dto/api-response.dto';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { NotificationService } from './notification.service';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -45,7 +46,7 @@ export class NotificationController {
   @Post()
   @ApiOperation({ summary: 'Create automated notification', description: 'Creates a new automated notification template.' })
   @ApiBody({ description: 'Notification data', type: Object })
-  @ApiCreatedResponse({ description: 'Notification created successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Notification created successfully' })
   @ApiStandardErrorResponses()
   create(@Body() data: Partial<Notification>) {
     return this.notificationService.create(data);
@@ -55,7 +56,7 @@ export class NotificationController {
   @ApiOperation({ summary: 'Update automated notification', description: 'Updates an existing automated notification template.' })
   @ApiParam({ name: 'id', description: 'Notification ID', type: String })
   @ApiBody({ description: 'Updated notification data', type: Object })
-  @ApiOkResponse({ description: 'Notification updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Notification updated successfully' })
   @ApiStandardErrorResponses()
   update(@Param('id') id: string, @Body() data: Partial<Notification>) {
     return this.notificationService.update(id, data);
@@ -64,7 +65,7 @@ export class NotificationController {
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark notification as read', description: 'Marks a specific automated notification as read.' })
   @ApiParam({ name: 'id', description: 'Notification ID', type: String })
-  @ApiOkResponse({ description: 'Notification marked as read' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Notification marked as read' })
   @ApiStandardErrorResponses()
   markAsRead(@Param('id') id: string) {
     return this.notificationService.update(id, { status: 'read' });
@@ -73,7 +74,7 @@ export class NotificationController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete automated notification', description: 'Deletes an automated notification template.' })
   @ApiParam({ name: 'id', description: 'Notification ID', type: String })
-  @ApiOkResponse({ description: 'Notification deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Notification deleted successfully' })
   @ApiStandardErrorResponses()
   remove(@Param('id') id: string) {
     return this.notificationService.delete(id);

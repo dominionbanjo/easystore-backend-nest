@@ -1,12 +1,12 @@
 import {
   Injectable,
   BadRequestException,
-  Inject,
-  forwardRef,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from '../entities/order.entity';
+import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/services/store-analytics.service';
@@ -27,7 +27,8 @@ export class OrderManagementService {
     private readonly dataSource: DataSource,
     @InjectRepository(ProductCustomer)
     private readonly productCustomerRepo: Repository<ProductCustomer>,
-    @Inject(forwardRef(() => StoreAnalyticsService))
+    @InjectRepository(Store)
+    private readonly storeRepo: Repository<Store>,
     private readonly analyticsService: StoreAnalyticsService,
   ) {}
 
@@ -146,9 +147,17 @@ export class OrderManagementService {
   /* ────────────────────────────────────────────────
      UPDATE ORDER STATUS
   ──────────────────────────────────────────────── */
-  async updateOrderStatus(id: string, status: OrderStatus) {
-    const order = await this.orderRepo.findOne({ where: { id } });
+  async updateOrderStatus(id: string, status: OrderStatus, storeId?: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      select: { id: true, vendor_id: true, status: true, order_items: true, payment_method: true, buyer_id: true },
+    });
     if (!order) throw new BadRequestException('Order not found');
+    const store = await this.storeRepo.findOne({
+      where: { user_id: order.vendor_id },
+      select: { id: true },
+    });
+    if (store?.id !== storeId) throw new ForbiddenException('You do not own this order');
 
     const previousStatus = order.status;
 
@@ -225,12 +234,19 @@ export class OrderManagementService {
   /* ────────────────────────────────────────────────
      CANCEL ORDER
   ──────────────────────────────────────────────── */
-  async cancelOrder(id: string, requestedBy: string) {
-    const order = await this.orderRepo.findOne({ where: { id } });
+  async cancelOrder(id: string, requestedBy: string, storeId?: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      select: { id: true, buyer_id: true, vendor_id: true, status: true, order_items: true, payment_method: true },
+    });
     if (!order) throw new BadRequestException('Order not found');
 
     if (requestedBy !== order.buyer_id && requestedBy !== order.vendor_id) {
-      throw new BadRequestException('Unauthorized');
+      const store = await this.storeRepo.findOne({
+        where: { user_id: order.vendor_id },
+        select: { id: true },
+      });
+      if (store?.id !== storeId) throw new ForbiddenException('Unauthorized');
     }
 
     const previousStatus = order.status;

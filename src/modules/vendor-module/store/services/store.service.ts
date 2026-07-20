@@ -82,6 +82,10 @@ export class StoreService {
     return this.readService.isStoreOwner(storeId, userId);
   }
 
+  isStoreStaff(storeId: string, userId: string): Promise<boolean> {
+    return this.readService.isStoreStaff(storeId, userId);
+  }
+
   /* ────────────────────────────────────────────────
      THEME / TEMPLATE METHODS
   ──────────────────────────────────────────────── */

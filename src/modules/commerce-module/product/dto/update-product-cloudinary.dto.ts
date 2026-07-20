@@ -5,6 +5,7 @@ import {
   IsString,
   IsNumber,
   Min,
+  MaxLength,
   IsInt,
   IsArray,
   ValidateNested,
@@ -24,6 +25,12 @@ export class UpdateProductCloudinaryDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  @ApiPropertyOptional({ description: 'Barcode / UPC / EAN', example: '8901234567890', maxLength: 100 })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  barcode?: string;
 
   @ApiPropertyOptional({ description: 'Product description', example: 'Updated description with new features' })
   @IsString()

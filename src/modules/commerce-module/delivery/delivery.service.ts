@@ -3,8 +3,6 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -33,7 +31,6 @@ export class DeliveryService {
     private readonly upload: UploadService,
     private readonly cache: CacheService,
     private readonly mail: DeliveryMailService,
-    @Inject(forwardRef(() => StoreAnalyticsService))
     private readonly analyticsService: StoreAnalyticsService,
   ) {}
 

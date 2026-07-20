@@ -11,6 +11,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiParam, ApiQuery
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { UserListItemDto, VendorListItemDto } from '../../../common/dto/response/user-response.dto';
+import { SuccessResponseDto } from '../../../common/dto/api-response.dto';
 import { AdminUsersService } from '../services/admin-users.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -62,7 +63,7 @@ export class AdminUsersController {
   @ApiOperation({ summary: 'Update user status', description: 'Activate or deactivate a user account' })
   @ApiParam({ name: 'id', description: 'User ID', type: String })
   @ApiBody({ description: 'New status', type: Object })
-  @ApiOkResponse({ description: 'User status updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'User status updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':id/status')
   updateUserStatus(@Param('id') id: string, @Body('status') status: string) {
@@ -72,7 +73,7 @@ export class AdminUsersController {
   @ApiOperation({ summary: 'Update vendor store status', description: 'Activate or deactivate a vendor store' })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
   @ApiBody({ description: 'New status', type: Object })
-  @ApiOkResponse({ description: 'Vendor store status updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Vendor store status updated successfully' })
   @ApiStandardErrorResponses()
   @Patch('vendor/:storeId/status')
   updateVendorStatus(

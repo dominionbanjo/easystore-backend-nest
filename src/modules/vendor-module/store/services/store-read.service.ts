@@ -60,6 +60,10 @@ export class StoreReadService {
     return this.detailService.isStoreOwner(storeId, userId);
   }
 
+  isStoreStaff(storeId: string, userId: string) {
+    return this.detailService.isStoreStaff(storeId, userId);
+  }
+
   getTemplates() {
     return this.themeService.getTemplates();
   }

@@ -23,6 +23,7 @@ import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto, SuccessWithIdDto } from 'src/common/dto/api-response.dto';
 
 @ApiTags('Reviews')
 @ApiBearerAuth('JWT-auth')
@@ -35,7 +36,7 @@ export class ProductReviewController {
   ──────────────────────────────────────────────── */
   @ApiOperation({ summary: 'Add a product review', description: 'Adds a review and rating for a product. Requires authentication.' })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
-  @ApiCreatedResponse({ description: 'Review added successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Review added successfully' })
   @ApiStandardErrorResponses()
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -74,7 +75,7 @@ export class ProductReviewController {
   @ApiOperation({ summary: 'Delete a review', description: 'Deletes a product review by its ID. Requires authentication and ownership.' })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
   @ApiParam({ name: 'reviewId', description: 'Review ID', type: String })
-  @ApiOkResponse({ description: 'Review deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Review deleted successfully' })
   @ApiStandardErrorResponses()
   @Delete(':reviewId')
   @UseGuards(JwtAuthGuard)
@@ -82,14 +83,6 @@ export class ProductReviewController {
     @Param('reviewId') reviewId: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
-    /**
-     * Ownership enforcement should ideally be done
-     * inside the service for security.
-     *
-     * If you want, I can add:
-     * deleteReview(reviewId, userId)
-     * with ownership check.
-     */
-    return this.reviewService.deleteReview(reviewId);
+    return this.reviewService.deleteReview(reviewId, user.sub);
   }
 }

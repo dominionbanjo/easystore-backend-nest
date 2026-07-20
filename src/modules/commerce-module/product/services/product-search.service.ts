@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { Product, ProductStatus } from '../entities/product.entity';
 import { ProductSearchDto } from '../dto/product-search.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { WishlistService } from '../../wishlist/wishlist.service';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import {
@@ -540,15 +540,20 @@ export class ProductSearchService {
     };
   }
 
-  async getSalesTerminalProducts(storeId: string) {
-    const products = await this.productRepo
+  async getSalesTerminalProducts(
+    storeId: string,
+    query: { page?: number; limit?: number; q?: string; category?: string } = {},
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 24;
+    const skip = (page - 1) * limit;
+
+    const qb = this.productRepo
       .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category_ref', 'category')
-      .leftJoinAndSelect('product.variants', 'variants')
+      .leftJoin('product.category_ref', 'category')
+      .leftJoin('product.variants', 'variants')
       .where('product.store_id = :storeId', { storeId })
       .andWhere('product.status = :status', { status: ProductStatus.ACTIVE })
-      .orderBy('category.name', 'ASC')
-      .addOrderBy('product.name', 'ASC')
       .select([
         'product.id',
         'product.name',
@@ -563,10 +568,24 @@ export class ProductSearchService {
         'variants.stock',
         'variants.combinations',
         'variants.image_url',
-      ])
-      .getMany();
+      ]);
 
-    return products.map((p) => ({
+    if (query.q?.trim()) {
+      qb.andWhere('(product.name ILIKE :q OR category.name ILIKE :q)', {
+        q: `%${query.q.trim()}%`,
+      });
+    }
+
+    if (query.category) {
+      qb.andWhere('category.name = :category', { category: query.category });
+    }
+
+    qb.orderBy('category.name', 'ASC').addOrderBy('product.name', 'ASC');
+    qb.skip(skip).take(limit);
+
+    const [products, total] = await qb.getManyAndCount();
+
+    const items = products.map((p) => ({
       id: p.id,
       name: p.name,
       slug: p.slug,
@@ -583,5 +602,22 @@ export class ProductSearchService {
         image_url: v.image_url,
       })),
     }));
+
+    return buildPagination(items, total, page, limit);
+  }
+
+  async getSalesTerminalCategories(storeId: string) {
+    const rows = await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoin('product.category_ref', 'category')
+      .select(['category.name AS name', 'COUNT(product.id) AS count'])
+      .where('product.store_id = :storeId', { storeId })
+      .andWhere('product.status = :status', { status: ProductStatus.ACTIVE })
+      .andWhere('category.name IS NOT NULL')
+      .groupBy('category.name')
+      .orderBy('category.name', 'ASC')
+      .getRawMany();
+
+    return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
   }
 }

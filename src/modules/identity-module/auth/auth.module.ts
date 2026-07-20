@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { EmailModule } from 'src/modules/shared-module/email/email.module';
 import { StoreModule } from 'src/modules/vendor-module/store/store.module';
 import { User } from '../users/entities/user.entity';
+import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
@@ -18,7 +19,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     ConfigModule.forRoot({ isGlobal: true }),
 
     // REPOSITORY FOR JwtStrategy + AuthService
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, StoreStaff]),
 
     // Required feature modules
     UsersModule,

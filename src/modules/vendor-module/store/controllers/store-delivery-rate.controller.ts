@@ -10,15 +10,17 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from '../../../../common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto, SuccessWithIdDto } from '../../../../common/dto/api-response.dto';
 
 import { SetProductDeliveryRateDto } from '../dto/store-delivery-rate.dto';
 
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
-import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
+import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
+import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
+import { Permission } from 'src/common/permissions/permissions';
 import { StoreDeliveryRateService } from '../services/store-delivery-rate.service';
 
 @ApiTags('Store Delivery Rates')
@@ -38,11 +40,11 @@ export class StoreDeliveryRateController {
 
   @ApiOperation({ summary: 'Add delivery rate', description: 'Create a new delivery rate for a store (store owner only)' })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
-  @ApiCreatedResponse({ description: 'Delivery rate created successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Delivery rate created successfully' })
   @ApiStandardErrorResponses()
   @Post('store/:storeId')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @RequirePermissions(Permission.MANAGE_STORE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   createRate(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Param('storeId') storeId: string,
@@ -53,11 +55,11 @@ export class StoreDeliveryRateController {
 
   @ApiOperation({ summary: 'Update delivery rate', description: 'Update an existing delivery rate for a store (store owner only)' })
   @ApiParam({ name: 'rateId', description: 'Delivery rate ID', type: String })
-  @ApiOkResponse({ description: 'Delivery rate updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Delivery rate updated successfully' })
   @ApiStandardErrorResponses()
   @Patch(':rateId')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @RequirePermissions(Permission.MANAGE_STORE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   updateRate(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Param('rateId') rateId: string,
@@ -68,11 +70,11 @@ export class StoreDeliveryRateController {
 
   @ApiOperation({ summary: 'Delete delivery rate', description: 'Delete a delivery rate from a store (store owner only)' })
   @ApiParam({ name: 'rateId', description: 'Delivery rate ID', type: String })
-  @ApiOkResponse({ description: 'Delivery rate deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Delivery rate deleted successfully' })
   @ApiStandardErrorResponses()
   @Delete(':rateId')
-  @UseGuards(JwtAuthGuard, RolesGuard, StoreOwnerGuard)
-  @Roles('vendor', 'admin')
+  @RequirePermissions(Permission.MANAGE_STORE)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   deleteRate(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Param('rateId') rateId: string,

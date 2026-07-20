@@ -9,6 +9,7 @@ import { User } from './entities/user.entity';
 import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
+import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { sanitizeUser } from 'src/utils/response/sanitizeUser';
 import { EntityManager } from 'typeorm';
@@ -25,6 +26,9 @@ export class UsersService {
 
     @InjectRepository(Store)
     private readonly storeRepo: Repository<Store>,
+
+    @InjectRepository(StoreStaff)
+    private readonly storeStaffRepo: Repository<StoreStaff>,
 
     private readonly uploadService: UploadService,
     private readonly paystackService: PaystackService,
@@ -180,12 +184,22 @@ export class UsersService {
 
     if (!user) return null;
 
+    let store_id: string | null = user.store?.id ?? null;
+
+    if (!store_id && user.account_type === 'staff') {
+      const staff = await this.storeStaffRepo.findOne({
+        where: { user_id: userId, status: 'active' },
+        select: { store_id: true },
+      });
+      store_id = staff?.store_id ?? null;
+    }
+
     return {
       id: user.id,
       account_type: user.account_type,
       account_status: user.account_status,
       token_version: user.token_version,
-      store_id: user.store?.id ?? null,
+      store_id,
     };
   }
 

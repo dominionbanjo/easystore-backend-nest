@@ -67,6 +67,9 @@ export class User {
   })
   account_type: AccountType;
 
+  @Column({ type: 'boolean', default: false })
+  must_change_password: boolean;
+
   @Column({
     type: 'enum',
     enum: ['active', 'pending', 'restricted', 'banned'],

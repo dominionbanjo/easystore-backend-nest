@@ -65,6 +65,7 @@ export class StoreStaffService {
           account_type: 'staff' as any,
           account_status: 'active',
           email_verified: true,
+          must_change_password: true,
         });
         user = await manager.save(User, user);
       } else {
@@ -74,6 +75,7 @@ export class StoreStaffService {
           password: hashedPassword,
           account_type: 'staff' as any,
           account_status: 'active',
+          must_change_password: true,
           token_version: user.token_version + 1,
         });
       }
@@ -205,6 +207,7 @@ export class StoreStaffService {
     await this.dataSource.transaction(async (manager) => {
       await manager.update(User, staff.user_id, {
         password: hashedPassword,
+        must_change_password: true,
         token_version: staff.user.token_version + 1,
       });
     });

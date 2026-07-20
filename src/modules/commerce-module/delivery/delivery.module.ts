@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Delivery } from './entities/delivery.entity';
 import { DeliveryService } from './delivery.service';
@@ -20,7 +20,7 @@ import { StoreAnalyticsModule } from 'src/modules/vendor-module/store-analytics/
     EscrowModule,
     CacheModule,
     EmailModule,
-    forwardRef(() => StoreAnalyticsModule),
+    StoreAnalyticsModule,
   ],
   controllers: [DeliveryController],
   providers: [DeliveryService],

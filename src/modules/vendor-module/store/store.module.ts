@@ -53,11 +53,11 @@ import { StoreThemeService } from './services/store-theme.service';
     forwardRef(() => StoreAnalyticsModule),
   ],
   controllers: [
-    StoreController,
+    StoreStaffController,
     StoreLookupController,
     StoreAdminController,
     StoreDeliveryRateController,
-    StoreStaffController,
+    StoreController,
   ],
   providers: [
     StoreService,

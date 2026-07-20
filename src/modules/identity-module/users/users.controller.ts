@@ -16,6 +16,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
+import { SuccessResponseDto, SuccessWithIdDto } from '../../../common/dto/api-response.dto';
 import { UsersService } from './users.service';
 import { UpdateProfileDto, AddressDto } from './dto/update-user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -44,7 +45,7 @@ export class UsersController {
   @Patch('me')
   @UseInterceptors(FileInterceptor('avatar'))
   @ApiOperation({ summary: 'Update user profile', description: 'Updates the authenticated user profile, including optional avatar upload.' })
-  @ApiOkResponse({ description: 'Profile updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Profile updated successfully' })
   @ApiStandardErrorResponses()
   async updateProfile(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -81,7 +82,7 @@ export class UsersController {
   @Post('bank/register')
   @ApiOperation({ summary: 'Register bank account', description: 'Registers a Paystack bank account for the authenticated user.' })
   @ApiBody({ description: 'Bank account details', type: Object })
-  @ApiCreatedResponse({ description: 'Bank account registered successfully' })
+  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Bank account registered successfully' })
   @ApiStandardErrorResponses()
   async registerBankAccount(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -110,7 +111,7 @@ export class UsersController {
 
   @Delete('bank')
   @ApiOperation({ summary: 'Delete bank account', description: 'Deletes the registered bank account for the authenticated user.' })
-  @ApiOkResponse({ description: 'Bank account deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Bank account deleted successfully' })
   @ApiStandardErrorResponses()
   async deleteBankAccount(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.usersService.deleteBankAccount(user.sub);
@@ -118,7 +119,7 @@ export class UsersController {
 
   @Post('me/addresses')
   @ApiOperation({ summary: 'Add user address', description: 'Adds a new address to the authenticated user profile.' })
-  @ApiCreatedResponse({ description: 'Address added successfully' })
+  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Address added successfully' })
   @ApiStandardErrorResponses()
   async addAddress(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -130,7 +131,7 @@ export class UsersController {
   @Patch('me/addresses/:id')
   @ApiOperation({ summary: 'Update user address', description: 'Updates an existing address for the authenticated user.' })
   @ApiParam({ name: 'id', description: 'Address ID', type: String })
-  @ApiOkResponse({ description: 'Address updated successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Address updated successfully' })
   @ApiStandardErrorResponses()
   async updateAddress(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
@@ -143,7 +144,7 @@ export class UsersController {
   @Delete('me/addresses/:id')
   @ApiOperation({ summary: 'Delete user address', description: 'Deletes an address from the authenticated user profile.' })
   @ApiParam({ name: 'id', description: 'Address ID', type: String })
-  @ApiOkResponse({ description: 'Address deleted successfully' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Address deleted successfully' })
   @ApiStandardErrorResponses()
   async deleteAddress(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
