@@ -24,7 +24,7 @@ export class StaffInviteMailService {
       </div>
       <p style="color:#e74c3c;font-size:13px;"><strong>⚠ Security notice:</strong> You will be prompted to change this password on your first login.</p>
       <p>Click the button below to log in and get started:</p>
-      <a href="${process.env.VENDOR_URL || 'https://vendor.eazystore.com.ng'}/login" style="display:inline-block;background:#17c06e;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;">Log In to Dashboard</a>
+      <a href="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/auth/login" style="display:inline-block;background:#17c06e;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;">Log In to Dashboard</a>
       `,
     );
     return this.email.sendEmail({ to: email, subject: `You've been invited to join ${storeName}`, html });
@@ -43,7 +43,7 @@ export class StaffInviteMailService {
         <code style="font-size:18px;font-weight:bold;color:#17c06e;background:#fff;padding:8px 16px;border-radius:4px;">${tempPassword}</code>
       </div>
       <p style="color:#e74c3c;font-size:13px;"><strong>⚠ Security notice:</strong> You will be prompted to change this password on your first login after reset.</p>
-      <a href="${process.env.VENDOR_URL || 'https://vendor.eazystore.com.ng'}/login" style="display:inline-block;background:#17c06e;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;">Log In</a>
+      <a href="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/auth/login" style="display:inline-block;background:#17c06e;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;">Log In</a>
       `,
     );
     return this.email.sendEmail({ to: email, subject: 'Your password has been reset', html });

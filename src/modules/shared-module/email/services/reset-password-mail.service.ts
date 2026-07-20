@@ -19,7 +19,7 @@ export class ResetPasswordMailService {
   async sendResetPasswordEmail(payload: ResetPasswordPayload) {
     const { name, email, token, origin } = payload;
 
-    const resetURL = `${origin}/auth/reset-password?token=${token}&email=${email}`;
+    const resetURL = `${origin}/auth/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
     const title = 'Reset Your Password';
 
     const content = `
