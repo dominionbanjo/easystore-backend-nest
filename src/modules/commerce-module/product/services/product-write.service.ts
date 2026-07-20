@@ -716,12 +716,13 @@ export class ProductWriteService {
         .createQueryBuilder()
         .update(Product)
         .set({
+          stock: () => `GREATEST(0, stock - ${abs})`,
           total_sold: () => `total_sold + ${abs}`,
         })
         .where('id = :productId', { productId: variant.product_id })
         .execute();
 
-      // Handle product-level out-of-stock
+      // Check if parent stock reached zero
       const p = await productRepo.findOne({
         where: { id: variant.product_id },
         select: ['stock'],
