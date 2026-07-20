@@ -486,6 +486,11 @@ export class AuthService implements OnModuleInit {
       origin,
     });
 
+    // Invalidate existing sessions
+    await this.users.update(user.id, {
+      token_version: (user.token_version ?? 0) + 1,
+    });
+
     return { message: 'Password reset mail sent, please check your mail' };
   }
 
