@@ -79,10 +79,27 @@ export class StoreDetailService {
 
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
+    // NOTE: Products are intentionally NOT included in this query.
+    // They are fetched separately by the frontend via getStoreProducts().
+    // Keeping them separate avoids loading heavy variant/JSONB data
+    // on every store detail navigation and keeps cache granularity high.
     let store: Store | null = null;
     if (isUUID) {
       store = await this.storeRepo.findOne({
         where: { id: identifier },
+        select: {
+          id: true, store_name: true, slug: true, subdomain: true,
+          category: true, description: true, logo: true, cover_image: true,
+          email: true, phone_number: true,
+          rating_average: true, rating_count: true,
+          address_city: true, address_state: true, address_country: true,
+          address_postal_code: true,
+          status: true, user_id: true, total_products: true, created_at: true,
+          user: {
+            first_name: true, last_name: true, username: true,
+            avatar: true, account_status: true,
+          },
+        },
         relations: ['user', 'theme_setting', 'theme_setting.template'],
       });
     } else {
@@ -91,6 +108,19 @@ export class StoreDetailService {
           { subdomain: identifier },
           { slug: identifier },
         ],
+        select: {
+          id: true, store_name: true, slug: true, subdomain: true,
+          category: true, description: true, logo: true, cover_image: true,
+          email: true, phone_number: true,
+          rating_average: true, rating_count: true,
+          address_city: true, address_state: true, address_country: true,
+          address_postal_code: true,
+          status: true, user_id: true, total_products: true, created_at: true,
+          user: {
+            first_name: true, last_name: true, username: true,
+            avatar: true, account_status: true,
+          },
+        },
         relations: ['user', 'theme_setting', 'theme_setting.template'],
       });
     }
@@ -103,9 +133,7 @@ export class StoreDetailService {
       throw new NotFoundException('Store not found or is inactive');
     }
 
-    const totalProductsCount = await this.productRepo.count({
-      where: { vendor_id: store.user_id },
-    });
+    const totalProductsCount = store.total_products ?? 0;
 
     let productsResult: ReturnType<typeof buildPagination> | null = null;
 
@@ -191,26 +219,41 @@ export class StoreDetailService {
     return response;
   }
 
-  async getStoreByUser(userId: string) {
+  async getStoreByUser(userId: string, storeId?: string) {
     if (!userId) {
       throw new BadRequestException('User ID is required');
     }
 
     const cacheKey = `svc:store:user:${userId}`;
     const cached = await this.cache.get<Store>(cacheKey);
-    if (cached) return cached;
+    if (cached && !storeId) return cached;
+
+    const where: any = storeId
+      ? { id: storeId, user_id: userId }
+      : { user_id: userId };
 
     const store = await this.storeRepo.findOne({
-      where: { user_id: userId },
+      where,
       relations: ['user'],
+      order: storeId ? undefined : { created_at: 'DESC' },
     });
 
     if (!store) {
       throw new NotFoundException('Store not found for this user');
     }
 
-    await this.cache.set(cacheKey, store);
+    if (!storeId) {
+      await this.cache.set(cacheKey, store);
+    }
     return store;
+  }
+
+  async getStoresByUser(userId: string) {
+    return this.storeRepo.find({
+      where: { user_id: userId },
+      select: ['id', 'store_name', 'slug', 'logo', 'status', 'created_at'],
+      order: { created_at: 'DESC' },
+    });
   }
 
   async getTotalProductsForStore(storeId: string): Promise<number> {
@@ -241,6 +284,7 @@ export class StoreDetailService {
         'store_name',
         'payout_verified',
         'recipient_code',
+        'escrow_enabled',
       ],
     });
 
@@ -251,6 +295,12 @@ export class StoreDetailService {
     if (!store.payout_verified || !store.recipient_code) {
       throw new BadRequestException(
         `Vendor ${store.store_name} cannot receive online payments`,
+      );
+    }
+
+    if (!store.escrow_enabled) {
+      throw new BadRequestException(
+        `Vendor ${store.store_name} has escrow payments disabled`,
       );
     }
 

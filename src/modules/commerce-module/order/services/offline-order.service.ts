@@ -66,11 +66,14 @@ export class OfflineOrderService {
       const taxKobo = tax;
       const totalKobo = subtotalKobo + taxKobo;
 
+      const store = await this.storeService.getStoreByUser(vendor_id);
+
       const saved = await this.dataSource.transaction(async (manager) => {
         const orderEntity = manager.create(Order, {
           id: uuidv4(),
           buyer_id,
           vendor_id,
+          store_id: store.id,
           order_items: vendorItems,
           subtotal: subtotalKobo,
           tax: taxKobo,
@@ -119,6 +122,7 @@ export class OfflineOrderService {
    */
   async recordVendorOfflineSale(data: {
     vendor_id: string;
+    store_id?: string | null;
     items: { product_id: string; variant_id?: string; quantity: number }[];
     customer_name?: string;
     customer_email?: string;
@@ -126,7 +130,7 @@ export class OfflineOrderService {
     recorded_by?: string;
     payment_method?: 'cash' | 'transfer' | 'pos';
   }) {
-    const { vendor_id, items, customer_name, customer_email, notes, recorded_by, payment_method } = data;
+    const { vendor_id, store_id, items, customer_name, customer_email, notes, recorded_by, payment_method } = data;
 
     if (!items || items.length === 0) {
       throw new BadRequestException('At least one item is required');
@@ -190,6 +194,7 @@ export class OfflineOrderService {
       id: uuidv4(),
       buyer_id: null,
       vendor_id,
+      store_id: store_id ?? null,
       recorded_by: recorded_by ?? null,
       order_items: orderItems,
       subtotal: subtotalKobo,

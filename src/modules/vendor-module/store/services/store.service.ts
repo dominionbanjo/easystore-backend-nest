@@ -36,6 +36,10 @@ export class StoreService {
     return this.readService.getAllStoresAdmin(pagination);
   }
 
+  getStoresByUser(userId: string) {
+    return this.readService.getStoresByUser(userId);
+  }
+
   getTotalProductsForStore(storeId: string) {
     return this.readService.getTotalProductsForStore(storeId);
   }

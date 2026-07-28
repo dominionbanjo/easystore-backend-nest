@@ -27,6 +27,7 @@ import { AdminModule } from './modules/admin-module/admin-module.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { MessagingModule } from './modules/shared-module/messaging/messaging.module';
 import { NotificationModule } from './modules/shared-module/notification/notification.module';
+import { NewsletterModule } from './modules/shared-module/newsletter/newsletter.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { NotificationModule } from './modules/shared-module/notification/notific
     // 💬 MESSAGING
     MessagingModule,
     NotificationModule,
+    NewsletterModule,
   ],
 
   controllers: [AppController],

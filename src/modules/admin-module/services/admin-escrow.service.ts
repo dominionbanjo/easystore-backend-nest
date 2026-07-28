@@ -116,7 +116,7 @@ export class AdminEscrowService {
     qb.leftJoinAndSelect('escrow.order', 'order');
     qb.leftJoinAndSelect('escrow.buyer', 'buyer');
     qb.leftJoinAndSelect('escrow.vendor', 'vendor');
-    qb.leftJoinAndSelect('vendor.store', 'vendor_store');
+    qb.leftJoinAndSelect('vendor.stores', 'vendor_store');
 
     if (status && status !== 'all') {
       qb.andWhere('escrow.status = :status', { status });
@@ -150,7 +150,7 @@ export class AdminEscrowService {
 
     const qb = this.payoutRepo.createQueryBuilder('payout');
     qb.leftJoinAndSelect('payout.vendor', 'vendor');
-    qb.leftJoinAndSelect('vendor.store', 'store');
+    qb.leftJoinAndSelect('vendor.stores', 'store');
     qb.leftJoinAndSelect('payout.order', 'order');
 
     if (status && status !== 'all') {
@@ -181,12 +181,12 @@ export class AdminEscrowService {
           reference: p.transfer_reference ?? p.transfer_code,
           payout_type: p.payout_type,
           vendor: p.vendor,
-          vendor_bank: p.vendor?.store
+          vendor_bank: p.vendor?.stores?.[0]
             ? {
-                store_name: p.vendor.store.store_name,
-                bank_name: p.vendor.store.bank_name,
-                account_number: p.vendor.store.account_number,
-                account_name: p.vendor.store.account_number 
+                store_name: p.vendor.stores[0].store_name,
+                bank_name: p.vendor.stores[0].bank_name,
+                account_number: p.vendor.stores[0].account_number,
+                account_name: p.vendor.stores[0].account_number
               }
             : null,
         })),

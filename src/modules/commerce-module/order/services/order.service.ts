@@ -81,6 +81,7 @@ export class OrderService {
    */
   async recordVendorOfflineSale(data: {
     vendor_id: string;
+    store_id?: string | null;
     items: { product_id: string; variant_id?: string; quantity: number }[];
     customer_name?: string;
     customer_email?: string;
@@ -156,7 +157,7 @@ export class OrderService {
   /**
    * Get order receipt as PDF buffer
    */
-  getSalesHistory(vendorId: string, query: {
+  getSalesHistory(vendorId: string, storeId?: string, query?: {
     page?: number;
     limit?: number;
     staffId?: string;
@@ -164,7 +165,7 @@ export class OrderService {
     dateTo?: string;
     search?: string;
   }) {
-    return this.queryService.getSalesHistory(vendorId, query);
+    return this.queryService.getSalesHistory(vendorId, storeId, query);
   }
 
   getReceiptData(orderId: string, userId: string) {
@@ -209,6 +210,7 @@ export class OrderService {
    */
   async getOrdersByVendor(
     vendor_id: string,
+    store_id?: string,
     query?: {
       search?: string;
       status?: string;
@@ -216,7 +218,7 @@ export class OrderService {
       limit?: number;
     },
   ) {
-    return this.queryService.getOrdersByVendor(vendor_id, query);
+    return this.queryService.getOrdersByVendor(vendor_id, store_id, query);
   }
 
   /* ────────────────────────────────────────────────

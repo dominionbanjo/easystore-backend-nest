@@ -36,6 +36,7 @@ export class OrderSummaryService {
       items: ICartItem[];
       subtotal: number;
       delivery_options: StoreDeliveryRate[];
+      escrow_enabled: boolean;
     }[] = [];
 
     for (const vendorId of Object.keys(groups)) {
@@ -54,6 +55,7 @@ export class OrderSummaryService {
         items,
         subtotal,
         delivery_options: rates,
+        escrow_enabled: store.escrow_enabled ?? false,
       });
     }
 

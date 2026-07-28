@@ -25,7 +25,7 @@ export class StoreStaffController {
   @ApiStandardErrorResponses()
   async inviteStaff(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
-    @Body() body: { email: string; first_name: string; last_name: string },
+    @Body() body: { email: string; first_name: string; last_name: string; password?: string },
   ) {
     return this.staffService.inviteStaff(user.store_id!, body);
   }
@@ -74,6 +74,20 @@ export class StoreStaffController {
     return this.staffService.updateStaff(id, user.store_id!, body);
   }
 
+  @Patch(':id/permissions')
+  @RequirePermissions(Permission.MANAGE_STORE)
+  @ApiOperation({ summary: 'Update staff permissions', description: 'Set additional permissions for a staff member (e.g. product:create)' })
+  @ApiOkResponse({ type: SuccessResponseDto, description: 'Permissions updated' })
+  @ApiBody({ schema: { properties: { permissions: { type: 'array', items: { type: 'string' } } } } })
+  @ApiStandardErrorResponses()
+  async updatePermissions(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Param('id') id: string,
+    @Body() body: { permissions: string[] },
+  ) {
+    return this.staffService.updateStaffPermissions(id, user.store_id!, body.permissions);
+  }
+
   @Patch(':id/suspend')
   @RequirePermissions(Permission.MANAGE_STORE)
   @ApiOperation({ summary: 'Suspend a staff member' })
@@ -100,8 +114,12 @@ export class StoreStaffController {
   @ApiOkResponse({ type: SuccessResponseDto, description: 'Password reset successful' })
   @ApiParam({ name: 'id', type: String })
   @ApiStandardErrorResponses()
-  async resetStaffPassword(@CurrentUser() user: jwtStrategy.JwtAuthUser, @Param('id') id: string) {
-    return this.staffService.resetPassword(id, user.store_id!);
+  async resetStaffPassword(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Param('id') id: string,
+    @Body() body?: { password?: string },
+  ) {
+    return this.staffService.resetPassword(id, user.store_id!, body?.password);
   }
 
   @Delete(':id')

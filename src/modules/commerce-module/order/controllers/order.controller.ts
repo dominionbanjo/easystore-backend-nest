@@ -257,7 +257,7 @@ export class PandaOrderController {
     if (!user.store_id) {
       throw new BadRequestException('Store not found for this vendor');
     }
-    return this.orderService.getOrdersByVendor(user.sub, {
+    return this.orderService.getOrdersByVendor(user.sub, user.store_id ?? undefined, {
       search,
       status,
       page,
@@ -281,6 +281,7 @@ export class PandaOrderController {
     const vendorId = await this.resolveVendorId(user);
     return this.orderService.recordVendorOfflineSale({
       vendor_id: vendorId,
+      store_id: user.store_id,
       items: dto.items,
       customer_name: dto.customer_name,
       customer_email: dto.customer_email,
@@ -349,7 +350,7 @@ export class PandaOrderController {
     @Query('search') search?: string,
   ) {
     const vendorId = await this.resolveVendorId(user);
-    return this.orderService.getSalesHistory(vendorId, {
+    return this.orderService.getSalesHistory(vendorId, user.store_id ?? undefined, {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       staffId,

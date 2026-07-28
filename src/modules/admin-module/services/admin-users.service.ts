@@ -26,7 +26,7 @@ export class AdminUsersService {
   ) {}
 
   private buildBaseQuery(type?: string): SelectQueryBuilder<User> {
-    const qb = this.userRepo.createQueryBuilder('user').leftJoin('user.store', 'store');
+    const qb = this.userRepo.createQueryBuilder('user').leftJoin('user.stores', 'store');
 
     if (type) {
       qb.andWhere('user.account_type = :type', { type });
@@ -135,7 +135,7 @@ export class AdminUsersService {
   async getOne(userId: string) {
     const user = await this.userRepo
       .createQueryBuilder('user')
-      .leftJoin('user.store', 'store')
+      .leftJoin('user.stores', 'store')
       .where('user.id = :userId', { userId })
       .select([
         'user.id',
@@ -179,7 +179,7 @@ export class AdminUsersService {
   async updateUserStatus(userId: string, newStatus: AccountStatus) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      relations: ['store'],
+      relations: ['stores'],
       select: {
         id: true,
         first_name: true,
@@ -189,7 +189,7 @@ export class AdminUsersService {
         account_status: true,
         token_version: true,
         updated_at: true,
-        store: {
+        stores: {
           id: true,
           store_name: true,
         },
@@ -212,14 +212,14 @@ export class AdminUsersService {
     if (
       user.account_type === 'vendor' &&
       newStatus === 'active' &&
-      user.store
+      user.stores?.[0]
     ) {
       // Special case for store approval
       this.accountStatusMail
         .sendStoreApprovalEmail({
           name: user.first_name,
           email: user.email,
-          storeName: user.store.store_name,
+          storeName: user.stores[0].store_name,
         })
         .catch((e) => console.error('Store Approval Email Error:', e.message));
     } else {

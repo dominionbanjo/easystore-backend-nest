@@ -38,12 +38,13 @@ export class OrderManagementService {
   private async processAnalytics(orderId: string) {
     const order = await this.orderRepo.findOne({
       where: { id: orderId },
-      relations: ['vendor', 'vendor.store'],
+      relations: ['vendor', 'store', 'vendor.stores'],
     });
 
     if (!order || order.analytics_processed) return;
 
-    if (!order.vendor?.store?.id) {
+    const storeId = order.store_id ?? order.vendor?.stores?.[0]?.id;
+    if (!storeId) {
       console.warn(
         `Store not found for vendor ${order.vendor_id} on order ${order.id}`,
       );
@@ -52,7 +53,7 @@ export class OrderManagementService {
 
     try {
       await this.analyticsService.updateFromOrder(
-        order.vendor.store.id,
+        storeId,
         order.total,
         order.buyer_id,
         order.order_items,
@@ -214,13 +215,13 @@ export class OrderManagementService {
     if (status === 'delivered' && order.buyer_id) {
       const fullOrder = await this.orderRepo.findOne({
         where: { id: order.id },
-        relations: ['buyer', 'vendor', 'vendor.store'],
+        relations: ['buyer', 'vendor', 'vendor.stores'],
       });
-      if (fullOrder && fullOrder.buyer?.email && fullOrder.vendor?.store) {
+      if (fullOrder && fullOrder.buyer?.email && fullOrder.vendor?.stores?.[0]) {
         await this.orderMailService.sendRateVendorEmail({
           email: fullOrder.buyer.email,
           name: fullOrder.buyer.first_name,
-          storeName: fullOrder.vendor.store.store_name,
+          storeName: fullOrder.vendor.stores[0].store_name,
           orderId: fullOrder.id,
           products: fullOrder.order_items,
         });

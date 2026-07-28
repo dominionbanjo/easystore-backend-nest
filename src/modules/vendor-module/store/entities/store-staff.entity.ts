@@ -47,6 +47,9 @@ export class StoreStaff {
   @Column({ type: 'timestamptz', nullable: true })
   last_login_at: Date | null;
 
+  @Column({ type: 'text', array: true, nullable: true })
+  permissions: string[] | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

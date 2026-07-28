@@ -143,11 +143,14 @@ export class OnlineOrderService {
       );
       const reference = payment.reference;
 
+      const storeForOrder = await this.storeService.getStoreByUser(vendor_id);
+
       /* CREATE ORDER + ESCROW (ATOMIC TRANSACTION) */
       const orderData = this.orderRepo.create({
         id: uuidv4(),
         buyer_id,
         vendor_id,
+        store_id: storeForOrder.id,
         order_items: groups[vendor_id]!,
         subtotal: subtotalKobo,
         shipping_fee: shippingKobo,
@@ -310,6 +313,7 @@ export class OnlineOrderService {
         id: uuidv4(),
         buyer_id,
         vendor_id,
+        store_id: store.id,
         subtotal: subtotalKobo,
         shipping_fee: shippingKobo,
         platform_fee: buyerPlatformFeeKobo,

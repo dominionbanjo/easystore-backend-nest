@@ -25,7 +25,7 @@ export class AdminOrderService {
     const qb = this.orderRepo.createQueryBuilder('order');
     qb.leftJoin('order.buyer', 'buyer');
     qb.leftJoin('order.vendor', 'vendor');
-    qb.leftJoin('vendor.store', 'store');
+    qb.leftJoin('vendor.stores', 'store');
 
     qb.select([
       'order.id',

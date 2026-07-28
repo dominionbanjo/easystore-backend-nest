@@ -26,7 +26,7 @@ export class AdminTransactionsService {
       .createQueryBuilder('tx')
       .leftJoin('tx.user', 'user')
       .leftJoin('tx.vendor', 'vendor')
-      .leftJoin('vendor.store', 'store')
+      .leftJoin('vendor.stores', 'store')
       .orderBy('tx.created_at', 'DESC');
 
     qb.select([
@@ -81,7 +81,7 @@ export class AdminTransactionsService {
       .createQueryBuilder('tx')
       .leftJoin('tx.user', 'user')
       .leftJoin('tx.vendor', 'vendor')
-      .leftJoin('vendor.store', 'store')
+      .leftJoin('vendor.stores', 'store')
       .where('tx.id = :id', { id })
       .select([
         'tx.id',

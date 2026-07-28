@@ -63,8 +63,8 @@ export class MessagingService {
       username: user.username,
       avatar: user.avatar,
       account_type: user.account_type,
-      store_name: user.store?.store_name || null,
-      store_slug: user.store?.slug || null,
+      store_name: user.stores?.[0]?.store_name || null,
+      store_slug: user.stores?.[0]?.slug || null,
       created_at: user.created_at,
     };
   }
@@ -114,9 +114,9 @@ export class MessagingService {
     const conversations = await this.conversationRepo
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.participant_one', 'p1')
-      .leftJoinAndSelect('p1.store', 's1')
+      .leftJoinAndSelect('p1.stores', 's1')
       .leftJoinAndSelect('c.participant_two', 'p2')
-      .leftJoinAndSelect('p2.store', 's2')
+      .leftJoinAndSelect('p2.stores', 's2')
       .where(
         'c.participant_one_id = :uid OR c.participant_two_id = :uid',
         { uid: userId },
@@ -151,7 +151,7 @@ export class MessagingService {
   async getConversation(conversationId: string, userId: string) {
     const conv = await this.conversationRepo.findOne({
       where: { id: conversationId },
-      relations: ['participant_one', 'participant_one.store', 'participant_two', 'participant_two.store'],
+      relations: ['participant_one', 'participant_one.stores', 'participant_two', 'participant_two.stores'],
     });
 
     if (!conv) throw new NotFoundException('Conversation not found');
@@ -274,7 +274,7 @@ export class MessagingService {
 
     const [messages, total] = await this.messageRepo.findAndCount({
       where: { conversation_id: conversationId },
-      relations: ['sender', 'sender.store'],
+      relations: ['sender', 'sender.stores'],
       order: { created_at: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -359,7 +359,7 @@ export class MessagingService {
 
     const finalMessage = await this.messageRepo.findOne({
       where: { id: message.id },
-      relations: ['sender', 'sender.store'],
+      relations: ['sender', 'sender.stores'],
     });
 
     if (finalMessage) {
@@ -379,7 +379,7 @@ export class MessagingService {
 
     const [messages, total] = await this.messageRepo.findAndCount({
       where: { is_public: true },
-      relations: ['sender', 'sender.store', 'reads'],
+      relations: ['sender', 'sender.stores', 'reads'],
       order: { created_at: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

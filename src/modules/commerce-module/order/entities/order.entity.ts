@@ -1,6 +1,7 @@
 import { Escrow } from 'src/modules/finance-module/escrow/entities/escrow.entity';
 import { Payout } from 'src/modules/finance-module/payout/entities/payout.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -192,6 +193,17 @@ export class Order {
 
   @Column({ type: 'boolean', default: false })
   confirmed: boolean;
+
+  /* ───────────────────────────────────────────────
+     RELATIONS → STORE
+  ─────────────────────────────────────────────── */
+  @Index('IDX_ORDER_STORE_ID')
+  @Column({ type: 'uuid', nullable: true })
+  store_id: string | null;
+
+  @ManyToOne(() => Store, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store | null;
 
   @OneToMany(() => Payout, (payout) => payout.order)
   payouts: Payout[];

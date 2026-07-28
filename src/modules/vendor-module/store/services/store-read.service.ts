@@ -36,6 +36,10 @@ export class StoreReadService {
     return this.catalogService.getAllStoresAdmin(pagination);
   }
 
+  getStoresByUser(userId: string) {
+    return this.detailService.getStoresByUser(userId);
+  }
+
   getTotalProductsForStore(storeId: string) {
     return this.detailService.getTotalProductsForStore(storeId);
   }

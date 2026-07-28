@@ -12,7 +12,6 @@ import {
   UpdateDateColumn,
   Index,
   OneToMany,
-  OneToOne,
 } from 'typeorm';
 import { UserAddress } from './user-address.entity';
 
@@ -77,8 +76,11 @@ export class User {
   })
   account_status: AccountStatus;
 
-  @OneToOne(() => Store, (store) => store.user)
-  store: Store | null;
+  @Column({ type: 'uuid', nullable: true })
+  active_store_id: string | null;
+
+  @OneToMany(() => Store, (store) => store.user)
+  stores: Store[];
 
   @Index('IDX_USER_USERNAME', { unique: true })
   @Column({ type: 'varchar', length: 100 })
@@ -178,6 +180,12 @@ export class User {
 
   @Column({ type: 'timestamptz', nullable: true })
   last_bank_update: Date | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  has_submitted_review: boolean | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_review_prompt_at: Date | null;
 
   /* OTHER RELATIONS */
   @OneToMany(() => Escrow, (e) => e.buyer)

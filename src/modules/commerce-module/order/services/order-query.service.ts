@@ -81,7 +81,7 @@ export class OrderQueryService {
   async getOrderForReceipt(id: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      relations: ['buyer', 'vendor', 'vendor.store'],
+      relations: ['buyer', 'vendor', 'vendor.stores'],
       select: {
         id: true,
         buyer_id: true,
@@ -108,7 +108,7 @@ export class OrderQueryService {
           first_name: true,
           last_name: true,
           email: true,
-          store: {
+          stores: {
             id: true,
             store_name: true,
             slug: true,
@@ -127,7 +127,7 @@ export class OrderQueryService {
   async getOrderForApi(id: string, user_id: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      relations: ['delivery', 'vendor', 'vendor.store', 'delivery_address', 'escrow'],
+      relations: ['delivery', 'vendor', 'vendor.stores', 'delivery_address', 'escrow'],
       select: {
         delivery: {
           id: true,
@@ -161,7 +161,7 @@ export class OrderQueryService {
           last_name: true,
           email: true,
           phone_number: true,
-          store: {
+          stores: {
             id: true,
             store_name: true,
             slug: true,
@@ -250,7 +250,7 @@ export class OrderQueryService {
     // Join delivery relation
     qb.leftJoinAndSelect('order.delivery', 'delivery');
     qb.leftJoinAndSelect('order.vendor', 'vendor');
-    qb.leftJoinAndSelect('vendor.store', 'store');
+    qb.leftJoinAndSelect('vendor.stores', 'store');
 
     // Optimize selection for card display
     qb.select([
@@ -291,6 +291,7 @@ export class OrderQueryService {
   ──────────────────────────────────────────────── */
   async getOrdersByVendor(
     vendor_id: string,
+    store_id?: string,
     query?: { search?: string; status?: string; page?: number; limit?: number },
   ) {
     const page = query?.page || 1;
@@ -305,6 +306,9 @@ export class OrderQueryService {
     qb.leftJoinAndSelect('order.delivery_address', 'delivery_address');
 
     qb.where('order.vendor_id = :vendor_id', { vendor_id });
+    if (store_id) {
+      qb.andWhere('order.store_id = :store_id', { store_id });
+    }
 
     // Status filter - check both order status and delivery status
     if (query?.status && query.status !== 'all') {
@@ -386,6 +390,7 @@ export class OrderQueryService {
   ──────────────────────────────────────────────── */
   async getSalesHistory(
     vendorId: string,
+    storeId?: string,
     query: {
       page?: number;
       limit?: number;
@@ -393,7 +398,7 @@ export class OrderQueryService {
       dateFrom?: string;
       dateTo?: string;
       search?: string;
-    },
+    } = {},
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -401,8 +406,11 @@ export class OrderQueryService {
 
     const qb = this.orderRepo.createQueryBuilder('order');
     qb.leftJoinAndSelect('order.recordedByUser', 'staff');
-    qb.where('order.vendor_id = :vendorId', { vendorId })
-      .andWhere("order.payment_method = 'offline'")
+    qb.where('order.vendor_id = :vendorId', { vendorId });
+    if (storeId) {
+      qb.andWhere('order.store_id = :storeId', { storeId });
+    }
+    qb.andWhere("order.payment_method IN ('cash', 'transfer', 'pos', 'offline')")
       .andWhere("order.status = 'completed'");
 
     qb.select([
@@ -432,8 +440,10 @@ export class OrderQueryService {
     }
 
     if (query.dateTo) {
+      const endDate = new Date(query.dateTo);
+      endDate.setUTCHours(23, 59, 59, 999);
       qb.andWhere('order.created_at <= :dateTo', {
-        dateTo: new Date(query.dateTo),
+        dateTo: endDate,
       });
     }
 
@@ -474,9 +484,10 @@ export class OrderQueryService {
   async getReceiptData(orderId: string, userId: string) {
     const order = await this.orderRepo.findOne({
       where: { id: orderId },
-      relations: ['recordedByUser', 'vendor', 'vendor.store'],
+      relations: ['recordedByUser', 'vendor', 'store'],
       select: {
         id: true,
+        store_id: true,
         order_items: true,
         subtotal: true,
         shipping_fee: true,
@@ -498,19 +509,19 @@ export class OrderQueryService {
           id: true,
           first_name: true,
           last_name: true,
-          store: {
-            id: true,
-            store_name: true,
-            slug: true,
-            logo: true,
-          },
+        },
+        store: {
+          id: true,
+          store_name: true,
+          slug: true,
+          logo: true,
         },
       },
     });
 
     if (!order) throw new NotFoundException('Order not found');
     if (order.vendor_id !== userId && order.recorded_by !== userId) {
-      const storeId = order.vendor?.store?.id;
+      const storeId = order.store?.id ?? order.store_id;
       if (!storeId) throw new NotFoundException('Order not found');
       const isStoreStaff = await this.storeStaffRepo.findOne({
         where: { user_id: userId, store_id: storeId, status: 'active' },
@@ -524,8 +535,8 @@ export class OrderQueryService {
     return {
       id: order.id,
       order_reference: `#${idPrefix}`,
-      store_name: order.vendor?.store?.store_name ?? 'Store',
-      store_logo: order.vendor?.store?.logo ?? null,
+      store_name: order.store?.store_name ?? 'Store',
+      store_logo: order.store?.logo ?? null,
       items: order.order_items,
       subtotal: Number(order.subtotal),
       shipping_fee: Number(order.shipping_fee),

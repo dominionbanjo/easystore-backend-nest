@@ -64,6 +64,16 @@ export class StoreController {
     return mapToOwnerStore(store);
   }
 
+  @ApiOperation({ summary: 'Get my stores', description: 'Get all stores owned by the current user' })
+  @ApiOkResponse({ description: 'List of stores' })
+  @ApiStandardErrorResponses()
+  @Get('my-stores')
+  @UseGuards(JwtAuthGuard)
+  async getMyStores(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    const stores = await this.storeService.getStoresByUser(user.sub);
+    return stores.map((s) => mapToOwnerStore(s));
+  }
+
   @ApiOperation({ summary: 'Get all stores', description: 'Retrieve paginated list of all stores (public)' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })

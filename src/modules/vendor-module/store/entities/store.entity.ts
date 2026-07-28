@@ -9,6 +9,7 @@ import {
   Index,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
   JoinColumn,
   OneToMany,
   OneToOne,
@@ -71,11 +72,11 @@ export class Store {
   })
   status: StoreStatus;
 
-  @Index('IDX_STORE_USER_ID', { unique: true })
+  @Index('IDX_STORE_USER_ID')
   @Column({ type: 'uuid' })
   user_id: string;
 
-  @OneToOne(() => User, (user) => user.store, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.stores, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
@@ -166,6 +167,9 @@ export class Store {
 
   @Column({ type: 'boolean', default: false })
   payout_verified: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  escrow_enabled: boolean;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   paystack_subaccount_code: string | null;

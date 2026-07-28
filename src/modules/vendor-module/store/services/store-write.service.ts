@@ -63,16 +63,9 @@ export class StoreWriteService {
       throw new BadRequestException('Invalid user');
     }
 
-    const existingStoreForUser = await storeRepo.findOne({
+    const existingStoreCount = await storeRepo.count({
       where: { user_id },
-      select: ['id'],
     });
-
-    if (existingStoreForUser) {
-      throw new BadRequestException(
-        'User already owns a store. Only one store per user is allowed.',
-      );
-    }
 
     const existingStoreName = await storeRepo.exists({
       where: { store_name },
@@ -96,6 +89,13 @@ export class StoreWriteService {
     await userRepo.update(user_id, {
       account_type: 'vendor',
     });
+
+    // If this is the user's first store, set it as the active store
+    if (existingStoreCount === 0) {
+      await userRepo.update(user_id, {
+        active_store_id: saved.id,
+      });
+    }
 
     // Notify Admin about new store
     this.adminNotifyMail
@@ -155,6 +155,7 @@ export class StoreWriteService {
       'cover_image',
       'cover_image_public_id',
       'setup_stage',
+      'escrow_enabled',
     ];
 
     const filtered: Partial<Store> = {};

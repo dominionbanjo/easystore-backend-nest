@@ -7,9 +7,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProductReview } from './entities/review.entity';
+import { StoreReview } from './entities/store-review.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { Product } from '../product/entities/product.entity';
 import { ProductCustomer } from '../product/entities/product-customer.entity';
+import { User } from 'src/modules/identity-module/users/entities/user.entity';
 
 @Injectable()
 export class ProductReviewService {
@@ -22,6 +24,12 @@ export class ProductReviewService {
 
     @InjectRepository(ProductCustomer)
     private readonly productCustomerRepo: Repository<ProductCustomer>,
+
+    @InjectRepository(StoreReview)
+    private readonly storeReviewRepo: Repository<StoreReview>,
+
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
 
     private readonly cache: CacheService,
   ) {}
@@ -193,5 +201,39 @@ export class ProductReviewService {
       success: true,
       message: 'Review deleted successfully',
     };
+  }
+
+  // ------------------------------------------------------------------
+  // STORE REVIEW (vendor platform review)
+  // ------------------------------------------------------------------
+  async submitStoreReview(vendorId: string, rating: number, comment?: string) {
+    const existing = await this.storeReviewRepo.findOne({ where: { vendor_id: vendorId } });
+    if (existing) {
+      throw new BadRequestException('You have already submitted a review');
+    }
+
+    const review = this.storeReviewRepo.create({ vendor_id: vendorId, rating, comment: comment ?? null });
+    await this.storeReviewRepo.save(review);
+    await this.userRepo.update(vendorId, { has_submitted_review: true });
+    await this.cache.clearPrefix('review');
+    return { success: true, message: 'Review submitted successfully' };
+  }
+
+  async getStoreReviewMeta(vendorId: string) {
+    const review = await this.storeReviewRepo.findOne({ where: { vendor_id: vendorId } });
+    const user = await this.userRepo.findOne({
+      where: { id: vendorId },
+      select: { has_submitted_review: true, last_review_prompt_at: true, created_at: true },
+    });
+    return {
+      hasReviewed: !!review,
+      lastReviewPromptAt: user?.last_review_prompt_at ?? null,
+      createdAt: user?.created_at ?? null,
+    };
+  }
+
+  async dismissReviewPrompt(vendorId: string) {
+    await this.userRepo.update(vendorId, { last_review_prompt_at: new Date() });
+    return { success: true };
   }
 }

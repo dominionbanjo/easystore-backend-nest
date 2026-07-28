@@ -1,10 +1,11 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
+import { Permission, ROLE_PERMISSIONS } from 'src/common/permissions/permissions';
 
 @Injectable()
 export class StaffService {
@@ -73,6 +74,17 @@ export class StaffService {
     return { success: true };
   }
 
+  async getEffectivePermissions(userId: string) {
+    const rolePermissions = ROLE_PERMISSIONS['staff'] || [];
+    const staff = await this.staffRepo.findOne({
+      where: { user_id: userId, status: 'active' },
+      select: { permissions: true },
+    });
+    const extra = staff?.permissions || [];
+    const merged = [...new Set([...rolePermissions, ...extra])];
+    return { permissions: merged };
+  }
+
   async getStaffSummary(userId: string) {
     const storeId = await this.resolveStoreId(userId);
 
@@ -84,7 +96,7 @@ export class StaffService {
         where: {
           vendor_id: storeId,
           created_at: today as any,
-          payment_method: 'offline',
+          payment_method: In(['cash', 'transfer', 'pos', 'offline']),
         },
       }),
       this.orderRepo
@@ -92,7 +104,7 @@ export class StaffService {
         .select('COALESCE(SUM(order.total), 0)', 'total')
         .where('order.vendor_id = :storeId', { storeId })
         .andWhere('order.created_at >= :today', { today })
-        .andWhere("order.payment_method = 'offline'")
+        .andWhere("order.payment_method IN ('cash', 'transfer', 'pos', 'offline')")
         .getRawOne(),
     ]);
 

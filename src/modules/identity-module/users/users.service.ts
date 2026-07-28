@@ -126,7 +126,26 @@ export class UsersService {
   async getStores(userId: string) {
     return this.storeRepo.find({
       where: { user_id: userId },
+      select: ['id', 'store_name', 'slug', 'logo', 'status', 'created_at'],
       order: { created_at: 'DESC' },
+    });
+  }
+
+  async switchStore(userId: string, storeId: string) {
+    const store = await this.storeRepo.findOne({
+      where: { id: storeId, user_id: userId },
+      select: ['id'],
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found or you do not own it');
+    }
+
+    await this.userRepo.update(userId, { active_store_id: storeId });
+
+    return this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'account_type', 'account_status', 'token_version'],
     });
   }
 
@@ -185,20 +204,40 @@ export class UsersService {
   async getForJwtValidation(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'account_type', 'token_version', 'account_status'],
-      relations: ['store'],
+      select: ['id', 'account_type', 'token_version', 'account_status', 'active_store_id'],
     });
 
     if (!user) return null;
 
-    let store_id: string | null = user.store?.id ?? null;
+    let store_id: string | null = null;
+    let permissions: string[] | null = null;
 
-    if (!store_id && user.account_type === 'staff') {
+    if (user.account_type === 'staff') {
       const staff = await this.storeStaffRepo.findOne({
         where: { user_id: userId, status: 'active' },
-        select: { store_id: true },
+        select: { store_id: true, permissions: true },
       });
       store_id = staff?.store_id ?? null;
+      permissions = staff?.permissions ?? null;
+    }
+
+    if (!store_id) {
+      if (user.active_store_id) {
+        const store = await this.storeRepo.findOne({
+          where: { id: user.active_store_id, user_id: userId },
+          select: ['id'],
+        });
+        store_id = store?.id ?? null;
+      }
+
+      if (!store_id) {
+        const firstStore = await this.storeRepo.findOne({
+          where: { user_id: userId },
+          select: ['id'],
+          order: { created_at: 'ASC' },
+        });
+        store_id = firstStore?.id ?? null;
+      }
     }
 
     return {
@@ -207,6 +246,7 @@ export class UsersService {
       account_status: user.account_status,
       token_version: user.token_version,
       store_id,
+      permissions,
     };
   }
 
@@ -225,6 +265,7 @@ export class UsersService {
         username: true,
         avatar: true,
         account_type: true,
+        active_store_id: true,
         bank_code: true,
         account_number: true,
         payout_verified: true,

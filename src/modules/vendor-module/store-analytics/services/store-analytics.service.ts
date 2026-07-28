@@ -446,7 +446,9 @@ export class StoreAnalyticsService {
         pending_payouts: Number(pendingPayouts || 0),
         store_status: storeRow?.status || 'pending',
         account_status: storeRow?.user?.account_status || 'active',
+        id: storeRow?.id,
         payout_verified: !!storeRow?.payout_verified,
+        escrow_enabled: !!storeRow?.escrow_enabled,
       },
       trends: {
         monthly: monthlyTrends,

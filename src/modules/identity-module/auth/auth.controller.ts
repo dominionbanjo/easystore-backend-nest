@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBody } from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
 
 import { CreateAccountDto } from './dto/create-account.dto';
 import { LoginDto } from './dto/login.dto';
@@ -13,13 +14,17 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { JwtAuthUser } from './strategies/jwt.strategy';
+import * as jwtStrategy from './strategies/jwt.strategy';
+import { CurrentUser } from './decorators/current-user.decorator';
 import { GoogleLoginDto } from './dto/google-login.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @Post('register')
@@ -28,6 +33,27 @@ export class AuthController {
   @ApiStandardErrorResponses()
   async register(@Body() dto: CreateAccountDto) {
     return this.authService.signUp(dto);
+  }
+
+  @Post('switch-store')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Switch active store', description: 'Switches the active store for the current user and returns a new JWT.' })
+  @ApiOkResponse({ description: 'Store switched successfully' })
+  @ApiStandardErrorResponses()
+  async switchStore(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body('store_id') storeId: string,
+  ) {
+    if (!storeId) {
+      throw new BadRequestException('store_id is required');
+    }
+    const updatedUser = await this.usersService.switchStore(user.sub, storeId);
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+    const { access_token } = this.authService.generateJwt(updatedUser);
+    return { success: true, access_token };
   }
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
@@ -89,7 +115,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout current user', description: 'Invalidates the refresh token for the currently authenticated user.' })
   @ApiOkResponse({ description: 'User logged out successfully' })
   @ApiStandardErrorResponses()
-  logout(@Req() req: Request & { user: JwtAuthUser }) {
+  logout(@Req() req: Request & { user: jwtStrategy.JwtAuthUser }) {
     return this.authService.logout(req.user.sub);
   }
 

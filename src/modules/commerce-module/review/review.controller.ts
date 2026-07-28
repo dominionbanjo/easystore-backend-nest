@@ -24,6 +24,7 @@ import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.g
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 import { SuccessResponseDto, SuccessWithIdDto } from 'src/common/dto/api-response.dto';
+import { StoreReviewDto } from './dto/store-review.dto';
 
 @ApiTags('Reviews')
 @ApiBearerAuth('JWT-auth')
@@ -84,5 +85,34 @@ export class ProductReviewController {
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
     return this.reviewService.deleteReview(reviewId, user.sub);
+  }
+}
+
+@ApiTags('Store Reviews')
+@ApiBearerAuth('JWT-auth')
+@Controller('reviews')
+@UseGuards(JwtAuthGuard)
+export class StoreReviewController {
+  constructor(private readonly reviewService: ProductReviewService) {}
+
+  @Post('vendor')
+  @ApiOperation({ summary: 'Submit a platform review', description: 'Allows a vendor to submit one review of the platform.' })
+  async submitStoreReview(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body() dto: StoreReviewDto,
+  ) {
+    return this.reviewService.submitStoreReview(user.sub, dto.rating, dto.comment);
+  }
+
+  @Get('vendor/meta')
+  @ApiOperation({ summary: 'Get review modal metadata', description: 'Returns whether the user has reviewed and prompt timing info.' })
+  async getStoreReviewMeta(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.reviewService.getStoreReviewMeta(user.sub);
+  }
+
+  @Post('vendor/dismiss')
+  @ApiOperation({ summary: 'Dismiss review prompt', description: 'Records that the review prompt was dismissed so it can show again later.' })
+  async dismissReviewPrompt(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.reviewService.dismissReviewPrompt(user.sub);
   }
 }

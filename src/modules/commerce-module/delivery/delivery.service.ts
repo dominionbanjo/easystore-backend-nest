@@ -40,12 +40,12 @@ export class DeliveryService {
   private async processAnalytics(orderId: string) {
     const order = await this.orderRepo.findOne({
       where: { id: orderId },
-      relations: ['vendor', 'vendor.store'],
+      relations: ['vendor', 'vendor.stores'],
     });
 
     if (!order || order.analytics_processed) return;
 
-    if (!order.vendor?.store?.id) {
+    if (!order.vendor?.stores?.[0]?.id) {
       console.warn(
         `Store not found for vendor ${order.vendor_id} on order ${order.id}`,
       );
@@ -54,7 +54,7 @@ export class DeliveryService {
 
     try {
       await this.analyticsService.updateFromOrder(
-        order.vendor.store.id,
+        order.vendor.stores[0].id,
         order.total,
         order.buyer_id,
         order.order_items,
@@ -69,7 +69,7 @@ export class DeliveryService {
   private async getVendorEmailAndStoreName(vendorId: string) {
     return this.userRepo
       .createQueryBuilder('u')
-      .leftJoin('u.store', 's')
+      .leftJoin('u.stores', 's')
       .select(['u.email', 'u.first_name', 's.store_name'])
       .where('u.id = :id', { id: vendorId })
       .getOne();
@@ -152,7 +152,7 @@ export class DeliveryService {
 
     const vendorEmail = vendor?.email;
     const vendorName =
-      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
+      vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Send notifications (non-blocking)
     if (buyerEmail) {
@@ -272,7 +272,7 @@ export class DeliveryService {
 
       const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
       const vendorName =
-        vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
+        vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
       // Notifications
       if (buyer?.email) {
@@ -336,7 +336,7 @@ export class DeliveryService {
     const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
 
     const vendorName =
-      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
+      vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
@@ -466,7 +466,7 @@ export class DeliveryService {
     const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
 
     const vendorName =
-      vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
+      vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
@@ -608,7 +608,7 @@ export class DeliveryService {
 
       const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
       const vendorName =
-        vendor?.store?.store_name ?? vendor?.first_name ?? 'Vendor';
+        vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
       // 📧 Send notifications (non-blocking)
       if (buyer?.email) {

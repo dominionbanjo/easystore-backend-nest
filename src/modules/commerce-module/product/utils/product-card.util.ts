@@ -30,7 +30,15 @@ export function addProductCardSelects(
 
   qb.select(selects)
     .leftJoin(`${alias}.category_ref`, 'category')
-    .leftJoinAndSelect(`${alias}.variants`, 'variants');
+    .leftJoin(`${alias}.variants`, 'variants')
+    .addSelect([
+      'variants.id',
+      'variants.combinations',
+      'variants.price',
+      'variants.stock',
+      'variants.discount_price',
+      'variants.image_url',
+    ]);
 
   if (options?.withStore) {
     qb.leftJoin(`${alias}.store`, 'store');

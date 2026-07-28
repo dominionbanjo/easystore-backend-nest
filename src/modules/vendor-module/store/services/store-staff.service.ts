@@ -33,8 +33,8 @@ export class StoreStaffService {
     return password;
   }
 
-  async inviteStaff(storeId: string, data: { email: string; first_name: string; last_name: string }) {
-    const { email, first_name, last_name } = data;
+  async inviteStaff(storeId: string, data: { email: string; first_name: string; last_name: string; password?: string }) {
+    const { email, first_name, last_name, password } = data;
 
     // Check store exists
     const store = await this.storeRepo.findOne({ where: { id: storeId }, select: { id: true, store_name: true } });
@@ -48,8 +48,8 @@ export class StoreStaffService {
       if (existingStaff) throw new BadRequestException('User is already a staff member of this store');
     }
 
-    const tempPassword = this.generateTempPassword();
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const plainPassword = password || this.generateTempPassword();
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
     const username = `staff_${email.split('@')[0]}_${Date.now()}`.toLowerCase().replace(/[^a-z0-9_]/g, '');
 
     return this.dataSource.transaction(async (manager) => {
@@ -88,13 +88,15 @@ export class StoreStaffService {
       });
       const saved = await manager.save(StoreStaff, staff);
 
-      // Send invite email
-      await this.inviteMail.sendInviteEmail({
-        email,
-        name: `${first_name} ${last_name}`,
-        storeName: store.store_name,
-        tempPassword,
-      });
+      // Send invite email (only if auto-generated password)
+      if (!password) {
+        await this.inviteMail.sendInviteEmail({
+          email,
+          name: `${first_name} ${last_name}`,
+          storeName: store.store_name,
+          tempPassword: plainPassword,
+        });
+      }
 
       await this.cache.clearPrefix('svc:staff');
 
@@ -148,6 +150,7 @@ export class StoreStaffService {
       select: {
         id: true,
         status: true,
+        permissions: true,
         last_login_at: true,
         created_at: true,
         user: {
@@ -181,6 +184,23 @@ export class StoreStaffService {
     return { success: true };
   }
 
+  async updateStaffPermissions(staffId: string, storeId: string, permissions: string[]) {
+    const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId } });
+    if (!staff) throw new NotFoundException('Staff member not found');
+
+    await this.staffRepo.update(staffId, { permissions });
+
+    // Force re-auth to refresh JWT with new permissions
+    const user = await this.userRepo.findOne({ where: { id: staff.user_id }, select: { id: true, token_version: true } });
+    if (user) {
+      await this.userRepo.update(user.id, { token_version: user.token_version + 1 });
+    }
+
+    await this.cache.clearPrefix('svc:staff');
+    await this.cache.clearPrefix('svc:user');
+    return { success: true };
+  }
+
   async suspendStaff(staffId: string, storeId: string) {
     const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId } });
     if (!staff) throw new NotFoundException('Staff member not found');
@@ -197,26 +217,28 @@ export class StoreStaffService {
     return { success: true };
   }
 
-  async resetPassword(staffId: string, storeId: string) {
+  async resetPassword(staffId: string, storeId: string, newPassword?: string) {
     const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId }, relations: ['user'] });
     if (!staff) throw new NotFoundException('Staff member not found');
 
-    const tempPassword = this.generateTempPassword();
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const plainPassword = newPassword || this.generateTempPassword();
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
     await this.dataSource.transaction(async (manager) => {
       await manager.update(User, staff.user_id, {
         password: hashedPassword,
-        must_change_password: true,
+        must_change_password: !newPassword,
         token_version: staff.user.token_version + 1,
       });
     });
 
-    await this.inviteMail.sendPasswordResetEmail({
-      email: staff.user.email,
-      name: `${staff.user.first_name} ${staff.user.last_name}`,
-      tempPassword,
-    });
+    if (!newPassword) {
+      await this.inviteMail.sendPasswordResetEmail({
+        email: staff.user.email,
+        name: `${staff.user.first_name} ${staff.user.last_name}`,
+        tempPassword: plainPassword,
+      });
+    }
 
     await this.cache.clearPrefix('svc:staff');
     return { success: true };

@@ -21,6 +21,7 @@ export function sanitizeUser(user: User) {
     account_number: user.account_number,
     bank_name: user.bank_name,
     must_change_password: user.must_change_password,
+    active_store_id: user.active_store_id,
     created_at: user.created_at,
     updated_at: user.updated_at,
   };

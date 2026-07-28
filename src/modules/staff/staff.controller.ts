@@ -53,4 +53,12 @@ export class StaffController {
   async getSummary(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.staffService.getStaffSummary(user.sub);
   }
+
+  @Get('permissions')
+  @ApiOperation({ summary: 'Get effective permissions for current staff' })
+  @ApiOkResponse({ description: 'Staff permissions returned' })
+  @ApiStandardErrorResponses()
+  async getPermissions(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
+    return this.staffService.getEffectivePermissions(user.sub);
+  }
 }

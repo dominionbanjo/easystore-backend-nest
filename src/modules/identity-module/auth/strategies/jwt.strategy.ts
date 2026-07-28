@@ -30,6 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       role: user.account_type,
       status: user.account_status,
       store_id: user.store_id,
+      permissions: user.permissions,
     };
   }
 }
@@ -39,6 +40,7 @@ export interface JwtAuthUser {
   role: string; // account_type
   status: string; // account_status
   store_id: string | null;
+  permissions: string[] | null;
 }
 
 export interface JwtPayload {

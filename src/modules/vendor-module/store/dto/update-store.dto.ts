@@ -8,6 +8,7 @@ import {
   IsEmail,
   IsObject,
   IsNumber,
+  IsBoolean,
 } from 'class-validator';
 
 class UpdateStoreBaseDto {
@@ -116,6 +117,12 @@ class UpdateStoreBaseDto {
   @Transform(({ value }) => Number(value))
   @IsNumber()
   setup_stage?: number;
+
+  @ApiPropertyOptional({ description: 'Escrow payments enabled', example: false })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  escrow_enabled?: boolean;
 }
 
 export class UpdateStoreDto extends PartialType(UpdateStoreBaseDto) {}
