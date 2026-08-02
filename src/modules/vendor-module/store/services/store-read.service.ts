@@ -24,8 +24,8 @@ export class StoreReadService {
     return this.detailService.getStore(identifier, options);
   }
 
-  getStoreByUser(userId: string) {
-    return this.detailService.getStoreByUser(userId);
+  getStoreByUser(userId: string, storeId?: string) {
+    return this.detailService.getStoreByUser(userId, storeId);
   }
 
   getAllStores(pagination?: PaginationDto) {

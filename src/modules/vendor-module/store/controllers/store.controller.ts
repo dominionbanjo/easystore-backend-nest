@@ -60,7 +60,7 @@ export class StoreController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMyStore(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
-    const store = await this.storeService.getStoreByUser(user.sub);
+    const store = await this.storeService.getStoreByUser(user.sub, user.store_id ?? undefined);
     return mapToOwnerStore(store);
   }
 

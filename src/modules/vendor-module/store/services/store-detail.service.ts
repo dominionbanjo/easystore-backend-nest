@@ -125,11 +125,12 @@ export class StoreDetailService {
       });
     }
 
-    if (
-      !store ||
-      store.status !== 'active' ||
-      store.user?.account_status !== 'active'
-    ) {
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const isOwner = !!(userId && store.user_id === userId);
+    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
@@ -371,11 +372,12 @@ export class StoreDetailService {
       ],
     });
 
-    if (
-      !store ||
-      store.status !== 'active' ||
-      store.user?.account_status !== 'active'
-    ) {
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const isOwner = !!(userId && store.user_id === userId);
+    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
@@ -503,11 +505,12 @@ export class StoreDetailService {
       ],
     });
 
-    if (
-      !store ||
-      store.status !== 'active' ||
-      store.user?.account_status !== 'active'
-    ) {
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const isOwner = !!(userId && store.user_id === userId);
+    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
@@ -613,11 +616,12 @@ export class StoreDetailService {
       select: ['id', 'store_name', 'user_id', 'status', 'slug'],
     });
 
-    if (
-      !store ||
-      store.status !== 'active' ||
-      store.user?.account_status !== 'active'
-    ) {
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    const isOwner = !!(userId && store.user_id === userId);
+    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
