@@ -40,12 +40,11 @@ export class DeliveryService {
   private async processAnalytics(orderId: string) {
     const order = await this.orderRepo.findOne({
       where: { id: orderId },
-      relations: ['vendor', 'vendor.stores'],
     });
 
     if (!order || order.analytics_processed) return;
 
-    if (!order.vendor?.stores?.[0]?.id) {
+    if (!order.store_id) {
       console.warn(
         `Store not found for vendor ${order.vendor_id} on order ${order.id}`,
       );
@@ -54,7 +53,7 @@ export class DeliveryService {
 
     try {
       await this.analyticsService.updateFromOrder(
-        order.vendor.stores[0].id,
+        order.store_id,
         order.total,
         order.buyer_id,
         order.order_items,
@@ -66,13 +65,19 @@ export class DeliveryService {
     }
   }
 
-  private async getVendorEmailAndStoreName(vendorId: string) {
-    return this.userRepo
+  private async getVendorEmailAndStoreName(vendorId: string, storeId?: string) {
+    const qb = this.userRepo
       .createQueryBuilder('u')
       .leftJoin('u.stores', 's')
       .select(['u.email', 'u.first_name', 's.store_name'])
-      .where('u.id = :id', { id: vendorId })
-      .getOne();
+      .where('u.id = :id', { id: vendorId });
+
+    // ⭐ Resolve the EXACT store — never an arbitrary store of the vendor.
+    if (storeId) {
+      qb.andWhere('s.id = :storeId', { storeId });
+    }
+
+    return qb.getOne();
   }
 
   /* ────────────────────────────────────────────────
@@ -120,7 +125,10 @@ export class DeliveryService {
     const buyer = await this.userRepo.findOne({ where: { id: buyer_id } });
     if (!buyer) throw new BadRequestException('Buyer not found');
 
-    const vendor = await this.getVendorEmailAndStoreName(vendor_id);
+    const vendor = await this.getVendorEmailAndStoreName(
+      vendor_id,
+      order.store_id ?? undefined,
+    );
 
     const addr = buyer.address ?? {};
 
@@ -128,6 +136,7 @@ export class DeliveryService {
       order_id,
       buyer_id,
       vendor_id,
+      store_id: order.store_id ?? null,
       courier_id: data.courier_id ?? null,
       order_items: order.order_items,
 
@@ -270,7 +279,10 @@ export class DeliveryService {
         where: { id: delivery.buyer_id },
       });
 
-      const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+      const vendor = await this.getVendorEmailAndStoreName(
+        delivery.vendor_id,
+        delivery.store_id ?? undefined,
+      );
       const vendorName =
         vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
@@ -333,10 +345,13 @@ export class DeliveryService {
       where: { id: delivery.buyer_id },
     });
 
-    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+      const vendor = await this.getVendorEmailAndStoreName(
+        delivery.vendor_id,
+        delivery.store_id ?? undefined,
+      );
 
-    const vendorName =
-      vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
+      const vendorName =
+        vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
@@ -382,6 +397,7 @@ export class DeliveryService {
     status: DeliveryStatus,
     userId: string,
     role: string,
+    storeId?: string,
   ) {
     const delivery = await this.deliveryRepo.findOne({
       where: { id: delivery_id },
@@ -391,7 +407,13 @@ export class DeliveryService {
       throw new NotFoundException('Delivery not found');
     }
 
-    if (delivery.vendor_id !== userId && role !== 'admin') {
+    // ⭐ Store-scoped ownership: admin OR the owning vendor OR staff of the
+    // delivery's store. Legacy deliveries (null store_id) fall back to the
+    // vendor-level owner check.
+    const isOwner = delivery.vendor_id === userId;
+    const isStoreMatch =
+      delivery.store_id != null && delivery.store_id === storeId;
+    if (role !== 'admin' && !isOwner && !isStoreMatch) {
       throw new BadRequestException(
         'Only vendor or admin can update delivery status',
       );
@@ -463,10 +485,13 @@ export class DeliveryService {
       where: { id: delivery.buyer_id },
     });
 
-    const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+      const vendor = await this.getVendorEmailAndStoreName(
+        delivery.vendor_id,
+        delivery.store_id ?? undefined,
+      );
 
-    const vendorName =
-      vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
+      const vendorName =
+        vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
@@ -547,7 +572,12 @@ export class DeliveryService {
   /* ────────────────────────────────────────────────
      5️⃣ CONFIRM DELIVERY (RELEASE ESCROW)
   ──────────────────────────────────────────────── */
-  async confirmDelivery(order_id: string, code: string | undefined, vendor_id: string) {
+  async confirmDelivery(
+    order_id: string,
+    code: string | undefined,
+    vendor_id: string,
+    storeId?: string,
+  ) {
     const lockKey = `lock:delivery:confirm:${order_id}`;
     const acquired = await this.cache.acquireLock(lockKey, 15);
     if (!acquired) {
@@ -563,7 +593,11 @@ export class DeliveryService {
         throw new NotFoundException('Delivery not found');
       }
 
-      if (delivery.vendor_id !== vendor_id) {
+      // ⭐ Store-scoped ownership: owning vendor OR staff of the delivery's store.
+      const isOwner = delivery.vendor_id === vendor_id;
+      const isStoreMatch =
+        delivery.store_id != null && delivery.store_id === storeId;
+      if (!isOwner && !isStoreMatch) {
         throw new BadRequestException('Only vendor can confirm delivery');
       }
 
@@ -606,7 +640,10 @@ export class DeliveryService {
         where: { id: delivery.buyer_id },
       });
 
-      const vendor = await this.getVendorEmailAndStoreName(delivery.vendor_id);
+      const vendor = await this.getVendorEmailAndStoreName(
+        delivery.vendor_id,
+        delivery.store_id ?? undefined,
+      );
       const vendorName =
         vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 

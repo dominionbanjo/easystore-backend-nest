@@ -385,7 +385,7 @@ export class AuthService implements OnModuleInit {
     const user = await this.users.findByEmail(dto.email);
     if (!user) throw new NotFoundException('User not found');
 
-    if (user.otp !== dto.otp) {
+    if (String(user.otp ?? '') !== dto.otp.trim()) {
       throw new BadRequestException('Invalid OTP');
     }
 

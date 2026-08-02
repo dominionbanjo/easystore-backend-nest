@@ -32,6 +32,7 @@ export class ProductSearchService {
       city,
       rating,
       inStock,
+      local = false,
       filter = {},
     } = params;
 
@@ -58,6 +59,12 @@ export class ProductSearchService {
     // For direct ILIKE substring matching — catches "fant" inside "fanta can drink"
     const qLike = `%${q.trim()}%`;
 
+    // Local-first boost: when state + local are set, rank products from that
+    // state first instead of hard-filtering (soft mode).
+    const localBoost = state
+      ? ' + CASE WHEN store.address_state = :localState THEN 0.5 ELSE 0 END'
+      : '';
+
     const qb = addProductCardSelects(
       this.productRepo.createQueryBuilder('product'),
       { withStore: true },
@@ -71,7 +78,7 @@ export class ProductSearchService {
       .innerJoin(
         'stores',
         'vendorStore',
-        'vendorStore.user_id = product.vendor_id AND vendorStore.status = :store_status',
+        'vendorStore.id = product.store_id AND vendorStore.status = :store_status',
         { store_status: 'active' },
       )
       .addSelect(
@@ -81,6 +88,7 @@ export class ProductSearchService {
         + CASE WHEN product.name ILIKE :qLike THEN 0.8 ELSE 0 END
         + word_similarity(:q, product.name) * 0.6
         + word_similarity(:q, COALESCE(category.name, '')) * 0.3
+        ${localBoost}
       )
     `,
         'rank',
@@ -113,6 +121,7 @@ export class ProductSearchService {
           tsPrefix,
           qLike,
           status: ProductStatus.ACTIVE,
+          ...(state ? { localState: state } : {}),
         },
       );
 
@@ -128,7 +137,7 @@ export class ProductSearchService {
         country: `%${country}%`,
       });
     }
-    if (state) {
+    if (state && !local) {
       qb.andWhere('store.address_state ILIKE :state', {
         state: `%${state}%`,
       });

@@ -131,8 +131,9 @@ export class ProductReadService {
       .andWhere('product.featured = :featured', { featured: true })
       .andWhere('store.status = :store_status', { store_status: 'active' });
 
+    applyProductSort(queryBuilder, 'newest', { state: query.state });
+
     const [products, total] = await queryBuilder
-      .orderBy('product.created_at', 'DESC')
       .skip(offset)
       .take(limit)
       .getManyAndCount();
@@ -179,7 +180,9 @@ export class ProductReadService {
       .andWhere('store.status = :store_status', { store_status: 'active' });
 
     // Apply sorting
-    applyProductSort(qb, pagination.sort);
+    applyProductSort(qb, pagination.sort, {
+      state: pagination.state,
+    });
 
     const [products, total] = await qb
       .skip((page - 1) * limit)
@@ -234,14 +237,31 @@ export class ProductReadService {
         'user.id = product.vendor_id AND user.account_status = :status_user',
         { status_user: 'active' },
       )
-      .where('product.category_id = :categoryId', { categoryId: category.id })
+      .where(
+        `product.category_id IN (
+          WITH RECURSIVE category_tree AS (
+            SELECT id
+            FROM product_categories
+            WHERE id = :categoryId
+            UNION ALL
+            SELECT c.id
+            FROM product_categories c
+            JOIN category_tree ct
+            ON c.parent_id = ct.id
+          )
+          SELECT id FROM category_tree
+        )`,
+        { categoryId: category.id },
+      )
       .andWhere('product.status = :status', {
         status: ProductStatus.ACTIVE,
       })
       .andWhere('store.status = :store_status', { store_status: 'active' });
 
     // Apply sorting
-    applyProductSort(qb, pagination.sort);
+    applyProductSort(qb, pagination.sort, {
+      state: pagination.state,
+    });
 
     const [products, total] = await qb
       .skip((page - 1) * limit)

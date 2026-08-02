@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { ICartItem } from '../../cart/types/types';
 import { Order } from '../../order/entities/order.entity';
+import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 
 export type DeliveryStatus =
   | 'pending'
@@ -83,6 +84,20 @@ export class Delivery {
   })
   @JoinColumn({ name: 'vendor_id' })
   vendor: User;
+
+  /* ───────────────────────────────────────────────
+     RELATION → STORE (the store the order belongs to)
+  ─────────────────────────────────────────────── */
+  @Index('IDX_DELIVERY_STORE_ID')
+  @Column({ type: 'uuid', nullable: true })
+  store_id: string | null;
+
+  @ManyToOne(() => Store, {
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'store_id' })
+  store: Store | null;
 
   /* ───────────────────────────────────────────────
      ORDER ITEMS (JSONB)

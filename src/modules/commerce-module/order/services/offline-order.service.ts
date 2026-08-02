@@ -51,12 +51,13 @@ export class OfflineOrderService {
     );
 
     const groups =
-      await this.validationService.groupItemsByVendor(validatedItems);
+      await this.validationService.groupItemsByStore(validatedItems);
 
     const orders: Order[] = [];
 
-    for (const vendor_id of Object.keys(groups)) {
-      const vendorItems = groups[vendor_id];
+    for (const group of groups) {
+      const { store_id, vendor_id } = group;
+      const vendorItems = group.items;
 
       let subtotalKobo = 0;
       for (const i of vendorItems) {
@@ -66,7 +67,7 @@ export class OfflineOrderService {
       const taxKobo = tax;
       const totalKobo = subtotalKobo + taxKobo;
 
-      const store = await this.storeService.getStoreByUser(vendor_id);
+      const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
 
       const saved = await this.dataSource.transaction(async (manager) => {
         const orderEntity = manager.create(Order, {
@@ -152,6 +153,13 @@ export class OfflineOrderService {
         );
       }
 
+      // ⭐ Store-scoped: a product may only be sold via its own store.
+      if (store_id && product.store_id !== store_id) {
+        throw new BadRequestException(
+          `Product ${item.product_id} doesn't belong to this store`,
+        );
+      }
+
       let price = Number(product.price);
       let name = product.name;
 
@@ -170,6 +178,7 @@ export class OfflineOrderService {
       orderItems.push({
         product_id: product.id,
         vendor_id,
+        store_id: product.store_id ?? null,
         name,
         slug: product.slug,
         price,
@@ -243,7 +252,10 @@ export class OfflineOrderService {
     });
 
     // Resolve Store ID (analytics is keyed by store_id, not vendor_id)
-    const store = await this.storeService.getStoreByUser(vendor_id);
+    const store = await this.storeService.getStoreByUser(
+      vendor_id,
+      savedOrder.store_id ?? undefined,
+    );
     const storeId = store.id;
 
     // Update Analytics

@@ -78,8 +78,8 @@ export class StoreService {
     );
   }
 
-  validateVendorForOnline(userId: string) {
-    return this.readService.validateVendorForOnline(userId);
+  validateVendorForOnline(userId: string, storeId?: string) {
+    return this.readService.validateVendorForOnline(userId, storeId);
   }
 
   isStoreOwner(storeId: string, userId: string): Promise<boolean> {

@@ -1,6 +1,8 @@
 export interface ICartItem {
   product_id: string;
   vendor_id: string;
+  /** ⭐ Store that owns the product. Authoritative store-scoped grouping key. */
+  store_id: string | null;
   name: string;
   slug: string;
   price: number;

@@ -33,7 +33,7 @@ export class OrderCronService {
         payment_status: In(['pending', 'unpaid']),
         created_at: LessThan(twentyFourHoursAgo),
       },
-      relations: ['buyer', 'vendor', 'vendor.stores'],
+      relations: ['buyer', 'vendor', 'store'],
     });
 
     if (staleOrders.length === 0) {
@@ -70,7 +70,7 @@ export class OrderCronService {
             email: order.vendor.email,
             name: order.vendor.first_name || 'Vendor',
             vendorName: order.vendor.first_name || 'Vendor',
-            storeName: order.vendor.stores?.[0]?.store_name || 'your store',
+            storeName: order.store?.store_name || 'your store',
             order: {
               id: order.id,
               status: 'failed',

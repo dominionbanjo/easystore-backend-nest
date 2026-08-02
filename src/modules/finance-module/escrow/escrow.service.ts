@@ -73,10 +73,17 @@ export class EscrowService {
 
     const escrow_fee = this.computeEscrowFee(amount);
 
+    // ⭐ Resolve the store the order belongs to (multi-store safe).
+    const order = await this.orderRepo.findOne({
+      where: { id: order_id },
+      select: { store_id: true },
+    });
+
     const escrow = this.escrowRepo.create({
       order_id,
       buyer_id,
       vendor_id,
+      store_id: order?.store_id ?? null,
       amount,
       escrow_fee,
       payout_type,
@@ -143,8 +150,11 @@ export class EscrowService {
 
     const buyer = await this.users.findById(escrow.buyer_id);
     const vendor = await this.users.findById(escrow.vendor_id);
-    const store = await this.storeService.getStoreByUser(escrow.vendor_id);
     const order = await this.orderRepo.findOne({ where: { id: escrow.order_id! } });
+    const store = await this.storeService.getStoreByUser(
+      escrow.vendor_id,
+      order?.store_id ?? undefined,
+    );
 
     const vendorName = store?.store_name ?? vendor?.first_name ?? 'Vendor';
     const buyerName = buyer?.first_name ?? 'Customer';
@@ -236,23 +246,27 @@ export class EscrowService {
       throw new BadRequestException('Escrow not releasable — order must be marked delivered first');
     }
 
-    const store = await this.storeService.getStoreByUser(order.vendor_id);
+    const store = await this.storeService.getStoreByUser(
+      order.vendor_id,
+      order.store_id ?? undefined,
+    );
     const vendor = await this.users.findById(order.vendor_id);
     const buyer = await this.users.findById(order.buyer_id!);
     const vendorName = store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
-    // ── MANUAL MODE (Default) ───────────────────────
-    if (escrow.payout_type === 'manual') {
-      // Create a pending_manual payout record
-      const payout = await this.payoutService.createPendingPayout({
-        order_id: order.id,
-        escrow_id: escrow.id,
-        vendor_id: order.vendor_id,
-        recipient_code: store?.recipient_code ?? null,
-        amount: escrow.amount,
-        currency: 'NGN',
-        payout_type: 'manual',
-      });
+      // ── MANUAL MODE (Default) ───────────────────────
+      if (escrow.payout_type === 'manual') {
+        // Create a pending_manual payout record
+        const payout = await this.payoutService.createPendingPayout({
+          order_id: order.id,
+          escrow_id: escrow.id,
+          vendor_id: order.vendor_id,
+          store_id: order.store_id ?? undefined,
+          recipient_code: store?.recipient_code ?? null,
+          amount: escrow.amount,
+          currency: 'NGN',
+          payout_type: 'manual',
+        });
 
       // Mark escrow as released
       escrow.status = 'released';
@@ -322,6 +336,7 @@ export class EscrowService {
       order_id: order.id,
       escrow_id: escrow.id,
       vendor_id: order.vendor_id,
+      store_id: order.store_id ?? undefined,
       recipient_code: store.recipient_code,
       amount: escrow.amount,
       currency: 'NGN',

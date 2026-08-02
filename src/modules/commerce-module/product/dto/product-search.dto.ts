@@ -58,6 +58,16 @@ export class ProductSearchDto {
   @IsString()
   state?: string;
 
+  @ApiPropertyOptional({ description: 'Local-first mode: rank matches from this state first instead of filtering (requires state)', example: true })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
+  local?: boolean;
+
   @ApiPropertyOptional({ description: 'City filter', example: 'Lagos' })
   @IsOptional()
   @IsString()

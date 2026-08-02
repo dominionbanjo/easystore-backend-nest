@@ -28,9 +28,10 @@ export class OrderSummaryService {
     );
 
     const groups =
-      await this.validationService.groupItemsByVendor(validatedItems);
+      await this.validationService.groupItemsByStore(validatedItems);
 
     const summary: {
+      store_id: string | null;
       vendor_id: string;
       store_name: string;
       items: ICartItem[];
@@ -39,9 +40,14 @@ export class OrderSummaryService {
       escrow_enabled: boolean;
     }[] = [];
 
-    for (const vendorId of Object.keys(groups)) {
-      const store = await this.storeService.getStoreByUser(vendorId);
-      const items = groups[vendorId];
+    for (const group of groups) {
+      const { store_id, vendor_id, items } = group;
+      // ⭐ Resolve the exact store the items belong to — never an arbitrary
+      // store per vendor (a vendor may own multiple stores).
+      const store = await this.storeService.getStoreByUser(
+        vendor_id,
+        store_id ?? undefined,
+      );
       const rates = await this.deliveryRateService.getRatesByStore(store.id);
 
       let subtotal = 0;
@@ -50,7 +56,8 @@ export class OrderSummaryService {
       }
 
       summary.push({
-        vendor_id: vendorId,
+        store_id: store.id,
+        vendor_id,
         store_name: store.store_name,
         items,
         subtotal,

@@ -56,8 +56,8 @@ export class StoreReadService {
     return this.detailService.getStoreProductsGroupedByCategory(identifier, pagination, userId);
   }
 
-  validateVendorForOnline(userId: string) {
-    return this.detailService.validateVendorForOnline(userId);
+  validateVendorForOnline(userId: string, storeId?: string) {
+    return this.detailService.validateVendorForOnline(userId, storeId);
   }
 
   isStoreOwner(storeId: string, userId: string) {

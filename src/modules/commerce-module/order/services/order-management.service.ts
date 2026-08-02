@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from '../entities/order.entity';
-import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/services/store-analytics.service';
@@ -27,8 +26,6 @@ export class OrderManagementService {
     private readonly dataSource: DataSource,
     @InjectRepository(ProductCustomer)
     private readonly productCustomerRepo: Repository<ProductCustomer>,
-    @InjectRepository(Store)
-    private readonly storeRepo: Repository<Store>,
     private readonly analyticsService: StoreAnalyticsService,
   ) {}
 
@@ -38,13 +35,12 @@ export class OrderManagementService {
   private async processAnalytics(orderId: string) {
     const order = await this.orderRepo.findOne({
       where: { id: orderId },
-      relations: ['vendor', 'store', 'vendor.stores'],
+      relations: ['vendor'],
     });
 
     if (!order || order.analytics_processed) return;
 
-    const storeId = order.store_id ?? order.vendor?.stores?.[0]?.id;
-    if (!storeId) {
+    if (!order.store_id) {
       console.warn(
         `Store not found for vendor ${order.vendor_id} on order ${order.id}`,
       );
@@ -53,7 +49,7 @@ export class OrderManagementService {
 
     try {
       await this.analyticsService.updateFromOrder(
-        storeId,
+        order.store_id,
         order.total,
         order.buyer_id,
         order.order_items,
@@ -151,14 +147,12 @@ export class OrderManagementService {
   async updateOrderStatus(id: string, status: OrderStatus, storeId?: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      select: { id: true, vendor_id: true, status: true, order_items: true, payment_method: true, buyer_id: true },
+      select: { id: true, vendor_id: true, store_id: true, status: true, order_items: true, payment_method: true, buyer_id: true },
     });
     if (!order) throw new BadRequestException('Order not found');
-    const store = await this.storeRepo.findOne({
-      where: { user_id: order.vendor_id },
-      select: { id: true },
-    });
-    if (store?.id !== storeId) throw new ForbiddenException('You do not own this order');
+    if (order.store_id !== storeId) {
+      throw new ForbiddenException('You do not own this order');
+    }
 
     const previousStatus = order.status;
 
@@ -215,13 +209,13 @@ export class OrderManagementService {
     if (status === 'delivered' && order.buyer_id) {
       const fullOrder = await this.orderRepo.findOne({
         where: { id: order.id },
-        relations: ['buyer', 'vendor', 'vendor.stores'],
+        relations: ['buyer', 'vendor', 'store'],
       });
-      if (fullOrder && fullOrder.buyer?.email && fullOrder.vendor?.stores?.[0]) {
+      if (fullOrder && fullOrder.buyer?.email && fullOrder.store) {
         await this.orderMailService.sendRateVendorEmail({
           email: fullOrder.buyer.email,
           name: fullOrder.buyer.first_name,
-          storeName: fullOrder.vendor.stores[0].store_name,
+          storeName: fullOrder.store.store_name,
           orderId: fullOrder.id,
           products: fullOrder.order_items,
         });
@@ -238,16 +232,12 @@ export class OrderManagementService {
   async cancelOrder(id: string, requestedBy: string, storeId?: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      select: { id: true, buyer_id: true, vendor_id: true, status: true, order_items: true, payment_method: true },
+      select: { id: true, buyer_id: true, vendor_id: true, store_id: true, status: true, order_items: true, payment_method: true },
     });
     if (!order) throw new BadRequestException('Order not found');
 
     if (requestedBy !== order.buyer_id && requestedBy !== order.vendor_id) {
-      const store = await this.storeRepo.findOne({
-        where: { user_id: order.vendor_id },
-        select: { id: true },
-      });
-      if (store?.id !== storeId) throw new ForbiddenException('Unauthorized');
+      if (order.store_id !== storeId) throw new ForbiddenException('Unauthorized');
     }
 
     const previousStatus = order.status;

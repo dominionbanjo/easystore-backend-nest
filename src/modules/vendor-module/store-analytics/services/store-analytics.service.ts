@@ -417,16 +417,16 @@ export class StoreAnalyticsService {
       })) as any;
 
     const [{ count: pendingOrders }] = await this.analyticsRepo.manager.query(
-      `SELECT COUNT(*) as count FROM orders WHERE vendor_id = $1 AND status IN ('pending', 'paid', 'processing', 'shipped')`,
-      [storeRow?.user_id],
+      `SELECT COUNT(*) as count FROM orders WHERE store_id = $1 AND status IN ('pending', 'paid', 'processing', 'shipped')`,
+      [storeId],
     );
 
     /* ────────────────────────────────────────────────
      6.5️⃣ PENDING PAYOUTS (TOTAL AMOUNT)
   ──────────────────────────────────────────────── */
     const [{ total: pendingPayouts }] = await this.analyticsRepo.manager.query(
-      `SELECT SUM(amount) as total FROM payouts WHERE vendor_id = $1 AND status IN ('pending', 'pending_manual')`,
-      [storeRow?.user_id],
+      `SELECT SUM(amount) as total FROM payouts WHERE store_id = $1 AND status IN ('pending', 'pending_manual')`,
+      [storeId],
     );
 
     /* ────────────────────────────────────────────────

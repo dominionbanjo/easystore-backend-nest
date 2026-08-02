@@ -51,8 +51,9 @@ export class StoreCatalogService {
 
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
+    const isLocal = pagination.local === true && !!pagination.state;
 
-    const cacheKey = `svc:store:search:${q}:${page}:${limit}`;
+    const cacheKey = `svc:store:search:v2:${q}:${page}:${limit}:${pagination.state || 'all'}:${isLocal ? 'local' : 'global'}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -92,10 +93,18 @@ export class StoreCatalogService {
       )
       .andWhere('store.status = :storeStatus', { storeStatus: 'active' });
 
-    if (pagination.state) {
+    if (isLocal) {
+      qb.addSelect('store.address_state = :localState', 'is_local').setParameter(
+        'localState',
+        pagination.state,
+      );
+    } else if (pagination.state) {
       qb.andWhere('store.address_state = :state', { state: pagination.state });
     }
 
+    if (isLocal) {
+      qb.orderBy('is_local', 'DESC');
+    }
     qb.orderBy('store.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -136,8 +145,9 @@ export class StoreCatalogService {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
     const isTrending = pagination.sort === 'trending';
+    const isLocal = pagination.local === true && !!pagination.state;
 
-    const cacheKey = `svc:store:list:${page}-${limit}:${isTrending ? 'trending' : 'default'}`;
+    const cacheKey = `svc:store:list:v2:${page}-${limit}:${isTrending ? 'trending' : 'default'}:${pagination.state || 'all'}:${isLocal ? 'local' : 'global'}`;
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
@@ -168,6 +178,13 @@ export class StoreCatalogService {
         'store.user_id',
       ]);
 
+    if (isLocal) {
+      qb.addSelect('store.address_state = :localState', 'is_local').setParameter(
+        'localState',
+        pagination.state,
+      );
+    }
+
     if (isTrending) {
       qb.leftJoin(
         Product,
@@ -181,23 +198,26 @@ export class StoreCatalogService {
         .addSelect(TRENDING_SCORE_SQL, 'score')
         .groupBy('store.id')
         .addGroupBy('analytics.total_orders')
-        .having('COUNT(product.id) > 0')
-        .orderBy('score', 'DESC')
+        .having('COUNT(product.id) > 0');
+
+      if (isLocal) {
+        qb.orderBy('is_local', 'DESC');
+      }
+      qb.addOrderBy('score', 'DESC')
         .addOrderBy('total_orders', 'DESC')
         .addOrderBy('store.created_at', 'DESC');
     } else {
-      qb.leftJoin(
-        Product,
-        'product',
-        'product.vendor_id = store.user_id AND product.status = :productStatus',
-        { productStatus: ProductStatus.ACTIVE },
-      )
+      qb.leftJoin(Product, 'product', 'product.vendor_id = store.user_id')
         .addSelect('COUNT(product.id)', 'total_products')
-        .groupBy('store.id')
-        .orderBy('store.created_at', 'DESC');
+        .groupBy('store.id');
+
+      if (isLocal) {
+        qb.orderBy('is_local', 'DESC');
+      }
+      qb.addOrderBy('store.created_at', 'DESC');
     }
 
-    if (pagination.state) {
+    if (pagination.state && !isLocal) {
       qb.andWhere('store.address_state = :state', { state: pagination.state });
     }
 

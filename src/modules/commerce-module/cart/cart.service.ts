@@ -265,6 +265,7 @@ export class CartService {
       const item: ICartItem = {
         product_id: product.id,
         vendor_id: product.vendor_id,
+        store_id: product.store_id ?? null,
         name: product.name,
         slug: product.slug,
         price: activePrice,

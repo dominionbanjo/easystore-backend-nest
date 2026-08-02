@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository, FindOptionsWhere } from 'typeorm';
 import { StoreStaff } from '../entities/store-staff.entity';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
 import { ProductCategory } from 'src/modules/commerce-module/product-category/entities/product-category.entity';
@@ -225,11 +225,7 @@ export class StoreDetailService {
       throw new BadRequestException('User ID is required');
     }
 
-    const cacheKey = `svc:store:user:${userId}`;
-    const cached = await this.cache.get<Store>(cacheKey);
-    if (cached && !storeId) return cached;
-
-    const where: any = storeId
+    const where: FindOptionsWhere<Store> = storeId
       ? { id: storeId, user_id: userId }
       : { user_id: userId };
 
@@ -243,9 +239,6 @@ export class StoreDetailService {
       throw new NotFoundException('Store not found for this user');
     }
 
-    if (!storeId) {
-      await this.cache.set(cacheKey, store);
-    }
     return store;
   }
 
@@ -258,27 +251,18 @@ export class StoreDetailService {
   }
 
   async getTotalProductsForStore(storeId: string): Promise<number> {
-    const store = await this.storeRepo.findOne({
-      where: { id: storeId },
-      select: ['user_id'],
-    });
-
-    if (!store) {
-      throw new NotFoundException('Store not found');
-    }
-
     return this.productRepo.count({
-      where: { vendor_id: store.user_id },
+      where: { store_id: storeId },
     });
   }
 
-  async validateVendorForOnline(userId: string) {
+  async validateVendorForOnline(userId: string, storeId?: string) {
     if (!userId) {
       throw new BadRequestException('Vendor user ID is required');
     }
 
     const store = await this.storeRepo.findOne({
-      where: { user_id: userId },
+      where: storeId ? { id: storeId, user_id: userId } : { user_id: userId },
       select: [
         'id',
         'user_id',

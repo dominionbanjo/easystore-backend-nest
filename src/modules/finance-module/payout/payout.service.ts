@@ -39,6 +39,7 @@ export interface CreatePendingPayoutInput {
   order_id?: string | null;
   escrow_id?: string | null;
   vendor_id?: string | null;
+  store_id?: string | null;
   recipient_code?: string | null;
   amount: number;
   currency?: string;
@@ -66,6 +67,7 @@ export class PayoutService {
     order_id,
     escrow_id,
     vendor_id,
+    store_id,
     recipient_code,
     amount,
     currency = 'NGN',
@@ -82,6 +84,7 @@ export class PayoutService {
       order_id: order_id ?? null,
       escrow_id: escrow_id ?? null,
       vendor_id: vendor_id ?? null,
+      store_id: store_id ?? null,
       transfer_code: transfer_data?.transfer_code ?? null,
       transfer_reference: transfer_data?.reference ?? null,
       recipient_code: recipient_code ?? null,
@@ -331,7 +334,11 @@ export class PayoutService {
   /* ────────────────────────────────────────────────
      GET PAYOUTS BY VENDOR (BUYER)
   ──────────────────────────────────────────────── */
-  async getVendorPayouts(vendor_id: string, query?: PayoutQueryDto) {
+  async getVendorPayouts(
+    vendor_id: string,
+    query?: PayoutQueryDto,
+    store_id?: string,
+  ) {
     const page = query?.page || 1;
     const limit = query?.limit || 10;
     const skip = (page - 1) * limit;
@@ -353,6 +360,12 @@ export class PayoutService {
     qb.leftJoin('payout.escrow', 'escrow');
 
     qb.where('payout.vendor_id = :vendor_id', { vendor_id });
+
+    // ⭐ Store-scoped: a vendor may own multiple stores — filter by the
+    // active store so payouts never leak across stores.
+    if (store_id) {
+      qb.andWhere('payout.store_id = :store_id', { store_id });
+    }
 
     if (query?.status && query.status !== 'all') {
       qb.andWhere('payout.status = :status', { status: query.status });

@@ -42,7 +42,12 @@ export class AdminEscrowService {
       payouts.map(async (payout) => {
         let store: any = null;
         if (payout.vendor_id) {
-          store = await this.storeService.getStoreByUser(payout.vendor_id).catch(() => null);
+          store = await this.storeService
+            .getStoreByUser(
+              payout.vendor_id,
+              payout.order?.store_id ?? undefined,
+            )
+            .catch(() => null);
         }
 
         return {
@@ -86,7 +91,9 @@ export class AdminEscrowService {
 
     if (payout.vendor_id) {
       const vendor = await this.users.findById(payout.vendor_id);
-      const store = await this.storeService.getStoreByUser(payout.vendor_id).catch(() => null);
+      const store = await this.storeService
+        .getStoreByUser(payout.vendor_id, payout.order?.store_id ?? undefined)
+        .catch(() => null);
       const vendorName = store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
       if (vendor?.email) {
@@ -150,7 +157,7 @@ export class AdminEscrowService {
 
     const qb = this.payoutRepo.createQueryBuilder('payout');
     qb.leftJoinAndSelect('payout.vendor', 'vendor');
-    qb.leftJoinAndSelect('vendor.stores', 'store');
+    qb.leftJoinAndSelect('payout.store', 'store');
     qb.leftJoinAndSelect('payout.order', 'order');
 
     if (status && status !== 'all') {
@@ -181,12 +188,12 @@ export class AdminEscrowService {
           reference: p.transfer_reference ?? p.transfer_code,
           payout_type: p.payout_type,
           vendor: p.vendor,
-          vendor_bank: p.vendor?.stores?.[0]
+          vendor_bank: p.store
             ? {
-                store_name: p.vendor.stores[0].store_name,
-                bank_name: p.vendor.stores[0].bank_name,
-                account_number: p.vendor.stores[0].account_number,
-                account_name: p.vendor.stores[0].account_number
+                store_name: p.store.store_name,
+                bank_name: p.store.bank_name,
+                account_number: p.store.account_number,
+                account_name: p.store.account_number
               }
             : null,
         })),

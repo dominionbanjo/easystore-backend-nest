@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Escrow } from '../../escrow/entities/escrow.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 
 export type PayoutStatus =
   | 'pending'
@@ -70,6 +71,20 @@ export class Payout {
   })
   @JoinColumn({ name: 'vendor_id' })
   vendor: User | null;
+
+  /* ───────────────────────────────────────────────
+     RELATION: STORE (which store the payout belongs to)
+  ─────────────────────────────────────────────── */
+  @Index('IDX_PAYOUT_STORE_ID')
+  @Column({ type: 'uuid', nullable: true })
+  store_id: string | null;
+
+  @ManyToOne(() => Store, {
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'store_id' })
+  store: Store | null;
 
   /* ───────────────────────────────────────────────
      PAYOUT IDENTIFIERS (Paystack — used for auto mode)

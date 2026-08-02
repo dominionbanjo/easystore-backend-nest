@@ -212,14 +212,18 @@ export class AdminUsersService {
     if (
       user.account_type === 'vendor' &&
       newStatus === 'active' &&
-      user.stores?.[0]
+      user.stores?.length
     ) {
       // Special case for store approval
+      const storeName =
+        user.stores.length === 1
+          ? user.stores[0].store_name
+          : 'your store';
       this.accountStatusMail
         .sendStoreApprovalEmail({
           name: user.first_name,
           email: user.email,
-          storeName: user.stores[0].store_name,
+          storeName,
         })
         .catch((e) => console.error('Store Approval Email Error:', e.message));
     } else {

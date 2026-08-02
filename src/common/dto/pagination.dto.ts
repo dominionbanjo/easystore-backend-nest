@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PaginationQueryDto {
@@ -31,4 +31,9 @@ export class PaginationQueryDto {
   @IsOptional()
   @Type(() => String)
   sort?: string;
+
+  @ApiPropertyOptional({ description: 'Rank local (state) items first instead of filtering to them', example: true })
+  @IsOptional()
+  @Type(() => Boolean)
+  local?: boolean;
 }

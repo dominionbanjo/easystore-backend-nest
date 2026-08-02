@@ -59,15 +59,16 @@ export class PandaOrderService {
       );
 
       const groups =
-        await this.validationService.groupItemsByVendor(validatedItems);
+        await this.validationService.groupItemsByStore(validatedItems);
 
       const orders: Order[] = [];
 
-      for (const vendor_id of Object.keys(groups)) {
+      for (const group of groups) {
+        const { store_id, vendor_id } = group;
         const vendor = await this.userRepo.findOne({ where: { id: vendor_id } });
         if (!vendor) throw new NotFoundException('Vendor not found');
 
-        const items = groups[vendor_id];
+        const items = group.items;
         let subtotalKobo = 0;
         for (const item of items) {
           subtotalKobo += item.unit_price * item.quantity;
@@ -97,6 +98,7 @@ export class PandaOrderService {
           id: uuidv4(),
           buyer_id: buyer.id,
           vendor_id: vendor.id,
+          store_id: store_id,
           escrow_id: null,
           subtotal: subtotalKobo,
           shipping_fee: 0,

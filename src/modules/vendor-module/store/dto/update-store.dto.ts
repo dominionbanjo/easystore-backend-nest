@@ -120,7 +120,12 @@ class UpdateStoreBaseDto {
 
   @ApiPropertyOptional({ description: 'Escrow payments enabled', example: false })
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ obj }) => {
+    const raw = (obj as { escrow_enabled?: unknown } | undefined)
+      ?.escrow_enabled;
+    if (raw === undefined) return undefined;
+    return typeof raw === 'string' ? raw === 'true' : raw === true;
+  })
   @IsBoolean()
   escrow_enabled?: boolean;
 }

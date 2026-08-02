@@ -75,12 +75,12 @@ export class PaystackService {
 
     if (status === 422) {
       throw new BadRequestException(
-        `${context} failed — invalid or unprocessable data`,
+        message || `${context} failed — invalid or unprocessable data`,
       );
     }
 
     if (status === 400) {
-      throw new BadRequestException(`${context} failed — bad request`);
+      throw new BadRequestException(message || `${context} failed — bad request`);
     }
 
     throw new BadRequestException(`${context} failed: ${message}`);

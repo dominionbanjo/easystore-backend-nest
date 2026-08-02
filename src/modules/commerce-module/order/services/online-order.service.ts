@@ -68,20 +68,19 @@ export class OnlineOrderService {
         buyer_id,
       );
 
-      /* GROUP ITEMS BY VENDOR */
+      /* GROUP ITEMS BY STORE */
       const groups =
-        await this.validationService.groupItemsByVendor(validatedItems);
-      
-      const vendorIds = Object.keys(groups);
-      if (vendorIds.length === 0) {
+        await this.validationService.groupItemsByStore(validatedItems);
+
+      if (groups.length === 0) {
         throw new BadRequestException('No items to order');
       }
-      if (vendorIds.length > 1) {
+      if (groups.length > 1) {
         throw new BadRequestException('Multi-vendor checkout is deprecated. Please order from one vendor at a time.');
       }
 
-      const vendor_id = vendorIds[0]!;
-      await this.storeService.validateVendorForOnline(vendor_id);
+      const { store_id, vendor_id } = groups[0]!;
+      await this.storeService.validateVendorForOnline(vendor_id, store_id ?? undefined);
 
       /* CALCULATE TOTALS IN KOBO */
       let subtotalKobo = 0;
@@ -90,13 +89,13 @@ export class OnlineOrderService {
       // Use delivery rate ID if provided
       if (data.delivery_rate_id) {
         const rate = await this.deliveryRateService.getRateById(data.delivery_rate_id);
-        const store = await this.storeService.getStoreByUser(vendor_id);
+        const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
         if (rate && rate.store_id === store.id) {
           shippingKobo = Number(rate.fee) * 100; // Convert to Kobo
         }
       }
 
-      for (const item of groups[vendor_id]!) {
+      for (const item of groups[0]!.items) {
         subtotalKobo += item.unit_price * item.quantity;
       }
 
@@ -143,7 +142,10 @@ export class OnlineOrderService {
       );
       const reference = payment.reference;
 
-      const storeForOrder = await this.storeService.getStoreByUser(vendor_id);
+      const storeForOrder = await this.storeService.getStoreByUser(
+        vendor_id,
+        store_id ?? undefined,
+      );
 
       /* CREATE ORDER + ESCROW (ATOMIC TRANSACTION) */
       const orderData = this.orderRepo.create({
@@ -151,7 +153,7 @@ export class OnlineOrderService {
         buyer_id,
         vendor_id,
         store_id: storeForOrder.id,
-        order_items: groups[vendor_id]!,
+        order_items: groups[0]!.items,
         subtotal: subtotalKobo,
         shipping_fee: shippingKobo,
         platform_fee: platformFeeKobo,
@@ -229,16 +231,15 @@ export class OnlineOrderService {
         buyer_id,
       );
 
-      const groups = await this.validationService.groupItemsByVendor(validatedItems);
-      const vendorIds = Object.keys(groups);
+      const groups = await this.validationService.groupItemsByStore(validatedItems);
 
-      if (vendorIds.length === 0) throw new BadRequestException('No items');
-      if (vendorIds.length > 1) {
+      if (groups.length === 0) throw new BadRequestException('No items');
+      if (groups.length > 1) {
         throw new BadRequestException('Multi-vendor checkout is deprecated.');
       }
 
-      const vendor_id = vendorIds[0]!;
-      const store = await this.storeService.getStoreByUser(vendor_id);
+      const { store_id, vendor_id } = groups[0]!;
+      const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
       if (!store || !store.paystack_subaccount_code) {
         throw new BadRequestException('Vendor not verified for online payments');
       }
@@ -254,7 +255,7 @@ export class OnlineOrderService {
         }
       }
 
-      for (const item of groups[vendor_id]!) {
+      for (const item of groups[0]!.items) {
         subtotalKobo += item.unit_price * item.quantity;
       }
 
@@ -324,7 +325,7 @@ export class OnlineOrderService {
         payment_access_code: payment.access_code,
         payment_status: 'pending',
         status: 'pending',
-        order_items: groups[vendor_id]!,
+        order_items: groups[0]!.items,
         delivery_address_id: data.delivery_address_id,
         notes: JSON.stringify({
           subtotal_kobo: subtotalKobo,
@@ -377,31 +378,32 @@ export class OnlineOrderService {
         buyer_id,
       );
 
-      const groups = await this.validationService.groupItemsByVendor(validatedItems);
+      const groups = await this.validationService.groupItemsByStore(validatedItems);
       let subtotalKobo = 0;
       let totalShippingKobo = 0;
       const vendorSubtotals: Record<string, number> = {};
       const vendorShippingFees: Record<string, number> = {};
 
-      for (const vendor_id of Object.keys(groups)) {
-        await this.storeService.validateVendorForOnline(vendor_id);
+      for (const group of groups) {
+        const { store_id, vendor_id } = group;
+        await this.storeService.validateVendorForOnline(vendor_id, store_id ?? undefined);
         let vendorSubtotalKobo = 0;
         let vendorMaxShippingKobo = 0;
 
         if (data.delivery_rate_id) {
           const rate = await this.deliveryRateService.getRateById(data.delivery_rate_id);
-          const store = await this.storeService.getStoreByUser(vendor_id);
+          const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
           if (rate && rate.store_id === store.id) {
             vendorMaxShippingKobo = Number(rate.fee) * 100;
           }
         }
 
-        for (const item of groups[vendor_id]!) {
+        for (const item of group.items) {
           vendorSubtotalKobo += item.unit_price * item.quantity;
         }
 
-        vendorSubtotals[vendor_id] = vendorSubtotalKobo;
-        vendorShippingFees[vendor_id] = vendorMaxShippingKobo;
+        vendorSubtotals[`${vendor_id}:${store_id ?? 'default'}`] = vendorSubtotalKobo;
+        vendorShippingFees[`${vendor_id}:${store_id ?? 'default'}`] = vendorMaxShippingKobo;
         subtotalKobo += vendorSubtotalKobo;
         totalShippingKobo += vendorMaxShippingKobo;
       }
@@ -432,15 +434,18 @@ export class OnlineOrderService {
       });
 
       const orders: Order[] = [];
-      const vendorIds = Object.keys(groups);
-      for (const vendor_id of vendorIds) {
+      for (const group of groups) {
+        const { store_id, vendor_id } = group;
+        const groupKey = `${vendor_id}:${store_id ?? 'default'}`;
+        const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
         const order = this.orderRepo.create({
           id: uuidv4(),
           buyer_id,
           vendor_id,
-          order_items: groups[vendor_id]!,
-          subtotal: vendorSubtotals[vendor_id]!,
-          shipping_fee: vendorShippingFees[vendor_id]!,
+          store_id: store.id,
+          order_items: group.items,
+          subtotal: vendorSubtotals[groupKey]!,
+          shipping_fee: vendorShippingFees[groupKey]!,
           payment_reference: payment.reference,
           status: 'pending',
           payment_method: 'online',
@@ -451,7 +456,7 @@ export class OnlineOrderService {
           order_id: saved.id,
           buyer_id,
           vendor_id,
-          amount: vendorSubtotals[vendor_id]!,
+          amount: vendorSubtotals[groupKey]!,
         });
       }
 

@@ -50,6 +50,8 @@ export class UsersService {
         email_verified: true,
         token_version: true,
         created_at: true,
+        otp: true,
+        otp_expiration: true,
       },
     });
   }

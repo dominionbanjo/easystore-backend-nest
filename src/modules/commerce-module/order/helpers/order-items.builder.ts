@@ -43,6 +43,7 @@ export class OrderItemsBuilder {
       validated.push({
         product_id: product.id,
         vendor_id: product.vendor_id,
+        store_id: product.store_id ?? null,
         name: product.name,
         slug: product.slug,
         price: activePrice,

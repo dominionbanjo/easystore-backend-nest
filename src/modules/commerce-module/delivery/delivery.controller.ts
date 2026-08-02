@@ -96,6 +96,7 @@ export class DeliveryController {
       dto.status,
       user.sub,
       user.role,
+      user.store_id ?? undefined,
     );
   }
 
@@ -114,6 +115,7 @@ export class DeliveryController {
       dto.order_id,
       dto.code,
       user.sub,
+      user.store_id ?? undefined,
     );
   }
 

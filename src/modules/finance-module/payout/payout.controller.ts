@@ -39,6 +39,10 @@ export class PayoutController {
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Query() query: PayoutQueryDto,
   ) {
-    return this.payoutService.getVendorPayouts(user.sub, query);
+    return this.payoutService.getVendorPayouts(
+      user.sub,
+      query,
+      user.store_id ?? undefined,
+    );
   }
 }

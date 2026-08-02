@@ -94,7 +94,7 @@ export class StaffService {
     const [todayOrders, todaySalesResult] = await Promise.all([
       this.orderRepo.count({
         where: {
-          vendor_id: storeId,
+          store_id: storeId,
           created_at: today as any,
           payment_method: In(['cash', 'transfer', 'pos', 'offline']),
         },
@@ -102,7 +102,7 @@ export class StaffService {
       this.orderRepo
         .createQueryBuilder('order')
         .select('COALESCE(SUM(order.total), 0)', 'total')
-        .where('order.vendor_id = :storeId', { storeId })
+        .where('order.store_id = :storeId', { storeId })
         .andWhere('order.created_at >= :today', { today })
         .andWhere("order.payment_method IN ('cash', 'transfer', 'pos', 'offline')")
         .getRawOne(),
@@ -112,7 +112,7 @@ export class StaffService {
       this.orderRepo
         .createQueryBuilder('order')
         .select('COUNT(DISTINCT order.id)', 'count')
-        .where('order.vendor_id = :storeId', { storeId })
+        .where('order.store_id = :storeId', { storeId })
         .getRawOne(),
     ]);
 

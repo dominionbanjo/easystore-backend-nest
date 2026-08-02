@@ -116,6 +116,7 @@ export class OrderValidationService {
       validated.push({
         product_id: product.id,
         vendor_id: product.vendor_id,
+        store_id: product.store_id ?? null,
         name: product.name,
         slug: product.slug,
         price: activePrice,
@@ -137,22 +138,33 @@ export class OrderValidationService {
   }
 
   /* ────────────────────────────────────────────────
-     GROUP ITEMS BY VENDOR
+     GROUP ITEMS BY STORE
+     ⭐ Store-scoped: a vendor may own multiple stores,
+     so groups are keyed by the item's actual store_id.
   ──────────────────────────────────────────────── */
-  async groupItemsByVendor(
+  async groupItemsByStore(
     items: ICartItem[],
-  ): Promise<Record<string, ICartItem[]>> {
-    const groups: Record<string, ICartItem[]> = {};
+  ): Promise<
+    { store_id: string | null; vendor_id: string; items: ICartItem[] }[]
+  > {
+    const groups: Record<
+      string,
+      { store_id: string | null; vendor_id: string; items: ICartItem[] }
+    > = {};
 
     for (const item of items) {
-      const vendorId = item.vendor_id;
-      if (!vendorId) continue;
-      if (!groups[vendorId]) {
-        groups[vendorId] = [];
+      // Legacy items without a store fall back to a vendor-scoped group
+      const key = item.store_id ?? `vendor:${item.vendor_id}`;
+      if (!groups[key]) {
+        groups[key] = {
+          store_id: item.store_id,
+          vendor_id: item.vendor_id,
+          items: [],
+        };
       }
-      groups[vendorId].push(item);
+      groups[key].items.push(item);
     }
 
-    return groups;
+    return Object.values(groups);
   }
 }

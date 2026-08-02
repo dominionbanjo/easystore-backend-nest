@@ -1,5 +1,6 @@
 import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
+import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -69,6 +70,20 @@ export class Escrow {
   })
   @JoinColumn({ name: 'vendor_id' })
   vendor: User;
+
+  /* ───────────────────────────────────────────────
+     RELATION → STORE (the store the order belongs to)
+  ─────────────────────────────────────────────── */
+  @Index('IDX_ESCROW_STORE_ID')
+  @Column({ type: 'uuid', nullable: true })
+  store_id: string | null;
+
+  @ManyToOne(() => Store, {
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'store_id' })
+  store: Store | null;
 
   /* ───────────────────────────────────────────────
    RELATION → PAYOUTS (ONE ESCROW → MANY PAYOUTS)
