@@ -16,6 +16,9 @@ export class StoreListItemDto {
   @ApiPropertyOptional({ description: 'Store logo URL' })
   logo: string | null;
 
+  @ApiPropertyOptional({ description: 'Store cover image URL' })
+  cover_image: string | null;
+
   @ApiProperty({ description: 'Average rating' })
   rating_average: number;
 

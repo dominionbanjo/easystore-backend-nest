@@ -74,9 +74,10 @@ export class StoreController {
     return stores.map((s) => mapToOwnerStore(s));
   }
 
-  @ApiOperation({ summary: 'Get all stores', description: 'Retrieve paginated list of all stores (public)' })
+  @ApiOperation({ summary: 'Get all stores', description: 'Retrieve paginated list of all stores (public). Pass sort=trending to rank by weighted score (sales, rating, active products); empty stores are excluded in trending mode' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({ name: 'sort', required: false, type: String, description: "Sort mode: 'trending' (weighted ranking) or default (newest first)" })
   @ApiPaginatedResponse(StoreListItemDto)
   @ApiStandardErrorResponses()
   @Get()

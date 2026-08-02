@@ -10,6 +10,7 @@ import slugify from 'slugify';
 import { ProductCategory } from './entities/product-category.entity';
 import { CreateProductCategoryDto } from './dto/create-product-category.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
+import { ProductStatus } from '../product/entities/product.entity';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 
 @Injectable()
@@ -103,7 +104,12 @@ export class ProductCategoryService {
         '(child.vendor_id IS NULL OR child.vendor_id = :vendorId)',
         { vendorId: vendorId || null },
       )
-      .leftJoin('products', 'product', 'product.category_id = child.id')
+      .leftJoin(
+        'products',
+        'product',
+        'product.category_id = child.id AND product.status = :productStatus',
+        { productStatus: ProductStatus.ACTIVE },
+      )
       .where('parent.parent_id IS NULL');
 
     if (vendorId) {
