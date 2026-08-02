@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
@@ -43,6 +43,8 @@ export class StoreWriteService {
 
     @InjectRepository(ThemeSetting)
     private readonly themeSettingRepo: Repository<ThemeSetting>,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   async createStore(data: CreateStoreDto, manager?: EntityManager) {
@@ -333,6 +335,22 @@ export class StoreWriteService {
     if (exists) {
       throw new BadRequestException(
         'This subdomain is already taken or clashes with an existing store',
+      );
+    }
+
+    // School zone subdomains share the same namespace
+    const zoneExists = await this.dataSource
+      .createQueryBuilder()
+      .select('zone.id')
+      .from('school_zones', 'zone')
+      .where('LOWER(zone.subdomain) = :subdomain OR LOWER(zone.slug) = :subdomain', {
+        subdomain: cleanSubdomain,
+      })
+      .getRawOne();
+
+    if (zoneExists) {
+      throw new BadRequestException(
+        'This subdomain is already taken by a school zone',
       );
     }
 

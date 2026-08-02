@@ -21,6 +21,9 @@ export enum Permission {
   MANAGE_STORE = 'store:manage',
   VIEW_ANALYTICS = 'analytics:view',
 
+  // School Zones
+  MANAGE_ZONE = 'zone:manage',
+
   // Users
   VIEW_USERS = 'user:view',
   MANAGE_USERS = 'user:manage',
@@ -50,6 +53,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.MANAGE_STORE,
     Permission.VIEW_ANALYTICS,
     Permission.VIEW_TRANSACTIONS,
+    Permission.MANAGE_ZONE,
   ],
 
   staff: [

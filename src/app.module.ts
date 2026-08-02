@@ -28,6 +28,7 @@ import { StaffModule } from './modules/staff/staff.module';
 import { MessagingModule } from './modules/shared-module/messaging/messaging.module';
 import { NotificationModule } from './modules/shared-module/notification/notification.module';
 import { NewsletterModule } from './modules/shared-module/newsletter/newsletter.module';
+import { SchoolZoneModule } from './modules/school-zone/school-zone.module';
 
 @Module({
   imports: [
@@ -94,6 +95,9 @@ import { NewsletterModule } from './modules/shared-module/newsletter/newsletter.
     MessagingModule,
     NotificationModule,
     NewsletterModule,
+
+    // 🏫 SCHOOL ZONES
+    SchoolZoneModule,
   ],
 
   controllers: [AppController],

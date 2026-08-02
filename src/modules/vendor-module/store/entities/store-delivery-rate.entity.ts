@@ -46,6 +46,11 @@ export class StoreDeliveryRate {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  /* SCHOOL ZONE LINKAGE — set when the rate was auto-created via a zone join */
+  @Index('IDX_STORE_DELIVERY_RATE_SCHOOL_ZONE_ID')
+  @Column({ type: 'uuid', nullable: true })
+  school_zone_id: string | null;
+
   /* TIMESTAMPS */
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

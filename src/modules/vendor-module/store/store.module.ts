@@ -83,6 +83,7 @@ import { StoreThemeService } from './services/store-theme.service';
     StoreCatalogService,
     StoreDetailService,
     StoreThemeService,
+    StoreHelperService,
   ],
 })
 export class StoreModule {}
