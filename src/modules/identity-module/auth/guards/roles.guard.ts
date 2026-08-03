@@ -19,8 +19,8 @@ export class RolesGuard implements CanActivate {
 
     if (!requiredRoles) return true; // no roles required → allow
 
-    const req = context.switchToHttp().getRequest();
-    const user: JwtAuthUser = req.user;
+    const req = context.switchToHttp().getRequest<{ user?: JwtAuthUser }>();
+    const user: JwtAuthUser | undefined = req.user;
 
     if (!user || !requiredRoles.includes(user.role)) {
       throw new ForbiddenException(

@@ -9,8 +9,10 @@ import { JwtAuthUser } from 'src/modules/identity-module/auth/strategies/jwt.str
 @Injectable()
 export class StoreGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest();
-    const user = req.user as JwtAuthUser;
+    const req = context.switchToHttp().getRequest<{
+      user?: JwtAuthUser;
+    }>();
+    const user = req.user;
 
     if (!user?.store_id) {
       throw new NotFoundException('Store not found');

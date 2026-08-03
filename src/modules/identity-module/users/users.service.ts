@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { User, IUserAddress } from './entities/user.entity';
 import { UploadService } from 'src/common/services/upload.service';
 import { PaystackService } from 'src/common/services/paystack.service';
 import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
@@ -147,7 +147,13 @@ export class UsersService {
 
     return this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'account_type', 'account_status', 'token_version'],
+      select: [
+        'id',
+        'email',
+        'account_type',
+        'account_status',
+        'token_version',
+      ],
     });
   }
 
@@ -206,7 +212,13 @@ export class UsersService {
   async getForJwtValidation(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'account_type', 'token_version', 'account_status', 'active_store_id'],
+      select: [
+        'id',
+        'account_type',
+        'token_version',
+        'account_status',
+        'active_store_id',
+      ],
     });
 
     if (!user) return null;
@@ -284,11 +296,12 @@ export class UsersService {
     });
     if (!user2) throw new NotFoundException('User not found');
 
-    delete (user2 as any).password;
-    
+    delete (user2 as Partial<User>).password;
+
     // Maintain old address JSON shape for backwards compatibility if needed on frontend,
     // pulling from the default address.
-    const defaultAddress = user2.addresses?.find((a) => a.is_default) || user2.addresses?.[0];
+    const defaultAddress =
+      user2.addresses?.find((a) => a.is_default) || user2.addresses?.[0];
     if (defaultAddress && !user2.address) {
       user2.address = {
         street: defaultAddress.street,
@@ -335,31 +348,35 @@ export class UsersService {
     // Address (migrate to UserAddress Entity)
     // ---------------------------
     if (data.address && typeof data.address === 'object') {
-      // For backwards compatibility and migration, if they send address object, 
+      // For backwards compatibility and migration, if they send address object,
       // we save it as a new UserAddress marked as default if none exist, or update the existing default
-      const existingAddresses = await this.addressRepo.find({ where: { user_id: userId } });
-      const defaultAddress = existingAddresses.find(a => a.is_default) || existingAddresses[0];
+      const address = data.address as IUserAddress;
+      const existingAddresses = await this.addressRepo.find({
+        where: { user_id: userId },
+      });
+      const defaultAddress =
+        existingAddresses.find((a) => a.is_default) || existingAddresses[0];
 
       if (defaultAddress) {
-        Object.assign(defaultAddress, data.address);
+        Object.assign(defaultAddress, address);
         await this.addressRepo.save(defaultAddress);
       } else {
         const newAddress = this.addressRepo.create({
           user_id: userId,
           is_default: true,
-          street: data.address.street || '',
-          city: data.address.city || '',
-          state: data.address.state || '',
-          country: data.address.country || '',
-          postal_code: data.address.postal_code || '',
+          street: address.street || '',
+          city: address.city || '',
+          state: address.state || '',
+          country: address.country || '',
+          postal_code: address.postal_code || '',
         });
         await this.addressRepo.save(newAddress);
       }
-      
+
       // Also update the legacy JSON object just in case standard payloads expect it statically until fully deprecated
       user.address = {
         ...(user.address ?? {}),
-        ...data.address,
+        ...address,
       };
     }
 
@@ -379,7 +396,9 @@ export class UsersService {
 
     for (const key of allowed) {
       if (data[key] !== undefined) {
-        (user as any)[key] = data[key];
+        (user as unknown as Record<string, unknown>)[key] = data[
+          key
+        ] as unknown;
       }
     }
 
@@ -409,22 +428,24 @@ export class UsersService {
     if (user.last_bank_update) {
       const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
       const timeSinceUpdate = Date.now() - user.last_bank_update.getTime();
-      
+
       if (timeSinceUpdate < THREE_DAYS_MS) {
-        throw new BadRequestException('You can only change your bank account details once every 3 days for security purposes. Please wait before updating your payout bank details.');
+        throw new BadRequestException(
+          'You can only change your bank account details once every 3 days for security purposes. Please wait before updating your payout bank details.',
+        );
       }
     }
 
-    const verified = await this.paystackService.verifyBankAccount(
+    const verified = (await this.paystackService.verifyBankAccount(
       account_number,
       bank_code,
-    );
+    )) as { account_name: string; bank_name: string };
 
-    const recipient_code = await this.paystackService.createTransferRecipient({
+    const recipient_code = (await this.paystackService.createTransferRecipient({
       name: verified.account_name,
       account_number,
       bank_code,
-    });
+    })) as string;
 
     await this.userRepo.update(userId, {
       account_number,
@@ -468,8 +489,10 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    const addressCount = await this.addressRepo.count({ where: { user_id: userId } });
-    
+    const addressCount = await this.addressRepo.count({
+      where: { user_id: userId },
+    });
+
     // If it's their first address or they set it to default, ensure it represents the default
     const isNewDefault = data.is_default || addressCount === 0;
 
@@ -484,11 +507,21 @@ export class UsersService {
     });
 
     const saved = await this.addressRepo.save(newAddress);
-    return { success: true, id: saved.id, message: 'Address added successfully' };
+    return {
+      success: true,
+      id: saved.id,
+      message: 'Address added successfully',
+    };
   }
 
-  async updateUserAddress(userId: string, addressId: string, data: Partial<UserAddress>) {
-    const address = await this.addressRepo.findOne({ where: { id: addressId, user_id: userId } });
+  async updateUserAddress(
+    userId: string,
+    addressId: string,
+    data: Partial<UserAddress>,
+  ) {
+    const address = await this.addressRepo.findOne({
+      where: { id: addressId, user_id: userId },
+    });
     if (!address) throw new NotFoundException('Address not found');
 
     if (data.is_default) {
@@ -498,11 +531,18 @@ export class UsersService {
     Object.assign(address, data);
     const updated = await this.addressRepo.save(address);
 
-    return { success: true, id: updated.id, message: 'Address updated successfully' };
+    return {
+      success: true,
+      id: updated.id,
+      message: 'Address updated successfully',
+    };
   }
 
   async deleteUserAddress(userId: string, addressId: string) {
-    const result = await this.addressRepo.delete({ id: addressId, user_id: userId });
+    const result = await this.addressRepo.delete({
+      id: addressId,
+      user_id: userId,
+    });
     if (result.affected === 0) {
       throw new NotFoundException('Address not found');
     }

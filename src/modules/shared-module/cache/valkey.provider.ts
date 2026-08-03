@@ -26,7 +26,7 @@ export const ValkeyClientProvider: Provider = {
       client.on('error', (err) => console.log('⚠ Valkey error:', err.message));
 
       return client;
-    } catch (error) {
+    } catch {
       console.warn('❌ Valkey initialization failed');
       return null;
     }

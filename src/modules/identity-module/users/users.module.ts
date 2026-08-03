@@ -11,7 +11,11 @@ import { BuyerEngagementCronService } from './services/buyer-engagement-cron.ser
 import { EmailModule } from 'src/modules/shared-module/email/email.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Store, StoreStaff, UserAddress]), CommonModule, EmailModule],
+  imports: [
+    TypeOrmModule.forFeature([User, Store, StoreStaff, UserAddress]),
+    CommonModule,
+    EmailModule,
+  ],
   controllers: [UsersController],
   providers: [UsersService, BuyerEngagementCronService],
   exports: [UsersService],

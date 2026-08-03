@@ -7,20 +7,30 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 
+interface RequestLike {
+  method?: string;
+  originalUrl?: string;
+}
+
+interface ResponseLike {
+  on(event: string, listener: () => void): unknown;
+  statusCode?: number;
+}
+
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('HTTP');
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const req = context.switchToHttp().getRequest();
-    const res = context.switchToHttp().getResponse();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const req = context.switchToHttp().getRequest<RequestLike>();
+    const res = context.switchToHttp().getResponse<ResponseLike>();
 
     const { method, originalUrl } = req;
     const start = Date.now();
 
     // ✅ LISTEN TO REAL RESPONSE END
     res.on('finish', () => {
-      const statusCode = res.statusCode;
+      const statusCode = res.statusCode ?? 0;
       const duration = Date.now() - start;
 
       if (statusCode >= 500) {

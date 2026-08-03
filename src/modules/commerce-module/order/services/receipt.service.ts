@@ -63,9 +63,24 @@ export class ReceiptService {
       color: rgb(0.9, 0.9, 0.9),
     });
 
-    page.drawText('Product', { x: 50, y: tableTop - 20, size: 10, font: boldFont });
-    page.drawText('Qty', { x: 400, y: tableTop - 20, size: 10, font: boldFont });
-    page.drawText('Price', { x: 500, y: tableTop - 20, size: 10, font: boldFont });
+    page.drawText('Product', {
+      x: 50,
+      y: tableTop - 20,
+      size: 10,
+      font: boldFont,
+    });
+    page.drawText('Qty', {
+      x: 400,
+      y: tableTop - 20,
+      size: 10,
+      font: boldFont,
+    });
+    page.drawText('Price', {
+      x: 500,
+      y: tableTop - 20,
+      size: 10,
+      font: boldFont,
+    });
 
     page.drawLine({
       start: { x: 50, y: tableTop - 30 },
@@ -79,10 +94,25 @@ export class ReceiptService {
     for (const item of order.order_items) {
       if (currentY < 100) break; // Basic pagination prevention for now
 
-      page.drawText(item.name.substring(0, 45), { x: 50, y: currentY, size: 10, font: regularFont });
-      page.drawText(`x${item.quantity}`, { x: 400, y: currentY, size: 10, font: regularFont });
-      page.drawText(`NGN ${(item.unit_price / 100).toLocaleString()}`, { x: 500, y: currentY, size: 10, font: regularFont });
-      
+      page.drawText(item.name.substring(0, 45), {
+        x: 50,
+        y: currentY,
+        size: 10,
+        font: regularFont,
+      });
+      page.drawText(`x${item.quantity}`, {
+        x: 400,
+        y: currentY,
+        size: 10,
+        font: regularFont,
+      });
+      page.drawText(`NGN ${(item.unit_price / 100).toLocaleString()}`, {
+        x: 500,
+        y: currentY,
+        size: 10,
+        font: regularFont,
+      });
+
       currentY -= 20;
     }
 
@@ -95,20 +125,49 @@ export class ReceiptService {
       color: rgb(0.9, 0.9, 0.9),
     });
 
-    page.drawText('Subtotal:', { x: 350, y: summaryY, size: 10, font: regularFont });
-    page.drawText(`NGN ${(Number(order.subtotal) / 100).toLocaleString()}`, { x: 500, y: summaryY, size: 10, font: regularFont });
+    page.drawText('Subtotal:', {
+      x: 350,
+      y: summaryY,
+      size: 10,
+      font: regularFont,
+    });
+    page.drawText(`NGN ${(Number(order.subtotal) / 100).toLocaleString()}`, {
+      x: 500,
+      y: summaryY,
+      size: 10,
+      font: regularFont,
+    });
 
-    page.drawText('Shipping:', { x: 350, y: summaryY - 20, size: 10, font: regularFont });
-    page.drawText(`NGN ${(Number(order.shipping_fee) / 100).toLocaleString()}`, { x: 500, y: summaryY - 20, size: 10, font: regularFont });
+    page.drawText('Shipping:', {
+      x: 350,
+      y: summaryY - 20,
+      size: 10,
+      font: regularFont,
+    });
+    page.drawText(
+      `NGN ${(Number(order.shipping_fee) / 100).toLocaleString()}`,
+      { x: 500, y: summaryY - 20, size: 10, font: regularFont },
+    );
 
-    page.drawText('Total:', { x: 350, y: summaryY - 50, size: 14, font: boldFont });
-    page.drawText(`NGN ${(Number(order.total) / 100).toLocaleString()}`, { x: 500, y: summaryY - 50, size: 14, font: boldFont, color: rgb(0.388, 0.4, 0.945) });
+    page.drawText('Total:', {
+      x: 350,
+      y: summaryY - 50,
+      size: 14,
+      font: boldFont,
+    });
+    page.drawText(`NGN ${(Number(order.total) / 100).toLocaleString()}`, {
+      x: 500,
+      y: summaryY - 50,
+      size: 14,
+      font: boldFont,
+      color: rgb(0.388, 0.4, 0.945),
+    });
 
     // QR Code for Verification
     const verificationUrl = `https://eazystore.com.ng/verify-receipt/${order.id}`;
     const qrCodeDataUrl = await QRCode.toDataURL(verificationUrl);
     const qrImage = await pdfDoc.embedPng(qrCodeDataUrl);
-    
+
     page.drawImage(qrImage, {
       x: 50,
       y: 50,

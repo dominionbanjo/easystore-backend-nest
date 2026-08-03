@@ -22,7 +22,8 @@ interface BuyerDetails {
 @Injectable()
 export class DeliveryMailService {
   private readonly brandColor: string;
-  private readonly baseUrl = process.env.FRONTEND_URL || 'https://eazystore.com.ng';
+  private readonly baseUrl =
+    process.env.FRONTEND_URL || 'https://eazystore.com.ng';
 
   constructor(
     private email: EmailService,
@@ -65,7 +66,8 @@ export class DeliveryMailService {
       case 'failed':
         return {
           title: 'Delivery Attempt Failed',
-          message: 'We attempted to deliver your package but were unsuccessful.',
+          message:
+            'We attempted to deliver your package but were unsuccessful.',
           color: '#ef4444',
         };
       case 'returned':
@@ -92,7 +94,10 @@ export class DeliveryMailService {
         const price = ((item.price ?? 0) / 100).toLocaleString('en-NG', {
           minimumFractionDigits: 2,
         });
-        const lineTotal = (((item.price ?? 0) * (item.quantity ?? 1)) / 100).toLocaleString('en-NG', {
+        const lineTotal = (
+          ((item.price ?? 0) * (item.quantity ?? 1)) /
+          100
+        ).toLocaleString('en-NG', {
           minimumFractionDigits: 2,
         });
         const imageHtml = item.image
@@ -135,7 +140,9 @@ export class DeliveryMailService {
 
   /** Renders a buyer info block for vendor emails */
   private renderBuyerDetails(buyer: BuyerDetails): string {
-    const addr = [buyer.address, buyer.city, buyer.state].filter(Boolean).join(', ');
+    const addr = [buyer.address, buyer.city, buyer.state]
+      .filter(Boolean)
+      .join(', ');
     return `
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:${this.tpl.borderRadius};padding:20px;margin:20px 0;">
         <p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;">Buyer Details</p>

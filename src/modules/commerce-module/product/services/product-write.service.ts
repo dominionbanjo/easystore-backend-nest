@@ -17,11 +17,19 @@ import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
 import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
+import { ProductVariantDto } from '../dto/product-variants.dto';
 import { UploadService } from 'src/common/services/upload.service';
 import { WishlistService } from '../../wishlist/wishlist.service';
 import { CartService } from '../../cart/cart.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { ProductHelperService } from './product-helper.service';
+
+type FormattedVariant = Omit<ProductVariantDto, 'sku' | 'discount_price'> & {
+  price: number;
+  discount_price: number | null;
+  stock: number;
+  sku: string | null;
+};
 
 @Injectable()
 export class ProductWriteService {
@@ -109,7 +117,7 @@ export class ProductWriteService {
       .select('COALESCE(SUM(v.stock), 0)', 'total')
       .from(ProductVariant, 'v')
       .where('v.product_id = :productId', { productId })
-      .getRawOne();
+      .getRawOne<{ total: string }>();
 
     const totalStock = Number(result?.total ?? 0);
 
@@ -123,7 +131,7 @@ export class ProductWriteService {
     return totalStock;
   }
 
-  private formatVariants(variants: any[]): any[] {
+  private formatVariants(variants: ProductVariantDto[]): FormattedVariant[] {
     return variants.map((v) => ({
       ...v,
       price: Math.round(Number(v.price) * 100),
@@ -144,7 +152,9 @@ export class ProductWriteService {
     },
   ) {
     if (user.status === 'restricted') {
-      throw new BadRequestException('Your account is restricted from adding new products.');
+      throw new BadRequestException(
+        'Your account is restricted from adding new products.',
+      );
     }
 
     if (!user.store_id) {
@@ -224,9 +234,13 @@ export class ProductWriteService {
     }
 
     if (dto.barcode) {
-      const barcodeExists = await this.productRepo.exist({ where: { barcode: dto.barcode } });
+      const barcodeExists = await this.productRepo.exist({
+        where: { barcode: dto.barcode },
+      });
       if (barcodeExists) {
-        throw new BadRequestException('Barcode already in use by another product');
+        throw new BadRequestException(
+          'Barcode already in use by another product',
+        );
       }
     }
 
@@ -263,7 +277,9 @@ export class ProductWriteService {
     dtos: CreateProductDto[],
   ) {
     if (user.status === 'restricted') {
-      throw new BadRequestException('Your account is restricted from adding new products.');
+      throw new BadRequestException(
+        'Your account is restricted from adding new products.',
+      );
     }
 
     if (!user.store_id) {
@@ -385,7 +401,9 @@ export class ProductWriteService {
       // 2. Sync variants manually
       if (dto.variants) {
         const formatted = this.formatVariants(dto.variants);
-        const incomingIds = formatted.map((v) => v.id).filter(Boolean);
+        const incomingIds = formatted
+          .map((v) => v.id)
+          .filter((v): v is string => Boolean(v));
 
         // Delete orphans
         if (incomingIds.length > 0) {
@@ -399,11 +417,10 @@ export class ProductWriteService {
 
         // Upsert variants individually
         for (const v of formatted) {
-          if (v.id) {
-            const { id: _vId, created_at, updated_at, ...rest } = v;
-            await manager.update(ProductVariant, v.id, rest);
+          const { id: vId, ...rest } = v;
+          if (vId) {
+            await manager.update(ProductVariant, vId, rest);
           } else {
-            const { id: _vId, created_at, updated_at, ...rest } = v;
             await manager.insert(ProductVariant, {
               ...rest,
               product_id: id,
@@ -495,7 +512,9 @@ export class ProductWriteService {
       // 2. Sync variants manually
       if (dto.variants) {
         const formatted = this.formatVariants(dto.variants);
-        const incomingIds = formatted.map((v) => v.id).filter(Boolean);
+        const incomingIds = formatted
+          .map((v) => v.id)
+          .filter((v): v is string => Boolean(v));
 
         if (incomingIds.length > 0) {
           await manager.delete(ProductVariant, {
@@ -506,12 +525,12 @@ export class ProductWriteService {
           await manager.delete(ProductVariant, { product_id: id });
         }
 
+        // Upsert variants individually
         for (const v of formatted) {
-          if (v.id) {
-            const { id: _vId, created_at, updated_at, ...rest } = v;
-            await manager.update(ProductVariant, v.id, rest);
+          const { id: vId, ...rest } = v;
+          if (vId) {
+            await manager.update(ProductVariant, vId, rest);
           } else {
-            const { id: _vId, created_at, updated_at, ...rest } = v;
             await manager.insert(ProductVariant, {
               ...rest,
               product_id: id,
@@ -643,7 +662,11 @@ export class ProductWriteService {
     };
   }
 
-  async adjustStock(productId: string, adjustment: number, manager?: any) {
+  async adjustStock(
+    productId: string,
+    adjustment: number,
+    manager?: EntityManager,
+  ) {
     const repo = manager ? manager.getRepository(Product) : this.productRepo;
 
     if (adjustment > 0) {

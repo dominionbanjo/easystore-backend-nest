@@ -67,8 +67,9 @@ export class MessagingGateway
   async handleConnection(client: AuthenticatedSocket) {
     try {
       const token =
-        client.handshake.auth?.token ||
-        client.handshake.headers?.authorization?.split(' ')[1];
+        typeof client.handshake.auth?.token === 'string'
+          ? client.handshake.auth.token
+          : client.handshake.headers?.authorization?.split(' ')[1];
 
       if (!token) throw new WsException('No token provided');
 
@@ -100,7 +101,7 @@ export class MessagingGateway
     }
   }
 
-  async handleDisconnect(client: AuthenticatedSocket) {
+  handleDisconnect(client: AuthenticatedSocket) {
     const userId = this.socketUser.get(client.id);
     if (!userId) return;
 
@@ -148,7 +149,10 @@ export class MessagingGateway
   ) {
     if (!data?.conversation_id) return;
     await client.join(`conversation:${data.conversation_id}`);
-    return { event: 'joined_conversation', data: { conversation_id: data.conversation_id } };
+    return {
+      event: 'joined_conversation',
+      data: { conversation_id: data.conversation_id },
+    };
   }
 
   @SubscribeMessage('leave_conversation')
@@ -170,7 +174,10 @@ export class MessagingGateway
       .to(CHATROOM_ROOM)
       .emit('chatroom_user_count', { count: this.chatroomSockets.size });
 
-    return { event: 'joined_chatroom', data: { count: this.chatroomSockets.size } };
+    return {
+      event: 'joined_chatroom',
+      data: { count: this.chatroomSockets.size },
+    };
   }
 
   @SubscribeMessage('leave_chatroom')
@@ -193,7 +200,10 @@ export class MessagingGateway
     @MessageBody() data: { conversation_id: string } | { chatroom: true },
   ) {
     const userId = client.data.userId;
-    const room = 'chatroom' in data ? CHATROOM_ROOM : `conversation:${data.conversation_id}`;
+    const room =
+      'chatroom' in data
+        ? CHATROOM_ROOM
+        : `conversation:${data.conversation_id}`;
     const contextId = 'chatroom' in data ? 'chatroom' : data.conversation_id;
 
     // Broadcast to all others in the room
@@ -212,7 +222,10 @@ export class MessagingGateway
     @MessageBody() data: { conversation_id: string } | { chatroom: true },
   ) {
     const userId = client.data.userId;
-    const room = 'chatroom' in data ? CHATROOM_ROOM : `conversation:${data.conversation_id}`;
+    const room =
+      'chatroom' in data
+        ? CHATROOM_ROOM
+        : `conversation:${data.conversation_id}`;
     const contextId = 'chatroom' in data ? 'chatroom' : data.conversation_id;
 
     this._clearTyping(client.id);
@@ -249,17 +262,22 @@ export class MessagingGateway
     @MessageBody() data: { conversation_id: string },
   ) {
     if (!data?.conversation_id || data.conversation_id === 'chatroom') return;
-    
+
     const userId = client.data.userId;
-    await this.messagingService.markConversationRead(data.conversation_id, userId);
+    await this.messagingService.markConversationRead(
+      data.conversation_id,
+      userId,
+    );
 
     // Notify other participant that we've read their messages
     // The service handles DB update, we just need to broadcast the 'conversation_read' event
-    client.to(`conversation:${data.conversation_id}`).emit('conversation_read', {
-      conversation_id: data.conversation_id,
-      reader_id: userId,
-      read_at: new Date().toISOString(),
-    });
+    client
+      .to(`conversation:${data.conversation_id}`)
+      .emit('conversation_read', {
+        conversation_id: data.conversation_id,
+        reader_id: userId,
+        read_at: new Date().toISOString(),
+      });
   }
 
   /* ──────────────────────────────────────────────

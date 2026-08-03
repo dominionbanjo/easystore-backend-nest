@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual } from 'typeorm';
-import { Notification, NotificationType, NotificationStatus } from './entities/notification.entity';
+import { Notification } from './entities/notification.entity';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -32,10 +32,9 @@ export class NotificationService {
     }
 
     if (params.search) {
-      query.andWhere(
-        '(n.title ILIKE :search OR n.message ILIKE :search)',
-        { search: `%${params.search}%` },
-      );
+      query.andWhere('(n.title ILIKE :search OR n.message ILIKE :search)', {
+        search: `%${params.search}%`,
+      });
     }
 
     query.orderBy('n.created_at', 'DESC');
@@ -51,7 +50,7 @@ export class NotificationService {
   async create(data: Partial<Notification>) {
     const notification = this.notificationRepo.create({
       ...data,
-      status: (data.scheduled_at || data.is_recurring) ? 'pending' : 'active',
+      status: data.scheduled_at || data.is_recurring ? 'pending' : 'active',
     });
 
     if (notification.is_recurring && !notification.scheduled_at) {
@@ -65,9 +64,14 @@ export class NotificationService {
 
   async delete(id: string) {
     const notification = await this.notificationRepo.findOne({ where: { id } });
-    if (notification && (notification.status === 'sent' || notification.status === 'active') && notification.scheduled_at && notification.scheduled_at < new Date()) {
-       // Optional: prevent delete of already active notifications? 
-       // User said "as long as it not een sent".
+    if (
+      notification &&
+      (notification.status === 'sent' || notification.status === 'active') &&
+      notification.scheduled_at &&
+      notification.scheduled_at < new Date()
+    ) {
+      // Optional: prevent delete of already active notifications?
+      // User said "as long as it not een sent".
     }
     return this.notificationRepo.delete(id);
   }
@@ -115,7 +119,7 @@ export class NotificationService {
 
   calculateNextExecutionTime(n: Notification): Date {
     const now = new Date();
-    let next = new Date();
+    const next = new Date();
 
     if (n.recurrence_time) {
       const [hours, minutes] = n.recurrence_time.split(':').map(Number);
@@ -125,38 +129,41 @@ export class NotificationService {
     if (n.recurrence_type === 'daily') {
       if (next <= now) next.setDate(next.getDate() + 1);
     } else if (n.recurrence_type === 'weekly' && n.recurrence_days) {
-      const days = n.recurrence_days.map(d => parseInt(d)).sort();
+      const days = n.recurrence_days.map((d) => parseInt(d)).sort();
       const currentDay = next.getDay();
-      let nextDay = days.find(d => d >= currentDay);
-      
+      let nextDay = days.find((d) => d >= currentDay);
+
       if (nextDay === undefined) {
         nextDay = days[0];
         next.setDate(next.getDate() + (7 - currentDay + nextDay));
       } else {
         if (nextDay === currentDay && next <= now) {
-          nextDay = days.find(d => d > currentDay) || days[0];
-          if (nextDay === days[0]) next.setDate(next.getDate() + (7 - currentDay + nextDay));
+          nextDay = days.find((d) => d > currentDay) || days[0];
+          if (nextDay === days[0])
+            next.setDate(next.getDate() + (7 - currentDay + nextDay));
           else next.setDate(next.getDate() + (nextDay - currentDay));
         } else {
           next.setDate(next.getDate() + (nextDay - currentDay));
         }
       }
     } else if (n.recurrence_type === 'monthly' && n.recurrence_day_of_month) {
-      const days = n.recurrence_day_of_month.map(d => parseInt(d)).sort((a,b) => a-b);
+      const days = n.recurrence_day_of_month
+        .map((d) => parseInt(d))
+        .sort((a, b) => a - b);
       const currentDay = next.getDate();
-      
-      let nextDay = days.find(d => d > currentDay);
+
+      let nextDay = days.find((d) => d > currentDay);
       if (nextDay === undefined) {
         next.setMonth(next.getMonth() + 1);
         next.setDate(days[0]);
       } else {
         if (nextDay === currentDay && next <= now) {
-          nextDay = days.find(d => d > currentDay);
+          nextDay = days.find((d) => d > currentDay);
           if (nextDay === undefined) {
-             next.setMonth(next.getMonth() + 1);
-             next.setDate(days[0]);
+            next.setMonth(next.getMonth() + 1);
+            next.setDate(days[0]);
           } else {
-             next.setDate(nextDay);
+            next.setDate(nextDay);
           }
         } else {
           next.setDate(nextDay);
@@ -165,10 +172,11 @@ export class NotificationService {
     }
 
     while (next <= now) {
-       if (n.recurrence_type === 'daily') next.setDate(next.getDate() + 1);
-       else if (n.recurrence_type === 'monthly') next.setMonth(next.getMonth() + 1);
-       else if (n.recurrence_type === 'weekly') next.setDate(next.getDate() + 1);
-       else break;
+      if (n.recurrence_type === 'daily') next.setDate(next.getDate() + 1);
+      else if (n.recurrence_type === 'monthly')
+        next.setMonth(next.getMonth() + 1);
+      else if (n.recurrence_type === 'weekly') next.setDate(next.getDate() + 1);
+      else break;
     }
     return next;
   }

@@ -5,6 +5,10 @@ import slugify from 'slugify';
 import { Store } from '../entities/store.entity';
 import { ProductColor } from 'src/modules/shared-module/colors/entities/color.entity';
 
+interface ColorResolvableItem {
+  colors?: unknown[];
+}
+
 @Injectable()
 export class StoreHelperService {
   constructor(
@@ -15,11 +19,12 @@ export class StoreHelperService {
     private readonly colorRepo: Repository<ProductColor>,
   ) {}
 
-  async resolveColorsForList(items: any[]) {
+  async resolveColorsForList<T>(items: T[]): Promise<T[]> {
     const allColorIds = new Set<string>();
     items.forEach((item) => {
-      if (Array.isArray(item.colors)) {
-        item.colors.forEach((c: any) => {
+      const colors = (item as ColorResolvableItem).colors;
+      if (Array.isArray(colors)) {
+        colors.forEach((c) => {
           if (typeof c === 'string') allColorIds.add(c);
         });
       }
@@ -34,14 +39,17 @@ export class StoreHelperService {
 
     const colorMap = new Map(colors.map((c) => [c.id, c]));
 
-    return items.map((item) => ({
-      ...item,
-      colors: Array.isArray(item.colors)
-        ? item.colors
-            .map((id: any) => (typeof id === 'string' ? colorMap.get(id) : id))
-            .filter(Boolean)
-        : [],
-    }));
+    return items.map((item) => {
+      const itemColors = (item as ColorResolvableItem).colors;
+      return {
+        ...item,
+        colors: Array.isArray(itemColors)
+          ? itemColors
+              .map((id) => (typeof id === 'string' ? colorMap.get(id) : id))
+              .filter(Boolean)
+          : [],
+      };
+    });
   }
 
   async generateUniqueSlug(

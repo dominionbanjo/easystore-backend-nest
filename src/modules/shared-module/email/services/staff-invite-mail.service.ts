@@ -9,10 +9,15 @@ export class StaffInviteMailService {
     private readonly tpl: EmailTemplateService,
   ) {}
 
-  async sendInviteEmail(payload: { email: string; name: string; storeName: string; tempPassword: string }) {
+  async sendInviteEmail(payload: {
+    email: string;
+    name: string;
+    storeName: string;
+    tempPassword: string;
+  }) {
     const { email, name, storeName, tempPassword } = payload;
     const html = this.tpl.wrapper(
-      'You\'ve been invited!',
+      "You've been invited!",
       `
       <h2>Welcome to ${storeName}!</h2>
       <p>Hi ${name},</p>
@@ -27,10 +32,18 @@ export class StaffInviteMailService {
       <a href="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/auth/login" style="display:inline-block;background:#17c06e;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;">Log In to Dashboard</a>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: `You've been invited to join ${storeName}`, html });
+    return this.email.sendEmail({
+      to: email,
+      subject: `You've been invited to join ${storeName}`,
+      html,
+    });
   }
 
-  async sendPasswordResetEmail(payload: { email: string; name: string; tempPassword: string }) {
+  async sendPasswordResetEmail(payload: {
+    email: string;
+    name: string;
+    tempPassword: string;
+  }) {
     const { email, name, tempPassword } = payload;
     const html = this.tpl.wrapper(
       'Password Reset',
@@ -46,6 +59,10 @@ export class StaffInviteMailService {
       <a href="${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/auth/login" style="display:inline-block;background:#17c06e;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;margin:8px 0;">Log In</a>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Your password has been reset', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Your password has been reset',
+      html,
+    });
   }
 }

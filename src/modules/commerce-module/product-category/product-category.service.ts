@@ -13,6 +13,12 @@ import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
 import { ProductStatus } from '../product/entities/product.entity';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 
+interface CategoryCountRow {
+  parent_id: string;
+  child_id: string;
+  child_products_count: string;
+}
+
 @Injectable()
 export class ProductCategoryService {
   constructor(
@@ -113,9 +119,12 @@ export class ProductCategoryService {
       .where('parent.parent_id IS NULL');
 
     if (vendorId) {
-      qb.andWhere('(parent.vendor_id IS NULL OR parent.vendor_id = :vendorId)', {
-        vendorId,
-      });
+      qb.andWhere(
+        '(parent.vendor_id IS NULL OR parent.vendor_id = :vendorId)',
+        {
+          vendorId,
+        },
+      );
     } else {
       qb.andWhere('parent.vendor_id IS NULL');
     }
@@ -139,7 +148,7 @@ export class ProductCategoryService {
       .addOrderBy('child.created_at', 'ASC');
 
     // ✅ Correct destructuring
-    const { raw, entities } = await qb.getRawAndEntities();
+    const { raw, entities } = await qb.getRawAndEntities<CategoryCountRow>();
 
     /**
      * Map product counts into response
@@ -199,7 +208,11 @@ export class ProductCategoryService {
   /* ────────────────────────────────────────────────
      UPDATE CATEGORY
   ──────────────────────────────────────────────── */
-  async update(id: string, dto: UpdateProductCategoryDto, user?: jwtStrategy.JwtAuthUser) {
+  async update(
+    id: string,
+    dto: UpdateProductCategoryDto,
+    user?: jwtStrategy.JwtAuthUser,
+  ) {
     const category = await this.categoryRepo.findOne({
       where: { id },
     });
@@ -208,7 +221,12 @@ export class ProductCategoryService {
       throw new NotFoundException('Category not found');
     }
 
-    if (user && user.role !== 'admin' && category.vendor_id && category.vendor_id !== user.sub) {
+    if (
+      user &&
+      user.role !== 'admin' &&
+      category.vendor_id &&
+      category.vendor_id !== user.sub
+    ) {
       throw new ForbiddenException('You do not own this category');
     }
 
@@ -249,7 +267,12 @@ export class ProductCategoryService {
       throw new NotFoundException('Category not found');
     }
 
-    if (user && user.role !== 'admin' && category.vendor_id && category.vendor_id !== user.sub) {
+    if (
+      user &&
+      user.role !== 'admin' &&
+      category.vendor_id &&
+      category.vendor_id !== user.sub
+    ) {
       throw new ForbiddenException('You do not own this category');
     }
 

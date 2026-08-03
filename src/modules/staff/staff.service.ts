@@ -1,11 +1,15 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
-import { Permission, ROLE_PERMISSIONS } from 'src/common/permissions/permissions';
+import { ROLE_PERMISSIONS } from 'src/common/permissions/permissions';
 
 @Injectable()
 export class StaffService {
@@ -23,7 +27,8 @@ export class StaffService {
       where: { user_id: userId, status: 'active' },
       select: { id: true, store_id: true },
     });
-    if (!staff) throw new NotFoundException('Staff record not found or inactive');
+    if (!staff)
+      throw new NotFoundException('Staff record not found or inactive');
     return staff.store_id;
   }
 
@@ -44,7 +49,10 @@ export class StaffService {
     return { data: user };
   }
 
-  async updateProfile(userId: string, data: { first_name?: string; last_name?: string; phone_number?: string }) {
+  async updateProfile(
+    userId: string,
+    data: { first_name?: string; last_name?: string; phone_number?: string },
+  ) {
     const update: Record<string, string> = {};
     if (data.first_name) update.first_name = data.first_name;
     if (data.last_name) update.last_name = data.last_name;
@@ -54,7 +62,11 @@ export class StaffService {
     return { success: true };
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
       select: { id: true, password: true, token_version: true },
@@ -62,7 +74,8 @@ export class StaffService {
     if (!user) throw new NotFoundException('User not found');
 
     const isValid = await bcrypt.compare(currentPassword, user.password || '');
-    if (!isValid) throw new BadRequestException('Current password is incorrect');
+    if (!isValid)
+      throw new BadRequestException('Current password is incorrect');
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.userRepo.update(userId, {
@@ -95,7 +108,7 @@ export class StaffService {
       this.orderRepo.count({
         where: {
           store_id: storeId,
-          created_at: today as any,
+          created_at: today,
           payment_method: In(['cash', 'transfer', 'pos', 'offline']),
         },
       }),
@@ -104,8 +117,10 @@ export class StaffService {
         .select('COALESCE(SUM(order.total), 0)', 'total')
         .where('order.store_id = :storeId', { storeId })
         .andWhere('order.created_at >= :today', { today })
-        .andWhere("order.payment_method IN ('cash', 'transfer', 'pos', 'offline')")
-        .getRawOne(),
+        .andWhere(
+          "order.payment_method IN ('cash', 'transfer', 'pos', 'offline')",
+        )
+        .getRawOne<{ total: string }>(),
     ]);
 
     const [productCount] = await Promise.all([
@@ -113,7 +128,7 @@ export class StaffService {
         .createQueryBuilder('order')
         .select('COUNT(DISTINCT order.id)', 'count')
         .where('order.store_id = :storeId', { storeId })
-        .getRawOne(),
+        .getRawOne<{ count: string }>(),
     ]);
 
     return {

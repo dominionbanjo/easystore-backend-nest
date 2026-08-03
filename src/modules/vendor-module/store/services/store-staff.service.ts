@@ -1,8 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { StoreStaff, StaffStatus } from '../entities/store-staff.entity';
+import { StoreStaff } from '../entities/store-staff.entity';
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { Store } from '../entities/store.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
@@ -33,24 +37,42 @@ export class StoreStaffService {
     return password;
   }
 
-  async inviteStaff(storeId: string, data: { email: string; first_name: string; last_name: string; password?: string }) {
+  async inviteStaff(
+    storeId: string,
+    data: {
+      email: string;
+      first_name: string;
+      last_name: string;
+      password?: string;
+    },
+  ) {
     const { email, first_name, last_name, password } = data;
 
     // Check store exists
-    const store = await this.storeRepo.findOne({ where: { id: storeId }, select: { id: true, store_name: true } });
+    const store = await this.storeRepo.findOne({
+      where: { id: storeId },
+      select: { id: true, store_name: true },
+    });
     if (!store) throw new NotFoundException('Store not found');
 
     // Check email not already used
     const existingUser = await this.userRepo.findOne({ where: { email } });
     if (existingUser) {
       // Check if already staff of this store
-      const existingStaff = await this.staffRepo.findOne({ where: { store_id: storeId, user_id: existingUser.id } });
-      if (existingStaff) throw new BadRequestException('User is already a staff member of this store');
+      const existingStaff = await this.staffRepo.findOne({
+        where: { store_id: storeId, user_id: existingUser.id },
+      });
+      if (existingStaff)
+        throw new BadRequestException(
+          'User is already a staff member of this store',
+        );
     }
 
     const plainPassword = password || this.generateTempPassword();
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
-    const username = `staff_${email.split('@')[0]}_${Date.now()}`.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const username = `staff_${email.split('@')[0]}_${Date.now()}`
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '');
 
     return this.dataSource.transaction(async (manager) => {
       // Create or reuse user
@@ -62,7 +84,7 @@ export class StoreStaffService {
           last_name,
           password: hashedPassword,
           username,
-          account_type: 'staff' as any,
+          account_type: 'staff',
           account_status: 'active',
           email_verified: true,
           must_change_password: true,
@@ -73,7 +95,7 @@ export class StoreStaffService {
           first_name,
           last_name,
           password: hashedPassword,
-          account_type: 'staff' as any,
+          account_type: 'staff',
           account_status: 'active',
           must_change_password: true,
           token_version: user.token_version + 1,
@@ -104,12 +126,16 @@ export class StoreStaffService {
     });
   }
 
-  async listStaff(storeId: string, query: { page?: number; limit?: number; status?: string; search?: string }) {
+  async listStaff(
+    storeId: string,
+    query: { page?: number; limit?: number; status?: string; search?: string },
+  ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
 
-    const qb = this.staffRepo.createQueryBuilder('staff')
+    const qb = this.staffRepo
+      .createQueryBuilder('staff')
       .leftJoin('staff.user', 'user')
       .where('staff.store_id = :storeId', { storeId })
       .select([
@@ -169,8 +195,14 @@ export class StoreStaffService {
     return staff;
   }
 
-  async updateStaff(staffId: string, storeId: string, data: { first_name?: string; last_name?: string }) {
-    const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId } });
+  async updateStaff(
+    staffId: string,
+    storeId: string,
+    data: { first_name?: string; last_name?: string },
+  ) {
+    const staff = await this.staffRepo.findOne({
+      where: { id: staffId, store_id: storeId },
+    });
     if (!staff) throw new NotFoundException('Staff member not found');
 
     if (data.first_name || data.last_name) {
@@ -184,16 +216,27 @@ export class StoreStaffService {
     return { success: true };
   }
 
-  async updateStaffPermissions(staffId: string, storeId: string, permissions: string[]) {
-    const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId } });
+  async updateStaffPermissions(
+    staffId: string,
+    storeId: string,
+    permissions: string[],
+  ) {
+    const staff = await this.staffRepo.findOne({
+      where: { id: staffId, store_id: storeId },
+    });
     if (!staff) throw new NotFoundException('Staff member not found');
 
     await this.staffRepo.update(staffId, { permissions });
 
     // Force re-auth to refresh JWT with new permissions
-    const user = await this.userRepo.findOne({ where: { id: staff.user_id }, select: { id: true, token_version: true } });
+    const user = await this.userRepo.findOne({
+      where: { id: staff.user_id },
+      select: { id: true, token_version: true },
+    });
     if (user) {
-      await this.userRepo.update(user.id, { token_version: user.token_version + 1 });
+      await this.userRepo.update(user.id, {
+        token_version: user.token_version + 1,
+      });
     }
 
     await this.cache.clearPrefix('svc:staff');
@@ -202,7 +245,9 @@ export class StoreStaffService {
   }
 
   async suspendStaff(staffId: string, storeId: string) {
-    const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId } });
+    const staff = await this.staffRepo.findOne({
+      where: { id: staffId, store_id: storeId },
+    });
     if (!staff) throw new NotFoundException('Staff member not found');
     await this.staffRepo.update(staffId, { status: 'suspended' });
     await this.cache.clearPrefix('svc:staff');
@@ -210,7 +255,9 @@ export class StoreStaffService {
   }
 
   async unsuspendStaff(staffId: string, storeId: string) {
-    const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId } });
+    const staff = await this.staffRepo.findOne({
+      where: { id: staffId, store_id: storeId },
+    });
     if (!staff) throw new NotFoundException('Staff member not found');
     await this.staffRepo.update(staffId, { status: 'active' });
     await this.cache.clearPrefix('svc:staff');
@@ -218,7 +265,10 @@ export class StoreStaffService {
   }
 
   async resetPassword(staffId: string, storeId: string, newPassword?: string) {
-    const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId }, relations: ['user'] });
+    const staff = await this.staffRepo.findOne({
+      where: { id: staffId, store_id: storeId },
+      relations: ['user'],
+    });
     if (!staff) throw new NotFoundException('Staff member not found');
 
     const plainPassword = newPassword || this.generateTempPassword();
@@ -245,7 +295,9 @@ export class StoreStaffService {
   }
 
   async removeStaff(staffId: string, storeId: string) {
-    const staff = await this.staffRepo.findOne({ where: { id: staffId, store_id: storeId } });
+    const staff = await this.staffRepo.findOne({
+      where: { id: staffId, store_id: storeId },
+    });
     if (!staff) throw new NotFoundException('Staff member not found');
     await this.staffRepo.delete(staffId);
     await this.cache.clearPrefix('svc:staff');

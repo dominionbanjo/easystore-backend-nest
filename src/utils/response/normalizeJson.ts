@@ -1,13 +1,13 @@
-export const normalizeJson = <T = any>(value: any): T | null => {
+export const normalizeJson = <T = unknown>(value: unknown): T | null => {
   if (!value) return null;
 
   if (typeof value === 'string') {
     try {
-      return JSON.parse(value);
+      return JSON.parse(value) as T;
     } catch {
       return null;
     }
   }
 
-  return value;
+  return value as T;
 };

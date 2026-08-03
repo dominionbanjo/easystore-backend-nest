@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
@@ -94,10 +91,10 @@ export class StoreCatalogService {
       .andWhere('store.status = :storeStatus', { storeStatus: 'active' });
 
     if (isLocal) {
-      qb.addSelect('store.address_state = :localState', 'is_local').setParameter(
-        'localState',
-        pagination.state,
-      );
+      qb.addSelect(
+        'store.address_state = :localState',
+        'is_local',
+      ).setParameter('localState', pagination.state);
     } else if (pagination.state) {
       qb.andWhere('store.address_state = :state', { state: pagination.state });
     }
@@ -109,7 +106,7 @@ export class StoreCatalogService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    const { raw, entities } = await qb.getRawAndEntities();
+    const { raw, entities } = await qb.getRawAndEntities<StoreCatalogRow>();
 
     const items = entities.map((store, index) => ({
       id: store.id,
@@ -179,10 +176,10 @@ export class StoreCatalogService {
       ]);
 
     if (isLocal) {
-      qb.addSelect('store.address_state = :localState', 'is_local').setParameter(
-        'localState',
-        pagination.state,
-      );
+      qb.addSelect(
+        'store.address_state = :localState',
+        'is_local',
+      ).setParameter('localState', pagination.state);
     }
 
     if (isTrending) {
@@ -223,7 +220,7 @@ export class StoreCatalogService {
 
     qb.skip((page - 1) * limit).take(limit);
 
-    const { raw, entities } = await qb.getRawAndEntities();
+    const { raw, entities } = await qb.getRawAndEntities<StoreCatalogRow>();
 
     const items = entities.map((store, index) => ({
       id: store.id,
@@ -280,7 +277,7 @@ export class StoreCatalogService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    const { raw, entities } = await qb.getRawAndEntities();
+    const { raw, entities } = await qb.getRawAndEntities<StoreCatalogRow>();
 
     const items = entities.map((store, index) => ({
       ...store,
@@ -297,4 +294,9 @@ export class StoreCatalogService {
     await this.cache.set(cacheKey, response);
     return response;
   }
+}
+
+interface StoreCatalogRow {
+  total_products: string;
+  total_orders?: string;
 }

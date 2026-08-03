@@ -40,12 +40,18 @@ export class EmailRetryService {
           to: log.recipient,
           subject: log.subject,
           html: log.html_content,
-          attachments: log.attachments,
+          attachments: log.attachments as
+            | { content: string; name: string }[]
+            | undefined,
           logId: log.id,
         });
         this.logger.log(`Successfully retried email to ${log.recipient}`);
-      } catch (error) {
-        this.logger.error(`Retry failed for email ${log.id}: ${error.message}`);
+      } catch (error: unknown) {
+        this.logger.error(
+          `Retry failed for email ${log.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
     }
   }

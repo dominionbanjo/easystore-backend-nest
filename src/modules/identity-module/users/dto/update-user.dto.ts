@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsOptional,
   IsString,
@@ -9,7 +9,10 @@ import {
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AddressDto {
-  @ApiPropertyOptional({ description: 'Street address', example: '123 Main Street' })
+  @ApiPropertyOptional({
+    description: 'Street address',
+    example: '123 Main Street',
+  })
   @IsOptional()
   @IsString()
   @Allow()
@@ -51,7 +54,10 @@ export class UpdateProfileDto {
   @IsString()
   last_name?: string;
 
-  @ApiPropertyOptional({ description: 'Phone number (NG)', example: '+2348012345678' })
+  @ApiPropertyOptional({
+    description: 'Phone number (NG)',
+    example: '+2348012345678',
+  })
   @IsOptional()
   @IsPhoneNumber('NG')
   phone_number?: string;
@@ -61,7 +67,16 @@ export class UpdateProfileDto {
   @IsString()
   username?: string;
 
-  @ApiPropertyOptional({ description: 'Address object', example: { street: '123 Main St', city: 'Lagos', state: 'LA', country: 'NG', postal_code: '100001' } })
+  @ApiPropertyOptional({
+    description: 'Address object',
+    example: {
+      street: '123 Main St',
+      city: 'Lagos',
+      state: 'LA',
+      country: 'NG',
+      postal_code: '100001',
+    },
+  })
   @IsOptional()
   @IsObject()
   @Transform(({ value }) => {
@@ -69,13 +84,13 @@ export class UpdateProfileDto {
 
     if (typeof value === 'string') {
       try {
-        return JSON.parse(value);
+        return JSON.parse(value) as Record<string, string>;
       } catch {
         return undefined;
       }
     }
 
-    return value;
+    return value as Record<string, string>;
   })
   address?: Record<string, string>;
 }

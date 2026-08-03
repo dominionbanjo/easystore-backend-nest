@@ -7,6 +7,55 @@ import { Transaction } from 'src/modules/finance-module/transactions/entities/tr
 import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
 import { Product } from 'src/modules/commerce-module/product/entities/product.entity';
 
+/* Raw row shapes returned by TypeORM query builder (getRawMany / getRawOne) */
+export interface StatusCountRow {
+  status: string;
+  count: string;
+}
+
+export interface StatusTotalRow {
+  status: string;
+  count: string;
+  total: string;
+}
+
+interface RevenueRow {
+  total: string;
+}
+
+interface PeriodCountRow {
+  period: string;
+  count: string;
+}
+
+interface PeriodTotalRow {
+  period: string;
+  total: string;
+}
+
+interface TypeTotalRow {
+  type: string;
+  count: string;
+  total: string;
+}
+
+interface OrderStatusRow {
+  status: string;
+  count: string;
+  totalAmount: string;
+}
+
+interface PeriodRevenueRow {
+  period: string;
+  revenue: string;
+  txCount: string;
+}
+
+interface MethodCountRow {
+  method: string | null;
+  count: string;
+}
+
 @Injectable()
 export class AdminAnalyticsService {
   constructor(
@@ -54,7 +103,7 @@ export class AdminAnalyticsService {
       .select('u.account_status', 'status')
       .addSelect('COUNT(*)', 'count')
       .groupBy('u.account_status')
-      .getRawMany();
+      .getRawMany<StatusCountRow>();
 
     // Vendor status breakdown (using store.status)
     const vendorStatusBreakdown = await this.storeRepo
@@ -62,7 +111,7 @@ export class AdminAnalyticsService {
       .select('s.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .groupBy('s.status')
-      .getRawMany();
+      .getRawMany<StatusCountRow>();
 
     // Revenue this month vs last month
     const thisMonthRevenue = await this.transactionRepo
@@ -70,7 +119,7 @@ export class AdminAnalyticsService {
       .select('COALESCE(SUM(tx.amount), 0)', 'total')
       .where('tx.status = :status', { status: 'success' })
       .andWhere('tx.created_at >= :start', { start: thisMonthStart })
-      .getRawOne();
+      .getRawOne<RevenueRow>();
 
     const lastMonthRevenue = await this.transactionRepo
       .createQueryBuilder('tx')
@@ -80,7 +129,7 @@ export class AdminAnalyticsService {
         start: lastMonthStart,
         end: lastMonthEnd,
       })
-      .getRawOne();
+      .getRawOne<RevenueRow>();
 
     // New users this month
     const newUsersThisMonth = await this.userRepo
@@ -108,7 +157,7 @@ export class AdminAnalyticsService {
       .addSelect('COUNT(*)', 'count')
       .addSelect('COALESCE(SUM(tx.amount), 0)', 'total')
       .groupBy('tx.status')
-      .getRawMany();
+      .getRawMany<StatusTotalRow>();
 
     // Orders this month
     const ordersThisMonth = await this.orderRepo
@@ -205,7 +254,7 @@ export class AdminAnalyticsService {
       })
       .groupBy("TO_CHAR(u.created_at, 'YYYY-MM')")
       .orderBy('period', 'ASC')
-      .getRawMany();
+      .getRawMany<PeriodCountRow>();
 
     // Vendors per month
     const vendorsPerMonth = await this.userRepo
@@ -218,7 +267,7 @@ export class AdminAnalyticsService {
       })
       .groupBy("TO_CHAR(u.created_at, 'YYYY-MM')")
       .orderBy('period', 'ASC')
-      .getRawMany();
+      .getRawMany<PeriodCountRow>();
 
     // Revenue per month (successful transactions)
     const revenuePerMonth = await this.transactionRepo
@@ -231,7 +280,7 @@ export class AdminAnalyticsService {
       })
       .groupBy("TO_CHAR(tx.created_at, 'YYYY-MM')")
       .orderBy('period', 'ASC')
-      .getRawMany();
+      .getRawMany<PeriodTotalRow>();
 
     // Orders per month
     const ordersPerMonth = await this.orderRepo
@@ -243,12 +292,15 @@ export class AdminAnalyticsService {
       })
       .groupBy("TO_CHAR(o.created_at, 'YYYY-MM')")
       .orderBy('period', 'ASC')
-      .getRawMany();
+      .getRawMany<PeriodCountRow>();
 
     // Map into a single chart array
-    const toMap = (rows: any[]) => {
+    const toMap = (rows: Array<PeriodCountRow | PeriodTotalRow>) => {
       const m = new Map<string, number>();
-      rows.forEach((r) => m.set(r.period, Number(r.count || r.total || 0)));
+      rows.forEach((r) => {
+        const value = 'total' in r ? r.total : r.count;
+        m.set(r.period, Number(value || 0));
+      });
       return m;
     };
 
@@ -281,7 +333,7 @@ export class AdminAnalyticsService {
       .select('u.account_type', 'type')
       .addSelect('COUNT(*)', 'count')
       .groupBy('u.account_type')
-      .getRawMany();
+      .getRawMany<TypeTotalRow>();
 
     return {
       message: 'User distribution',
@@ -303,7 +355,7 @@ export class AdminAnalyticsService {
       .addSelect('COALESCE(SUM(tx.amount), 0)', 'total')
       .groupBy('tx.type')
       .orderBy('count', 'DESC')
-      .getRawMany();
+      .getRawMany<TypeTotalRow>();
 
     return {
       message: 'Transaction type breakdown',
@@ -370,7 +422,7 @@ export class AdminAnalyticsService {
       .addSelect('COALESCE(SUM(o.total), 0)', 'totalAmount')
       .groupBy('o.status')
       .orderBy('count', 'DESC')
-      .getRawMany();
+      .getRawMany<OrderStatusRow>();
 
     return {
       message: 'Order status breakdown',
@@ -415,7 +467,7 @@ export class AdminAnalyticsService {
       })
       .groupBy("TO_CHAR(tx.created_at, 'YYYY-MM')")
       .orderBy('period', 'ASC')
-      .getRawMany();
+      .getRawMany<PeriodRevenueRow>();
 
     const revenueMap = new Map<string, { revenue: number; txCount: number }>();
     raw.forEach((r) =>
@@ -450,7 +502,7 @@ export class AdminAnalyticsService {
       .select('u.signup_medium', 'method')
       .addSelect('COUNT(*)', 'count')
       .groupBy('u.signup_medium')
-      .getRawMany();
+      .getRawMany<MethodCountRow>();
 
     return {
       message: 'Signup methods',

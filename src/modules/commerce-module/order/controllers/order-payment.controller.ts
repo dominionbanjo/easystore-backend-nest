@@ -7,7 +7,11 @@ import { OrderPaymentService } from '../services/order-payment-webhook.service';
 export class OrderPaymentController {
   constructor(private readonly payments: OrderPaymentService) {}
 
-  @ApiOperation({ summary: 'Handle Paystack payment webhook', description: 'Receives and processes Paystack webhook events for payment status updates.' })
+  @ApiOperation({
+    summary: 'Handle Paystack payment webhook',
+    description:
+      'Receives and processes Paystack webhook events for payment status updates.',
+  })
   @ApiBody({ description: 'Paystack webhook event payload', type: Object })
   @ApiOkResponse({ description: 'Webhook received and processed' })
   @Post('paystack')

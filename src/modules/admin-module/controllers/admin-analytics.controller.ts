@@ -1,5 +1,11 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { AdminAnalyticsService } from '../services/admin-analytics.service';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -14,7 +20,11 @@ import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard'
 export class AdminAnalyticsController {
   constructor(private readonly analyticsService: AdminAnalyticsService) {}
 
-  @ApiOperation({ summary: 'Get overview KPIs', description: 'Retrieve top-level key performance indicators for the admin dashboard' })
+  @ApiOperation({
+    summary: 'Get overview KPIs',
+    description:
+      'Retrieve top-level key performance indicators for the admin dashboard',
+  })
   @ApiOkResponse({ description: 'Overview KPI data' })
   @ApiStandardErrorResponses()
   @Get('overview')
@@ -22,8 +32,17 @@ export class AdminAnalyticsController {
     return this.analyticsService.getOverviewStats();
   }
 
-  @ApiOperation({ summary: 'Get monthly growth chart', description: 'Retrieve monthly growth data for the specified number of months' })
-  @ApiQuery({ name: 'months', required: false, type: Number, description: 'Number of months to include' })
+  @ApiOperation({
+    summary: 'Get monthly growth chart',
+    description:
+      'Retrieve monthly growth data for the specified number of months',
+  })
+  @ApiQuery({
+    name: 'months',
+    required: false,
+    type: Number,
+    description: 'Number of months to include',
+  })
   @ApiOkResponse({ description: 'Monthly growth chart data' })
   @ApiStandardErrorResponses()
   @Get('growth')
@@ -33,7 +52,10 @@ export class AdminAnalyticsController {
     );
   }
 
-  @ApiOperation({ summary: 'Get user distribution', description: 'Retrieve user distribution data for pie chart visualization' })
+  @ApiOperation({
+    summary: 'Get user distribution',
+    description: 'Retrieve user distribution data for pie chart visualization',
+  })
   @ApiOkResponse({ description: 'User distribution data' })
   @ApiStandardErrorResponses()
   @Get('user-distribution')
@@ -41,7 +63,11 @@ export class AdminAnalyticsController {
     return this.analyticsService.getUserDistribution();
   }
 
-  @ApiOperation({ summary: 'Get transaction breakdown', description: 'Retrieve transaction breakdown data for bar chart visualization' })
+  @ApiOperation({
+    summary: 'Get transaction breakdown',
+    description:
+      'Retrieve transaction breakdown data for bar chart visualization',
+  })
   @ApiOkResponse({ description: 'Transaction breakdown data' })
   @ApiStandardErrorResponses()
   @Get('transaction-breakdown')
@@ -49,8 +75,16 @@ export class AdminAnalyticsController {
     return this.analyticsService.getTransactionTypeBreakdown();
   }
 
-  @ApiOperation({ summary: 'Get recent signups', description: 'Retrieve the most recent user signups' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of recent signups to retrieve' })
+  @ApiOperation({
+    summary: 'Get recent signups',
+    description: 'Retrieve the most recent user signups',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of recent signups to retrieve',
+  })
   @ApiOkResponse({ description: 'Recent signups list' })
   @ApiStandardErrorResponses()
   @Get('recent-signups')
@@ -60,8 +94,16 @@ export class AdminAnalyticsController {
     );
   }
 
-  @ApiOperation({ summary: 'Get top stores', description: 'Retrieve the top-performing stores' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of top stores to retrieve' })
+  @ApiOperation({
+    summary: 'Get top stores',
+    description: 'Retrieve the top-performing stores',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of top stores to retrieve',
+  })
   @ApiOkResponse({ description: 'Top stores list' })
   @ApiStandardErrorResponses()
   @Get('top-stores')
@@ -69,7 +111,11 @@ export class AdminAnalyticsController {
     return this.analyticsService.getTopStores(limit ? parseInt(limit, 10) : 10);
   }
 
-  @ApiOperation({ summary: 'Get order breakdown', description: 'Retrieve order status breakdown for pie or bar chart visualization' })
+  @ApiOperation({
+    summary: 'Get order breakdown',
+    description:
+      'Retrieve order status breakdown for pie or bar chart visualization',
+  })
   @ApiOkResponse({ description: 'Order breakdown data' })
   @ApiStandardErrorResponses()
   @Get('order-breakdown')
@@ -77,8 +123,16 @@ export class AdminAnalyticsController {
     return this.analyticsService.getOrderStatusBreakdown();
   }
 
-  @ApiOperation({ summary: 'Get revenue by month', description: 'Retrieve monthly revenue data for revenue line chart' })
-  @ApiQuery({ name: 'months', required: false, type: Number, description: 'Number of months to include' })
+  @ApiOperation({
+    summary: 'Get revenue by month',
+    description: 'Retrieve monthly revenue data for revenue line chart',
+  })
+  @ApiQuery({
+    name: 'months',
+    required: false,
+    type: Number,
+    description: 'Number of months to include',
+  })
   @ApiOkResponse({ description: 'Revenue data' })
   @ApiStandardErrorResponses()
   @Get('revenue')
@@ -88,7 +142,10 @@ export class AdminAnalyticsController {
     );
   }
 
-  @ApiOperation({ summary: 'Get signup methods', description: 'Retrieve signup method distribution data' })
+  @ApiOperation({
+    summary: 'Get signup methods',
+    description: 'Retrieve signup method distribution data',
+  })
   @ApiOkResponse({ description: 'Signup methods distribution data' })
   @ApiStandardErrorResponses()
   @Get('signup-methods')

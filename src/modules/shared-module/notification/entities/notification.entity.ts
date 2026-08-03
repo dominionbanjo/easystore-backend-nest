@@ -7,8 +7,19 @@ import {
   Index,
 } from 'typeorm';
 
-export type NotificationType = 'system' | 'vendor' | 'user' | 'alert' | 'announcement';
-export type NotificationStatus = 'active' | 'read' | 'unread' | 'pending' | 'sent' | 'failed';
+export type NotificationType =
+  | 'system'
+  | 'vendor'
+  | 'user'
+  | 'alert'
+  | 'announcement';
+export type NotificationStatus =
+  | 'active'
+  | 'read'
+  | 'unread'
+  | 'pending'
+  | 'sent'
+  | 'failed';
 
 @Entity({ name: 'notifications' })
 export class Notification {

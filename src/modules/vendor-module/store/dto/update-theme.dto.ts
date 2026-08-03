@@ -14,7 +14,10 @@ export class ThemeConfigDto {
   @IsString()
   header_style?: string;
 
-  @ApiPropertyOptional({ description: 'Primary color hex code', example: '#4F46E5' })
+  @ApiPropertyOptional({
+    description: 'Primary color hex code',
+    example: '#4F46E5',
+  })
   @IsOptional()
   @IsString()
   primary_color?: string;
@@ -41,7 +44,10 @@ export class UpdateThemeDto {
   @IsString()
   template_id: string;
 
-  @ApiPropertyOptional({ description: 'Custom theme configuration', type: ThemeConfigDto })
+  @ApiPropertyOptional({
+    description: 'Custom theme configuration',
+    type: ThemeConfigDto,
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => ThemeConfigDto)

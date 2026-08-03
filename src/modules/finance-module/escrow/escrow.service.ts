@@ -10,7 +10,7 @@ import { UsersService } from 'src/modules/identity-module/users/users.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { EscrowMailService } from 'src/modules/shared-module/email/services/escrow-mail.service';
 import { Repository } from 'typeorm';
-import { PayoutService } from '../payout/payout.service';
+import { PayoutService, PaystackTransferData } from '../payout/payout.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Escrow, EscrowPayoutType } from './entities/escrow.entity';
 import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
@@ -18,6 +18,9 @@ import { StoreService } from 'src/modules/vendor-module/store/services/store.ser
 /** Escrow fee rate: 3% of total, capped at ₦3,000 (300,000 kobo) */
 const ESCROW_FEE_RATE = 0.03;
 const ESCROW_FEE_CAP_KOBO = 300_000; // ₦3,000
+
+/** Shape of the Paystack transfer initiation result */
+type TransferResult = PaystackTransferData & { ok: boolean };
 
 @Injectable()
 export class EscrowService {
@@ -42,7 +45,10 @@ export class EscrowService {
      3% of amount in kobo, capped at 300,000 kobo (₦3,000)
   ──────────────────────────────────────────────── */
   computeEscrowFee(amountKobo: number): number {
-    return Math.min(Math.round(amountKobo * ESCROW_FEE_RATE), ESCROW_FEE_CAP_KOBO);
+    return Math.min(
+      Math.round(amountKobo * ESCROW_FEE_RATE),
+      ESCROW_FEE_CAP_KOBO,
+    );
   }
 
   /* ────────────────────────────────────────────────
@@ -55,7 +61,13 @@ export class EscrowService {
     amount: number;
     payout_type?: EscrowPayoutType;
   }) {
-    const { order_id, buyer_id, vendor_id, amount, payout_type = 'manual' } = data;
+    const {
+      order_id,
+      buyer_id,
+      vendor_id,
+      amount,
+      payout_type = 'manual',
+    } = data;
 
     if (!order_id || !buyer_id || !vendor_id) {
       throw new BadRequestException('Missing escrow fields');
@@ -150,7 +162,9 @@ export class EscrowService {
 
     const buyer = await this.users.findById(escrow.buyer_id);
     const vendor = await this.users.findById(escrow.vendor_id);
-    const order = await this.orderRepo.findOne({ where: { id: escrow.order_id! } });
+    const order = await this.orderRepo.findOne({
+      where: { id: escrow.order_id! },
+    });
     const store = await this.storeService.getStoreByUser(
       escrow.vendor_id,
       order?.store_id ?? undefined,
@@ -232,7 +246,9 @@ export class EscrowService {
     const escrow = await this.getEscrow(order.escrow_id);
 
     if (escrow.disabled) {
-      throw new BadRequestException('Escrow is locked due to too many failed attempts');
+      throw new BadRequestException(
+        'Escrow is locked due to too many failed attempts',
+      );
     }
 
     if (escrow.release_code !== code) {
@@ -243,7 +259,9 @@ export class EscrowService {
     }
 
     if (escrow.status !== 'delivered') {
-      throw new BadRequestException('Escrow not releasable — order must be marked delivered first');
+      throw new BadRequestException(
+        'Escrow not releasable — order must be marked delivered first',
+      );
     }
 
     const store = await this.storeService.getStoreByUser(
@@ -254,19 +272,19 @@ export class EscrowService {
     const buyer = await this.users.findById(order.buyer_id!);
     const vendorName = store?.store_name ?? vendor?.first_name ?? 'Vendor';
 
-      // ── MANUAL MODE (Default) ───────────────────────
-      if (escrow.payout_type === 'manual') {
-        // Create a pending_manual payout record
-        const payout = await this.payoutService.createPendingPayout({
-          order_id: order.id,
-          escrow_id: escrow.id,
-          vendor_id: order.vendor_id,
-          store_id: order.store_id ?? undefined,
-          recipient_code: store?.recipient_code ?? null,
-          amount: escrow.amount,
-          currency: 'NGN',
-          payout_type: 'manual',
-        });
+    // ── MANUAL MODE (Default) ───────────────────────
+    if (escrow.payout_type === 'manual') {
+      // Create a pending_manual payout record
+      const payout = await this.payoutService.createPendingPayout({
+        order_id: order.id,
+        escrow_id: escrow.id,
+        vendor_id: order.vendor_id,
+        store_id: order.store_id ?? undefined,
+        recipient_code: store?.recipient_code ?? null,
+        amount: escrow.amount,
+        currency: 'NGN',
+        payout_type: 'manual',
+      });
 
       // Mark escrow as released
       escrow.status = 'released';
@@ -317,20 +335,23 @@ export class EscrowService {
         payout_type: 'manual',
         payout_status: 'pending_manual',
         payout_id: payout.id,
-        message: 'Escrow released. Admin has been notified and will process the transfer.',
+        message:
+          'Escrow released. Admin has been notified and will process the transfer.',
       };
     }
 
     // ── AUTO MODE (Paystack — for future re-enablement) ─────────
     if (!store?.recipient_code) {
-      throw new BadRequestException('Vendor has no Paystack payout account configured');
+      throw new BadRequestException(
+        'Vendor has no Paystack payout account configured',
+      );
     }
 
-    const transfer = await this.paystack.initiateTransfer({
+    const transfer = (await this.paystack.initiateTransfer({
       recipient_code: store.recipient_code,
       amountKobo: escrow.amount,
       reason: `Payout for order ${order.id}`,
-    });
+    })) as TransferResult;
 
     await this.payoutService.createPendingPayout({
       order_id: order.id,
@@ -364,11 +385,13 @@ export class EscrowService {
   /* ────────────────────────────────────────────────
      6️⃣ REFUND ESCROW
   ──────────────────────────────────────────────── */
-  async refundEscrow(escrow_id: string, requestedBy: string) {
+  async refundEscrow(escrow_id: string) {
     const escrow = await this.getEscrow(escrow_id);
 
     if (escrow.status !== 'funded') {
-      throw new BadRequestException('Escrow not refundable — must be in funded status');
+      throw new BadRequestException(
+        'Escrow not refundable — must be in funded status',
+      );
     }
 
     const order = await this.orderRepo.findOne({
@@ -379,11 +402,11 @@ export class EscrowService {
     const buyer = await this.users.findById(escrow.buyer_id);
 
     // For refunds, always use auto mode (Paystack transfer back to buyer)
-    const transfer = await this.paystack.initiateTransfer({
+    const transfer = (await this.paystack.initiateTransfer({
       recipient_code: buyer!.recipient_code!,
       amountKobo: escrow.amount,
       reason: `Refund for order ${order.id}`,
-    });
+    })) as TransferResult;
 
     await this.payoutService.createPendingPayout({
       order_id: order.id,

@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import slugify from 'slugify';
+import { SchoolZoneListQueryDto } from '../dto/school-zone.dto';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
 import {
   Product,
@@ -13,6 +14,7 @@ import {
 } from 'src/modules/commerce-module/product/entities/product.entity';
 import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import { StoreHelperService } from 'src/modules/vendor-module/store/services/store-helper.service';
+import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import {
@@ -65,6 +67,9 @@ export class SchoolZoneService {
     @InjectRepository(Store)
     private readonly storeRepo: Repository<Store>,
 
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
 
@@ -101,13 +106,15 @@ export class SchoolZoneService {
     const zoneExists = await zoneQb.select(['zone.id']).getOne();
 
     if (zoneExists) {
-      throw new BadRequestException('This subdomain is already in use by a school zone');
+      throw new BadRequestException(
+        'This subdomain is already in use by a school zone',
+      );
     }
 
     const storeQb = this.storeRepo
       .createQueryBuilder('store')
       .where(
-        '(LOWER(store.subdomain) = :subdomain OR (store.subdomain IS NULL AND LOWER(store.slug) = :subdomain))',
+        '(LOWER(store.subdomain) = :subdomain OR LOWER(store.slug) = :subdomain)',
         { subdomain: clean },
       );
     const storeExists = await storeQb.select(['store.id']).getOne();
@@ -127,7 +134,8 @@ export class SchoolZoneService {
   async create(userId: string, dto: CreateSchoolZoneDto) {
     await this.checkSubdomainAvailability(dto.subdomain);
 
-    const baseSlug = slugify(dto.name, { lower: true, strict: true }) || 'school-zone';
+    const baseSlug =
+      slugify(dto.name, { lower: true, strict: true }) || 'school-zone';
     let slug = baseSlug;
     let counter = 1;
     while (await this.zoneRepo.exist({ where: { slug } })) {
@@ -147,11 +155,18 @@ export class SchoolZoneService {
       contact_phone: dto.contact_phone ?? null,
       logo: dto.logo ?? null,
       cover_image: dto.cover_image ?? null,
+      department: dto.department ?? null,
+      course: dto.course ?? null,
+      student_id_number: dto.student_id_number ?? null,
+      school_id_image: dto.school_id_image ?? null,
+      delivery_fee:
+        dto.delivery_fee !== undefined ? String(dto.delivery_fee) : null,
       created_by: userId,
       status: 'pending',
     });
 
     const saved = await this.zoneRepo.save(zone);
+    await this.cache.clearPrefix(`svc:school-zone:`);
     return { success: true, id: saved.id, status: saved.status };
   }
 
@@ -289,7 +304,11 @@ export class SchoolZoneService {
 
   /* ────────────────────────────────────────────────
      GET FOR AUTHENTICATED USER (rep can see own pending zone)
-  ──────────────────────────────────────────────── */  async getForUser(identifier: string, userId?: string, isAdmin = false) {
+  ──────────────────────────────────────────────── */ async getForUser(
+    identifier: string,
+    userId?: string,
+    isAdmin = false,
+  ) {
     const isUUID = /^[0-9a-f]{8}-/.test(identifier);
 
     const zone = await this.zoneRepo.findOne({
@@ -300,7 +319,8 @@ export class SchoolZoneService {
 
     if (!zone) throw new NotFoundException('School zone not found');
     if (zone.status !== 'active') {
-      const canSee = isAdmin || (userId ? await this.isZoneAdmin(zone.id, userId) : false);
+      const canSee =
+        isAdmin || (userId ? await this.isZoneAdmin(zone.id, userId) : false);
       if (!canSee) {
         throw new NotFoundException('School zone not found or is inactive');
       }
@@ -413,9 +433,9 @@ export class SchoolZoneService {
   }
 
   /* ────────────────────────────────────────────────
-     LIST ALL (admin view — all statuses)
+     LIST ALL (admin view — all statuses, filterable)
   ──────────────────────────────────────────────── */
-  async listAll(pagination: PaginationDto = { page: 1, limit: 20 }) {
+  async listAll(pagination: SchoolZoneListQueryDto = { page: 1, limit: 20 }) {
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
 
@@ -437,6 +457,13 @@ export class SchoolZoneService {
       .skip((page - 1) * limit)
       .take(limit);
 
+    if (pagination.status) {
+      qb.andWhere('zone.status = :status', { status: pagination.status });
+    }
+    if (pagination.q?.trim()) {
+      qb.andWhere('zone.name ILIKE :q', { q: `%${pagination.q.trim()}%` });
+    }
+
     const [zones, total] = await qb.getManyAndCount();
 
     const items = zones.map((zone) => ({
@@ -456,6 +483,175 @@ export class SchoolZoneService {
     return {
       message: 'School zones retrieved successfully',
       data: result,
+    };
+  }
+
+  /* ────────────────────────────────────────────────
+     ADMIN STATS (separate from list — cached, lightweight)
+  ──────────────────────────────────────────────── */
+  async getAdminStats() {
+    const cacheKey = `svc:school-zone:stats`;
+    const cached = await this.cache.get(cacheKey);
+    if (cached) return cached;
+
+    const [statusRows, activeMembers] = await Promise.all([
+      this.zoneRepo
+        .createQueryBuilder('zone')
+        .select('zone.status', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('zone.status')
+        .getRawMany<{ status: string; count: string }>(),
+      this.memberRepo.count({ where: { status: 'active' } }),
+    ]);
+
+    const counts: Record<string, number> = {
+      pending: 0,
+      active: 0,
+      rejected: 0,
+      restricted: 0,
+      banned: 0,
+    };
+    for (const row of statusRows) {
+      if (row.status in counts) {
+        counts[row.status] = Number(row.count);
+      }
+    }
+
+    const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+
+    const response = {
+      message: 'School zone stats retrieved successfully',
+      data: {
+        total,
+        pending: counts.pending,
+        active: counts.active,
+        rejected: counts.rejected,
+        restricted: counts.restricted,
+        banned: counts.banned,
+        active_members: activeMembers,
+      },
+    };
+
+    await this.cache.set(cacheKey, response);
+    return response;
+  }
+
+  /* ────────────────────────────────────────────────
+     ADMIN ZONE DETAIL (with requester info)
+  ──────────────────────────────────────────────── */
+  async getAdminZoneDetail(zoneId: string) {
+    const zone = await this.zoneRepo.findOne({
+      where: { id: zoneId },
+      select: [
+        'id',
+        'name',
+        'slug',
+        'subdomain',
+        'tagline',
+        'description',
+        'logo',
+        'cover_image',
+        'state',
+        'location',
+        'contact_email',
+        'contact_phone',
+        'status',
+        'created_by',
+        'department',
+        'course',
+        'student_id_number',
+        'school_id_image',
+        'delivery_fee',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
+        'created_at',
+        'updated_at',
+      ],
+    });
+
+    if (!zone) throw new NotFoundException('School zone not found');
+
+    let requester: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      phone_number: string | null;
+      avatar: string | null;
+      account_type: string;
+      account_status: string;
+      created_at: Date;
+    } | null = null;
+    if (zone.created_by) {
+      const user = await this.userRepo.findOne({
+        where: { id: zone.created_by },
+        select: [
+          'id',
+          'first_name',
+          'last_name',
+          'email',
+          'phone_number',
+          'avatar',
+          'account_type',
+          'account_status',
+          'created_at',
+        ],
+      });
+      if (user) {
+        requester = {
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: user.email,
+          phone_number: user.phone_number,
+          avatar: user.avatar,
+          account_type: user.account_type,
+          account_status: user.account_status,
+          created_at: user.created_at,
+        };
+      }
+    }
+
+    const memberCount = await this.memberRepo.count({
+      where: { school_zone_id: zone.id, status: 'active' },
+    });
+
+    return {
+      message: 'School zone details retrieved successfully',
+      data: {
+        zone: {
+          id: zone.id,
+          name: zone.name,
+          slug: zone.slug,
+          subdomain: zone.subdomain,
+          tagline: zone.tagline,
+          description: zone.description,
+          logo: zone.logo,
+          cover_image: zone.cover_image,
+          state: zone.state,
+          location: zone.location,
+          contact_email: zone.contact_email,
+          contact_phone: zone.contact_phone,
+          status: zone.status,
+          created_by: zone.created_by,
+          department: zone.department,
+          course: zone.course,
+          student_id_number: zone.student_id_number,
+          school_id_image: zone.school_id_image,
+          delivery_fee:
+            zone.delivery_fee !== null && zone.delivery_fee !== undefined
+              ? Number(zone.delivery_fee)
+              : null,
+          approved_by: zone.approved_by,
+          approved_at: zone.approved_at,
+          rejection_reason: zone.rejection_reason,
+          member_count: memberCount,
+          created_at: zone.created_at,
+          updated_at: zone.updated_at,
+        },
+        requester,
+      },
     };
   }
 
@@ -573,6 +769,7 @@ export class SchoolZoneService {
         'store.address_city',
         'store.address_state',
         'store.address_country',
+        'store.created_at',
       ])
       .addSelect('COUNT(product.id)', 'total_products')
       .where('store.status = :storeStatus', { storeStatus: 'active' })
@@ -581,11 +778,35 @@ export class SchoolZoneService {
       .skip((page - 1) * limit)
       .take(limit);
 
-    if (pagination.q?.trim()) {
-      qb.andWhere('store.store_name ILIKE :q', { q: `%${pagination.q.trim()}%` });
+    const search = pagination.q?.trim();
+    if (search) {
+      qb.andWhere('store.store_name ILIKE :q', { q: `%${search}%` });
     }
 
-    const { raw, entities } = await qb.getRawAndEntities();
+    const { raw, entities } = await qb.getRawAndEntities<ZoneStoreRow>();
+
+    const countQb = this.storeRepo
+      .createQueryBuilder('store')
+      .innerJoin(
+        SchoolZoneMember,
+        'member',
+        'member.school_zone_id = :zoneId AND member.status = :memberStatus AND member.store_id = store.id',
+        { zoneId, memberStatus: 'active' },
+      )
+      .innerJoin(
+        'users',
+        'user',
+        'user.id = store.user_id AND user.account_status = :userStatus',
+        { userStatus: 'active' },
+      )
+      .where('store.status = :storeStatus', { storeStatus: 'active' })
+      .select('COUNT(DISTINCT store.id)', 'count');
+
+    if (search) {
+      countQb.andWhere('store.store_name ILIKE :q', { q: `%${search}%` });
+    }
+
+    const totalRow = await countQb.getRawOne<{ count: string }>();
 
     const items = entities.map((store, index) => ({
       id: store.id,
@@ -605,7 +826,12 @@ export class SchoolZoneService {
       total_products: Number(raw[index].total_products),
     }));
 
-    const result = buildPagination(items, items.length, page, limit);
+    const result = buildPagination(
+      items,
+      Number(totalRow?.count ?? 0),
+      page,
+      limit,
+    );
     return {
       message: 'Zone stores retrieved successfully',
       data: result,
@@ -691,8 +917,11 @@ export class SchoolZoneService {
       wishlistedIds = new Set(wishlisted.map((w) => w.product_id));
     }
 
-    const items = products.map((p) =>
-      mapToProductCardData(p, { wishlistSet: wishlistedIds }),
+    const items = products.map(
+      (p): ZoneProductCard =>
+        mapToProductCardData(p, {
+          wishlistSet: wishlistedIds,
+        }) as ZoneProductCard,
     );
 
     const enriched = await this.helpers.resolveColorsForList(items);
@@ -707,8 +936,14 @@ export class SchoolZoneService {
   /* ────────────────────────────────────────────────
      MY MEMBERSHIPS (vendor dashboard)
   ──────────────────────────────────────────────── */
-  async getMyMemberships(storeId: string) {
-    const memberships = await this.memberRepo.find({
+  async getMyMemberships(
+    storeId: string,
+    pagination: PaginationDto = { page: 1, limit: 20 },
+  ) {
+    const page = pagination.page ?? 1;
+    const limit = pagination.limit ?? 20;
+
+    const [memberships, total] = await this.memberRepo.findAndCount({
       where: { store_id: storeId },
       select: {
         id: true,
@@ -734,9 +969,11 @@ export class SchoolZoneService {
       },
       relations: ['school_zone'],
       order: { requested_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return memberships.map((m) => ({
+    const items = memberships.map((m) => ({
       id: m.id,
       school_zone_id: m.school_zone_id,
       status: m.status,
@@ -760,5 +997,103 @@ export class SchoolZoneService {
           }
         : null,
     }));
+
+    return {
+      message: 'Memberships retrieved successfully',
+      data: buildPagination(items, total, page, limit),
+    };
   }
+
+  /* ────────────────────────────────────────────────
+     MY CREATED ZONES (zones this user applied to create)
+  ──────────────────────────────────────────────── */
+  async getMyCreatedZones(
+    userId: string,
+    pagination: PaginationDto = { page: 1, limit: 20 },
+  ) {
+    const page = pagination.page ?? 1;
+    const limit = pagination.limit ?? 20;
+
+    const [zones, total] = await this.zoneRepo
+      .createQueryBuilder('zone')
+      .select([
+        'zone.id',
+        'zone.name',
+        'zone.slug',
+        'zone.subdomain',
+        'zone.tagline',
+        'zone.logo',
+        'zone.cover_image',
+        'zone.state',
+        'zone.location',
+        'zone.status',
+        'zone.department',
+        'zone.course',
+        'zone.student_id_number',
+        'zone.delivery_fee',
+        'zone.rejection_reason',
+        'zone.created_at',
+      ])
+      .where('zone.created_by = :userId', { userId })
+      .orderBy('zone.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const items = zones.map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      slug: zone.slug,
+      subdomain: zone.subdomain,
+      tagline: zone.tagline,
+      logo: zone.logo,
+      cover_image: zone.cover_image,
+      state: zone.state,
+      location: zone.location,
+      status: zone.status,
+      department: zone.department,
+      course: zone.course,
+      student_id_number: zone.student_id_number,
+      delivery_fee:
+        zone.delivery_fee !== null && zone.delivery_fee !== undefined
+          ? Number(zone.delivery_fee)
+          : null,
+      rejection_reason: zone.rejection_reason,
+      created_at: zone.created_at,
+    }));
+
+    return {
+      message: 'Created zones retrieved successfully',
+      data: buildPagination(items, total, page, limit),
+    };
+  }
+}
+
+interface ZoneStoreRow {
+  total_products: string;
+}
+
+export interface ZoneProductCard {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  image: string | null;
+  rating_average: number;
+  stock: number;
+  discount_price: number | null;
+  on_sale: boolean;
+  featured: boolean;
+  category: string | null | undefined;
+  options: unknown[];
+  variants: unknown[];
+  store_name: string;
+  store_slug: string;
+  address_city: string;
+  address_state: string;
+  address_country: string;
+  address_postal_code: string;
+  created_at: Date;
+  is_in_wishlist: boolean;
+  colors?: unknown[];
 }

@@ -14,6 +14,21 @@ import { ProductService } from '../../product/services/product.service';
 import { DataSource } from 'typeorm';
 import { Order } from '../entities/order.entity';
 
+/* ────────────────────────────────────────────────
+   PAYSTACK RESPONSE TYPES
+──────────────────────────────────────────────── */
+interface PaystackWebhookPayload {
+  data?: {
+    reference?: string;
+  } | null;
+  reference?: string;
+}
+
+interface PaystackVerificationResponse {
+  status: string;
+  amount: number;
+}
+
 @Injectable()
 export class OrderPaymentService {
   constructor(
@@ -31,7 +46,7 @@ export class OrderPaymentService {
   /* ────────────────────────────────────────────────
      HANDLE PAYSTACK WEBHOOK
   ──────────────────────────────────────────────── */
-  async handlePaystackWebhook(payload: any) {
+  async handlePaystackWebhook(payload: PaystackWebhookPayload) {
     const reference = payload?.data?.reference || payload?.reference;
     if (!reference) {
       console.warn('Paystack Webhook received without reference:', payload);
@@ -57,7 +72,9 @@ export class OrderPaymentService {
       // Idempotent check
       if (orders.every((o) => o.payment_status === 'success')) return;
 
-      const verification = await this.paystack.verifyPayment(reference);
+      const verification = (await this.paystack.verifyPayment(
+        reference,
+      )) as PaystackVerificationResponse;
       if (verification.status !== 'success') {
         throw new BadRequestException('Webhook payment verification failed');
       }
@@ -108,7 +125,7 @@ export class OrderPaymentService {
             currency: 'NGN',
             status: 'success',
             description: 'Payment confirmed via webhook',
-            metadata: payload,
+            metadata: payload as unknown as Record<string, unknown>,
           });
 
           // 5. Adjust Stock (REDUCE) — variant-aware

@@ -8,7 +8,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { MessagingService } from './messaging.service';
@@ -31,7 +38,10 @@ export class MessagingController {
   ) {}
 
   @Get('chatroom')
-  @ApiOperation({ summary: 'Get chatroom messages', description: 'Fetches paginated public chatroom messages (newest last).' })
+  @ApiOperation({
+    summary: 'Get chatroom messages',
+    description: 'Fetches paginated public chatroom messages (newest last).',
+  })
   @ApiOkResponse({ description: 'Chatroom messages returned' })
   @ApiStandardErrorResponses()
   async getChatroomMessages(@Query() dto: GetMessagesDto) {
@@ -40,7 +50,10 @@ export class MessagingController {
   }
 
   @Post('chatroom')
-  @ApiOperation({ summary: 'Send chatroom message', description: 'Sends a message to the public chatroom.' })
+  @ApiOperation({
+    summary: 'Send chatroom message',
+    description: 'Sends a message to the public chatroom.',
+  })
   @ApiCreatedResponse({ description: 'Message sent to chatroom' })
   @ApiStandardErrorResponses()
   async sendChatroomMessage(
@@ -58,7 +71,11 @@ export class MessagingController {
   }
 
   @Get('chatroom/status')
-  @ApiOperation({ summary: 'Get chatroom status', description: 'Returns the number of users currently online in the chatroom.' })
+  @ApiOperation({
+    summary: 'Get chatroom status',
+    description:
+      'Returns the number of users currently online in the chatroom.',
+  })
   @ApiOkResponse({ description: 'Chatroom status returned' })
   @ApiStandardErrorResponses()
   getChatroomStatus() {
@@ -69,7 +86,11 @@ export class MessagingController {
   }
 
   @Post('chatroom/:messageId/read')
-  @ApiOperation({ summary: 'Mark chatroom message as read', description: 'Marks a specific chatroom message as read by the current user.' })
+  @ApiOperation({
+    summary: 'Mark chatroom message as read',
+    description:
+      'Marks a specific chatroom message as read by the current user.',
+  })
   @ApiParam({ name: 'messageId', description: 'Message ID', type: String })
   @ApiOkResponse({ description: 'Message marked as read' })
   @ApiStandardErrorResponses()
@@ -82,7 +103,11 @@ export class MessagingController {
   }
 
   @Get('conversations')
-  @ApiOperation({ summary: 'List user conversations', description: 'Returns all conversations for the currently authenticated user.' })
+  @ApiOperation({
+    summary: 'List user conversations',
+    description:
+      'Returns all conversations for the currently authenticated user.',
+  })
   @ApiOkResponse({ description: 'Conversations returned' })
   @ApiStandardErrorResponses()
   async getUserConversations(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
@@ -91,7 +116,11 @@ export class MessagingController {
   }
 
   @Post('conversations')
-  @ApiOperation({ summary: 'Start a conversation', description: 'Starts or retrieves an existing 1-to-1 conversation with another user.' })
+  @ApiOperation({
+    summary: 'Start a conversation',
+    description:
+      'Starts or retrieves an existing 1-to-1 conversation with another user.',
+  })
   @ApiCreatedResponse({ description: 'Conversation started or retrieved' })
   @ApiStandardErrorResponses()
   async startConversation(
@@ -119,7 +148,10 @@ export class MessagingController {
   }
 
   @Get('conversations/:id')
-  @ApiOperation({ summary: 'Get conversation details', description: 'Returns details of a single conversation by ID.' })
+  @ApiOperation({
+    summary: 'Get conversation details',
+    description: 'Returns details of a single conversation by ID.',
+  })
   @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
   @ApiOkResponse({ description: 'Conversation details returned' })
   @ApiStandardErrorResponses()
@@ -132,7 +164,10 @@ export class MessagingController {
   }
 
   @Get('conversations/:id/messages')
-  @ApiOperation({ summary: 'Get conversation messages', description: 'Fetches paginated messages for a conversation (newest last).' })
+  @ApiOperation({
+    summary: 'Get conversation messages',
+    description: 'Fetches paginated messages for a conversation (newest last).',
+  })
   @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
   @ApiOkResponse({ description: 'Conversation messages returned' })
   @ApiStandardErrorResponses()
@@ -150,7 +185,10 @@ export class MessagingController {
   }
 
   @Post('conversations/:id/messages')
-  @ApiOperation({ summary: 'Send direct message', description: 'Sends a direct message within a conversation.' })
+  @ApiOperation({
+    summary: 'Send direct message',
+    description: 'Sends a direct message within a conversation.',
+  })
   @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
   @ApiCreatedResponse({ description: 'Message sent' })
   @ApiStandardErrorResponses()
@@ -171,7 +209,11 @@ export class MessagingController {
   }
 
   @Patch('conversations/:id/read')
-  @ApiOperation({ summary: 'Mark conversation as read', description: 'Marks all messages in a conversation as read by the current user.' })
+  @ApiOperation({
+    summary: 'Mark conversation as read',
+    description:
+      'Marks all messages in a conversation as read by the current user.',
+  })
   @ApiParam({ name: 'id', description: 'Conversation ID', type: String })
   @ApiOkResponse({ description: 'Conversation marked as read' })
   @ApiStandardErrorResponses()
@@ -179,13 +221,18 @@ export class MessagingController {
     @Param('id') conversationId: string,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
-    if (conversationId === 'chatroom') return { message: 'Skipped for chatroom' };
+    if (conversationId === 'chatroom')
+      return { message: 'Skipped for chatroom' };
     await this.messagingService.markConversationRead(conversationId, user.sub);
     return { message: 'Conversation marked as read' };
   }
 
   @Get('messages/:id')
-  @ApiOperation({ summary: 'Get message details', description: 'Returns full details for a single message including read time and delivery status.' })
+  @ApiOperation({
+    summary: 'Get message details',
+    description:
+      'Returns full details for a single message including read time and delivery status.',
+  })
   @ApiParam({ name: 'id', description: 'Message ID', type: String })
   @ApiOkResponse({ description: 'Message details returned' })
   @ApiStandardErrorResponses()
@@ -198,7 +245,11 @@ export class MessagingController {
   }
 
   @Get('presence/:userId')
-  @ApiOperation({ summary: 'Get user presence', description: 'Checks if a user is currently online and returns their last seen timestamp.' })
+  @ApiOperation({
+    summary: 'Get user presence',
+    description:
+      'Checks if a user is currently online and returns their last seen timestamp.',
+  })
   @ApiParam({ name: 'userId', description: 'User ID', type: String })
   @ApiOkResponse({ description: 'Presence info returned' })
   @ApiStandardErrorResponses()
@@ -211,7 +262,7 @@ export class MessagingController {
       data: {
         user_id: userId,
         online,
-        last_seen: online ? null : last_seen?.toISOString() ?? null,
+        last_seen: online ? null : (last_seen?.toISOString() ?? null),
       },
     };
   }

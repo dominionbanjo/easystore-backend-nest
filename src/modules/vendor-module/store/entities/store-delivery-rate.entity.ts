@@ -32,8 +32,8 @@ export class StoreDeliveryRate {
   state: string;
 
   @Index('IDX_STORE_DELIVERY_RATE_LOCATION')
-  @Column({ type: 'varchar', length: 100 })
-  location: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  location: string | null;
 
   /* PRICE */
   @Column({ type: 'numeric', precision: 10, scale: 2 })

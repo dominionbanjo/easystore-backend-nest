@@ -10,7 +10,12 @@ export class GetMessagesDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ description: 'Messages per page', example: 30, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Messages per page',
+    example: 30,
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

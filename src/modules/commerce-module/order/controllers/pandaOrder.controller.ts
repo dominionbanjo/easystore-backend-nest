@@ -23,6 +23,7 @@ import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard'
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
 
 import { OrderService } from '../services/order.service';
+import { ICartItem } from '../../cart/types/types';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
 @ApiTags('Panda Orders')
@@ -35,8 +36,14 @@ export class OrderController {
      🛒 BUYER: CREATE ORDER (PANDASCROW ESCROW)
      POST /orders/panda
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Create a Panda escrow order', description: 'Creates an order using PandaCrow escrow service. Funds are held in escrow until the buyer confirms delivery via OTP.' })
-  @ApiCreatedResponse({ description: 'Panda escrow order created successfully' })
+  @ApiOperation({
+    summary: 'Create a Panda escrow order',
+    description:
+      'Creates an order using PandaCrow escrow service. Funds are held in escrow until the buyer confirms delivery via OTP.',
+  })
+  @ApiCreatedResponse({
+    description: 'Panda escrow order created successfully',
+  })
   @ApiStandardErrorResponses()
   @Post('panda')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,7 +52,7 @@ export class OrderController {
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body()
     body: {
-      order_items: any[];
+      order_items: ICartItem[];
     },
   ) {
     if (!body.order_items || body.order_items.length === 0) {
@@ -62,7 +69,11 @@ export class OrderController {
      ✅ BUYER: COMPLETE ORDER (PANDASCROW OTP)
      PATCH /orders/panda/:orderId/complete
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Complete a Panda escrow order', description: 'Completes a PandaCrow escrow order by providing the OTP, releasing funds to the vendor.' })
+  @ApiOperation({
+    summary: 'Complete a Panda escrow order',
+    description:
+      'Completes a PandaCrow escrow order by providing the OTP, releasing funds to the vendor.',
+  })
   @ApiParam({ name: 'orderId', description: 'Panda order ID', type: String })
   @ApiOkResponse({ description: 'Panda escrow order completed successfully' })
   @ApiStandardErrorResponses()

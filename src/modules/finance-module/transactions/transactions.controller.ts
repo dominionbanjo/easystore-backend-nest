@@ -1,10 +1,28 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { TransactionListItemDto } from '../../../common/dto/response/transaction-response.dto';
-import { SuccessResponseDto, SuccessWithIdDto } from '../../../common/dto/api-response.dto';
+import {
+  SuccessResponseDto,
+  SuccessWithIdDto,
+} from '../../../common/dto/api-response.dto';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { ListTransactionsDto } from './dto/list-transactions.dto';
@@ -23,8 +41,14 @@ export class TransactionsController {
 
   @Post()
   @RequirePermissions(Permission.MANAGE_PAYOUTS)
-  @ApiOperation({ summary: 'Create a transaction', description: 'Creates a new transaction record.' })
-  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Transaction created successfully' })
+  @ApiOperation({
+    summary: 'Create a transaction',
+    description: 'Creates a new transaction record.',
+  })
+  @ApiCreatedResponse({
+    type: SuccessWithIdDto,
+    description: 'Transaction created successfully',
+  })
   @ApiStandardErrorResponses()
   create(@Body() dto: CreateTransactionDto) {
     return this.service.create(dto);
@@ -32,7 +56,10 @@ export class TransactionsController {
 
   @Get()
   @RequirePermissions(Permission.VIEW_TRANSACTIONS)
-  @ApiOperation({ summary: 'List transactions', description: 'Returns a paginated list of transactions.' })
+  @ApiOperation({
+    summary: 'List transactions',
+    description: 'Returns a paginated list of transactions.',
+  })
   @ApiPaginatedResponse(TransactionListItemDto)
   @ApiStandardErrorResponses()
   list(@Query() query: ListTransactionsDto) {
@@ -41,7 +68,10 @@ export class TransactionsController {
 
   @Get(':id')
   @RequirePermissions(Permission.VIEW_TRANSACTIONS)
-  @ApiOperation({ summary: 'Get transaction by ID', description: 'Returns a single transaction by its ID.' })
+  @ApiOperation({
+    summary: 'Get transaction by ID',
+    description: 'Returns a single transaction by its ID.',
+  })
   @ApiParam({ name: 'id', description: 'Transaction ID', type: String })
   @ApiOkResponse({ description: 'Transaction details returned' })
   @ApiStandardErrorResponses()
@@ -51,9 +81,15 @@ export class TransactionsController {
 
   @Post(':id/reverse')
   @RequirePermissions(Permission.MANAGE_PAYOUTS)
-  @ApiOperation({ summary: 'Reverse a transaction', description: 'Reverses a transaction by its ID with a reason.' })
+  @ApiOperation({
+    summary: 'Reverse a transaction',
+    description: 'Reverses a transaction by its ID with a reason.',
+  })
   @ApiParam({ name: 'id', description: 'Transaction ID', type: String })
-  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Transaction reversed successfully' })
+  @ApiCreatedResponse({
+    type: SuccessResponseDto,
+    description: 'Transaction reversed successfully',
+  })
   @ApiStandardErrorResponses()
   reverse(@Param('id') id: string, @Body() dto: ReverseTransactionDto) {
     return this.service.reverse(id, dto.reason);

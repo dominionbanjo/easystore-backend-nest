@@ -2,7 +2,9 @@ import { DocumentBuilder } from '@nestjs/swagger';
 
 export const swaggerConfig = new DocumentBuilder()
   .setTitle('EasyStore API')
-  .setDescription('E-commerce platform API with multi-vendor support, escrow payments, and real-time messaging')
+  .setDescription(
+    'E-commerce platform API with multi-vendor support, escrow payments, and real-time messaging',
+  )
   .setVersion('1.0')
   .addBearerAuth(
     { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },

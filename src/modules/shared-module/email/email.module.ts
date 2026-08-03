@@ -17,7 +17,6 @@ import { StaffInviteMailService } from './services/staff-invite-mail.service';
 import { EmailLog } from './entities/email-log.entity';
 import { EmailRetryService } from './services/email-retry.service';
 
-
 @Module({
   imports: [TypeOrmModule.forFeature([EmailLog])],
   providers: [
@@ -39,7 +38,6 @@ import { EmailRetryService } from './services/email-retry.service';
     BuyerEngagementMailService,
     StaffInviteMailService,
   ],
-
 
   exports: [
     EmailService,

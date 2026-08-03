@@ -45,9 +45,9 @@ export class ProductVariantSubscriber implements EntitySubscriberInterface<Produ
       .select('COALESCE(SUM(stock), 0)', 'total')
       .from(ProductVariant, 'variant')
       .where('variant.product_id = :productId', { productId })
-      .getRawOne();
+      .getRawOne<{ total: string }>();
 
-    const totalStock = Number(result.total);
+    const totalStock = Number(result?.total ?? 0);
 
     await event.manager
       .createQueryBuilder()

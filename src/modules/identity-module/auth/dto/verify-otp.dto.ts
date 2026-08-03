@@ -6,7 +6,10 @@ export class VerifyOtpDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ description: 'OTP code received via email', example: '123456' })
+  @ApiProperty({
+    description: 'OTP code received via email',
+    example: '123456',
+  })
   @IsString()
   otp: string;
 }

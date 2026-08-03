@@ -20,7 +20,16 @@ export class StoreReadService {
     return this.catalogService.searchStores(q, pagination);
   }
 
-  getStore(identifier: string, options?: any) {
+  getStore(
+    identifier: string,
+    options?: {
+      includeProducts?: boolean;
+      includeCategories?: boolean;
+      productPage?: number;
+      productLimit?: number;
+      userId?: string;
+    },
+  ) {
     return this.detailService.getStore(identifier, options);
   }
 
@@ -44,16 +53,38 @@ export class StoreReadService {
     return this.detailService.getTotalProductsForStore(storeId);
   }
 
-  getStoreProducts(identifier: string, pagination?: PaginationDto, userId?: string) {
+  getStoreProducts(
+    identifier: string,
+    pagination?: PaginationDto,
+    userId?: string,
+  ) {
     return this.detailService.getStoreProducts(identifier, pagination, userId);
   }
 
-  getStoreProductsByCategory(identifier: string, categoryId: string, pagination?: PaginationDto, userId?: string) {
-    return this.detailService.getStoreProductsByCategory(identifier, categoryId, pagination, userId);
+  getStoreProductsByCategory(
+    identifier: string,
+    categoryId: string,
+    pagination?: PaginationDto,
+    userId?: string,
+  ) {
+    return this.detailService.getStoreProductsByCategory(
+      identifier,
+      categoryId,
+      pagination,
+      userId,
+    );
   }
 
-  getStoreProductsGroupedByCategory(identifier: string, pagination?: PaginationDto, userId?: string) {
-    return this.detailService.getStoreProductsGroupedByCategory(identifier, pagination, userId);
+  getStoreProductsGroupedByCategory(
+    identifier: string,
+    pagination?: PaginationDto,
+    userId?: string,
+  ) {
+    return this.detailService.getStoreProductsGroupedByCategory(
+      identifier,
+      pagination,
+      userId,
+    );
   }
 
   validateVendorForOnline(userId: string, storeId?: string) {

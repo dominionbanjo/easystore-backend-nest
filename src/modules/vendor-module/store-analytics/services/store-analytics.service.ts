@@ -74,7 +74,6 @@ export class StoreAnalyticsService {
     // In this context, 'amount' passed from OrderManagementService is the order.total (which includes platform_fee)
     // We want the analytics to reflect what the vendor actually EARNS.
     const platformFee = amount - orderGrossTotal;
-    const orderNetTotal = orderGrossTotal; // For now, net is the subtotal of items. Shipping is usually handled separately or passed through.
     // However, the user wants "price of things bought + delivery fee - service charge".
     // So Net = (Subtotal + Shipping) = order.total - order.platform_fee.
     const netRevenue = Math.max(0, amount - platformFee);
@@ -97,7 +96,9 @@ export class StoreAnalyticsService {
         });
 
         if (!analyticsRow) {
-          throw new NotFoundException('Store analytics could not be initialized');
+          throw new NotFoundException(
+            'Store analytics could not be initialized',
+          );
         }
       }
 
@@ -195,13 +196,13 @@ export class StoreAnalyticsService {
         AND month = $7
       `,
         [
-          netRevenue, 
-          isOffline ? 0 : netRevenue, 
-          isOffline ? netRevenue : 0, 
-          isFirstOrderForStore ? 1 : 0, 
-          storeId, 
-          year, 
-          month
+          netRevenue,
+          isOffline ? 0 : netRevenue,
+          isOffline ? netRevenue : 0,
+          isFirstOrderForStore ? 1 : 0,
+          storeId,
+          year,
+          month,
         ],
       );
 
@@ -214,8 +215,11 @@ export class StoreAnalyticsService {
       const currentCustomers = Number(analyticsRow.total_customers || 0);
 
       analyticsRow.total_revenue = currentRevenue + netRevenue;
-      analyticsRow.online_revenue = Number(analyticsRow.online_revenue || 0) + (isOffline ? 0 : netRevenue);
-      analyticsRow.offline_revenue = Number(analyticsRow.offline_revenue || 0) + (isOffline ? netRevenue : 0);
+      analyticsRow.online_revenue =
+        Number(analyticsRow.online_revenue || 0) + (isOffline ? 0 : netRevenue);
+      analyticsRow.offline_revenue =
+        Number(analyticsRow.offline_revenue || 0) +
+        (isOffline ? netRevenue : 0);
       analyticsRow.total_orders = currentOrders + 1;
 
       if (isFirstOrderForStore) {
@@ -340,7 +344,9 @@ export class StoreAnalyticsService {
     /* ────────────────────────────────────────────────
      3️⃣ MONTHLY TRENDS (FROM TABLE)
   ──────────────────────────────────────────────── */
-    const monthlyTrends = await this.analyticsRepo.manager.query(
+    const monthlyTrends = await this.analyticsRepo.manager.query<
+      MonthlyTrendRow[]
+    >(
       `
     SELECT
       year,
@@ -360,7 +366,9 @@ export class StoreAnalyticsService {
     /* ────────────────────────────────────────────────
      4️⃣ CUSTOMER LIST (TABLE, UI-READY)
   ──────────────────────────────────────────────── */
-    const customers = await this.analyticsRepo.manager.query(
+    const customers = await this.analyticsRepo.manager.query<
+      StoreCustomerRow[]
+    >(
       `
     SELECT
       id,
@@ -383,7 +391,7 @@ export class StoreAnalyticsService {
     /* ────────────────────────────────────────────────
      5️⃣ TOP PRODUCTS (REAL DATA)
   ──────────────────────────────────────────────── */
-    const topProducts = await this.analyticsRepo.manager.query(
+    const topProducts = await this.analyticsRepo.manager.query<TopProductRow[]>(
       `
     SELECT
       p.id            AS product_id,
@@ -403,20 +411,24 @@ export class StoreAnalyticsService {
     /* ────────────────────────────────────────────────
      6️⃣ ALERTS & PENDING ITEMS (DASHBOARD)
   ──────────────────────────────────────────────── */
-    const [{ count: outOfStock }] = await this.analyticsRepo.manager.query(
+    const [{ count: outOfStock }] = await this.analyticsRepo.manager.query<
+      { count: string }[]
+    >(
       `SELECT COUNT(*) as count FROM products WHERE store_id = $1 AND stock < 1`,
       [storeId],
     );
 
     // Fetch store directly (bypass public visibility check — this is an owner/internal call)
-    const storeRow = (await this.analyticsRepo.manager
-      .getRepository('stores')
+    const storeRow = await this.analyticsRepo.manager
+      .getRepository(Store)
       .findOne({
         where: { id: storeId },
         relations: ['user'],
-      })) as any;
+      });
 
-    const [{ count: pendingOrders }] = await this.analyticsRepo.manager.query(
+    const [{ count: pendingOrders }] = await this.analyticsRepo.manager.query<
+      { count: string }[]
+    >(
       `SELECT COUNT(*) as count FROM orders WHERE store_id = $1 AND status IN ('pending', 'paid', 'processing', 'shipped')`,
       [storeId],
     );
@@ -424,7 +436,9 @@ export class StoreAnalyticsService {
     /* ────────────────────────────────────────────────
      6.5️⃣ PENDING PAYOUTS (TOTAL AMOUNT)
   ──────────────────────────────────────────────── */
-    const [{ total: pendingPayouts }] = await this.analyticsRepo.manager.query(
+    const [{ total: pendingPayouts }] = await this.analyticsRepo.manager.query<
+      { total: string | null }[]
+    >(
       `SELECT SUM(amount) as total FROM payouts WHERE store_id = $1 AND status IN ('pending', 'pending_manual')`,
       [storeId],
     );
@@ -460,4 +474,36 @@ export class StoreAnalyticsService {
     await this.cache.set(key, result);
     return result;
   }
+}
+
+interface MonthlyTrendRow {
+  year: number;
+  month: number;
+  revenue: string;
+  online_revenue: string;
+  offline_revenue: string;
+  orders: string;
+  unique_customers: string;
+}
+
+interface StoreCustomerRow {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  location: string | null;
+  phone_number: string | null;
+  orders: string;
+  spent: string;
+  rating: number | null;
+  last_order_at: Date | null;
+}
+
+interface TopProductRow {
+  product_id: string;
+  name: string;
+  slug: string;
+  image: unknown;
+  total_sold: number;
+  total_revenue: string;
 }

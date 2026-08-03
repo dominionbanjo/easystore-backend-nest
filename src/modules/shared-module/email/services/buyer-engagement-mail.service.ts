@@ -67,8 +67,8 @@ export class BuyerEngagementMailService {
    */
   async sendTrendingPrompt(to: string, firstName: string) {
     const html = this.tpl.wrapper(
-        'Trending This Week 🔥',
-        `
+      'Trending This Week 🔥',
+      `
           <p>Hi <b>${firstName}</b>,</p>
           <p>Don't be the last to know! These products are flying off the shelves this week.</p>
           <p>Join thousands of other shoppers and find amazing deals directly from the source.</p>
@@ -77,12 +77,12 @@ export class BuyerEngagementMailService {
             ${this.tpl.button('View Trending Items', `${process.env.FRONTEND_URL || 'https://eazystore.com.ng'}/discovery`)}
           </div>
         `,
-      );
-  
-      return this.email.sendEmail({
-        to,
-        subject: 'People are loving these! Check them out now',
-        html,
-      });
+    );
+
+    return this.email.sendEmail({
+      to,
+      subject: 'People are loving these! Check them out now',
+      html,
+    });
   }
 }

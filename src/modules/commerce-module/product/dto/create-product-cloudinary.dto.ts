@@ -16,102 +16,161 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProductOptionDto, ProductVariantDto } from './product-variants.dto';
 
 export class CloudinaryAssetDto {
-  @ApiProperty({ description: 'Cloudinary asset URL', example: 'https://res.cloudinary.com/example/image/upload/v1/products/abc123' })
+  @ApiProperty({
+    description: 'Cloudinary asset URL',
+    example:
+      'https://res.cloudinary.com/example/image/upload/v1/products/abc123',
+  })
   @IsString()
   url: string;
 
-  @ApiProperty({ description: 'Cloudinary public ID', example: 'products/abc123' })
+  @ApiProperty({
+    description: 'Cloudinary public ID',
+    example: 'products/abc123',
+  })
   @IsString()
   public_id: string;
 }
 
 export class CreateProductCloudinaryDto {
-  @ApiProperty({ description: 'Product category ID', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiProperty({
+    description: 'Product category ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   @IsUUID()
   category_id: string;
 
-  @ApiProperty({ description: 'Product name', example: 'Wireless Bluetooth Headphones' })
+  @ApiProperty({
+    description: 'Product name',
+    example: 'Wireless Bluetooth Headphones',
+  })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiPropertyOptional({ description: 'Barcode / UPC / EAN', example: '8901234567890', maxLength: 100 })
+  @ApiPropertyOptional({
+    description: 'Barcode / UPC / EAN',
+    example: '8901234567890',
+    maxLength: 100,
+  })
   @IsString()
   @MaxLength(100)
   @IsOptional()
   barcode?: string;
 
-  @ApiPropertyOptional({ description: 'Product description', example: 'High-quality wireless headphones with noise cancellation' })
+  @ApiPropertyOptional({
+    description: 'Product description',
+    example: 'High-quality wireless headphones with noise cancellation',
+  })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Price in kobo', example: 2500000, minimum: 0 })
+  @ApiPropertyOptional({
+    description: 'Price in kobo',
+    example: 2500000,
+    minimum: 0,
+  })
   @IsNumber()
   @Min(0)
   @IsOptional()
   price?: number;
 
-  @ApiPropertyOptional({ description: 'Discount price in kobo', example: 1990000, minimum: 0 })
+  @ApiPropertyOptional({
+    description: 'Discount price in kobo',
+    example: 1990000,
+    minimum: 0,
+  })
   @IsNumber()
   @Min(0)
   @IsOptional()
   discount_price?: number;
 
-  @ApiPropertyOptional({ description: 'Stock quantity', example: 50, minimum: 0 })
+  @ApiPropertyOptional({
+    description: 'Stock quantity',
+    example: 50,
+    minimum: 0,
+  })
   @IsInt()
   @Min(0)
   @IsOptional()
   stock?: number;
 
-  @ApiPropertyOptional({ description: 'Shipping information', example: 'Ships within 3-5 business days' })
+  @ApiPropertyOptional({
+    description: 'Shipping information',
+    example: 'Ships within 3-5 business days',
+  })
   @IsString()
   @IsOptional()
   shipping_note?: string;
 
-  @ApiPropertyOptional({ description: 'Returns policy', example: '30-day return policy' })
+  @ApiPropertyOptional({
+    description: 'Returns policy',
+    example: '30-day return policy',
+  })
   @IsString()
   @IsOptional()
   returns_note?: string;
 
-  @ApiPropertyOptional({ description: 'Product tags', example: ['electronics', 'audio', 'wireless'] })
+  @ApiPropertyOptional({
+    description: 'Product tags',
+    example: ['electronics', 'audio', 'wireless'],
+  })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   tags?: string[];
 
-  @ApiPropertyOptional({ description: 'Product main image (Cloudinary)', type: CloudinaryAssetDto })
+  @ApiPropertyOptional({
+    description: 'Product main image (Cloudinary)',
+    type: CloudinaryAssetDto,
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => CloudinaryAssetDto)
   image?: CloudinaryAssetDto;
 
-  @ApiPropertyOptional({ description: 'Product gallery images (Cloudinary)', type: [CloudinaryAssetDto] })
+  @ApiPropertyOptional({
+    description: 'Product gallery images (Cloudinary)',
+    type: [CloudinaryAssetDto],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CloudinaryAssetDto)
   gallery?: CloudinaryAssetDto[];
 
-  @ApiPropertyOptional({ description: 'Product highlights', example: ['Noise cancelling', '30hr battery'] })
+  @ApiPropertyOptional({
+    description: 'Product highlights',
+    example: ['Noise cancelling', '30hr battery'],
+  })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   highlights?: string[];
 
-  @ApiPropertyOptional({ description: 'Product specifications', example: { weight: '250g', color: 'Black' } })
+  @ApiPropertyOptional({
+    description: 'Product specifications',
+    example: { weight: '250g', color: 'Black' },
+  })
   @IsObject()
   @IsOptional()
   specs?: Record<string, string>;
 
-  @ApiPropertyOptional({ description: 'Product options', type: [ProductOptionDto] })
+  @ApiPropertyOptional({
+    description: 'Product options',
+    type: [ProductOptionDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProductOptionDto)
   @IsOptional()
   options?: ProductOptionDto[];
 
-  @ApiPropertyOptional({ description: 'Product variants', type: [ProductVariantDto] })
+  @ApiPropertyOptional({
+    description: 'Product variants',
+    type: [ProductVariantDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProductVariantDto)

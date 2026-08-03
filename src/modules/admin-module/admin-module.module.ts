@@ -62,4 +62,3 @@ import { OrderModule } from 'src/modules/commerce-module/order/order.module';
   ],
 })
 export class AdminModule {}
-

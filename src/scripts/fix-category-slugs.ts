@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { ProductCategory } from '../modules/commerce-module/product-category/entities/product-category.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import slugify from 'slugify';
 
 async function fixSlugs() {
@@ -11,7 +11,7 @@ async function fixSlugs() {
     getRepositoryToken(ProductCategory),
   );
 
-  const categories = await categoryRepo.find({ where: { slug: null as any } });
+  const categories = await categoryRepo.find({ where: { slug: IsNull() } });
   console.log(`Found ${categories.length} categories with null slugs.`);
 
   for (const category of categories) {

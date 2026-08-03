@@ -7,7 +7,15 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiQuery,
+  ApiBody,
+} from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../decorators/api-standard-errors.decorator';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
@@ -23,8 +31,31 @@ export class PaystackController {
   constructor(private readonly paystack: PaystackService) {}
 
   @Get('banks')
-  @ApiOperation({ summary: 'Get list of banks', description: 'Retrieve all Nigerian banks from Paystack' })
-  @ApiOkResponse({ description: 'List of banks returned', schema: { type: 'object', properties: { status: { type: 'boolean' }, message: { type: 'string' }, data: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, code: { type: 'string' }, slug: { type: 'string' } } } } } } })
+  @ApiOperation({
+    summary: 'Get list of banks',
+    description: 'Retrieve all Nigerian banks from Paystack',
+  })
+  @ApiOkResponse({
+    description: 'List of banks returned',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'boolean' },
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              code: { type: 'string' },
+              slug: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
   @ApiStandardErrorResponses()
   async getBanks() {
     return this.paystack.getBanksNigeria();
@@ -33,7 +64,11 @@ export class PaystackController {
   @Post('initialize')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Initialize payment', description: 'Initializes a Paystack payment transaction for the authenticated user.' })
+  @ApiOperation({
+    summary: 'Initialize payment',
+    description:
+      'Initializes a Paystack payment transaction for the authenticated user.',
+  })
   @ApiBody({ description: 'Payment initialization details', type: Object })
   @ApiCreatedResponse({ description: 'Payment initialized successfully' })
   @ApiStandardErrorResponses()
@@ -59,8 +94,16 @@ export class PaystackController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Verify payment (admin)', description: 'Verifies a Paystack payment by reference. Admin only.' })
-  @ApiQuery({ name: 'reference', required: true, type: String, description: 'Payment reference' })
+  @ApiOperation({
+    summary: 'Verify payment (admin)',
+    description: 'Verifies a Paystack payment by reference. Admin only.',
+  })
+  @ApiQuery({
+    name: 'reference',
+    required: true,
+    type: String,
+    description: 'Payment reference',
+  })
   @ApiOkResponse({ description: 'Payment verification result returned' })
   @ApiStandardErrorResponses()
   async verifyPayment(@Query('reference') reference: string) {
@@ -74,7 +117,11 @@ export class PaystackController {
   @Post('bank/verify')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Verify bank account', description: 'Verifies a Nigerian bank account using account number and bank code.' })
+  @ApiOperation({
+    summary: 'Verify bank account',
+    description:
+      'Verifies a Nigerian bank account using account number and bank code.',
+  })
   @ApiBody({ description: 'Bank account verification details', type: Object })
   @ApiOkResponse({ description: 'Bank account verification result returned' })
   @ApiStandardErrorResponses()
@@ -98,9 +145,14 @@ export class PaystackController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('seller', 'admin')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Create transfer recipient', description: 'Creates a Paystack transfer recipient for vendor payouts.' })
+  @ApiOperation({
+    summary: 'Create transfer recipient',
+    description: 'Creates a Paystack transfer recipient for vendor payouts.',
+  })
   @ApiBody({ description: 'Recipient details', type: Object })
-  @ApiCreatedResponse({ description: 'Transfer recipient created successfully' })
+  @ApiCreatedResponse({
+    description: 'Transfer recipient created successfully',
+  })
   @ApiStandardErrorResponses()
   async createTransferRecipient(
     @Body()
@@ -121,7 +173,10 @@ export class PaystackController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Initiate transfer (admin)', description: 'Initiates a Paystack transfer to a recipient. Admin only.' })
+  @ApiOperation({
+    summary: 'Initiate transfer (admin)',
+    description: 'Initiates a Paystack transfer to a recipient. Admin only.',
+  })
   @ApiBody({ description: 'Transfer details', type: Object })
   @ApiCreatedResponse({ description: 'Transfer initiated successfully' })
   @ApiStandardErrorResponses()

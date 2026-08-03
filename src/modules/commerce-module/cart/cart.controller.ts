@@ -42,7 +42,10 @@ export class CartController {
    * GET /cart
    * Returns the authenticated user's cart
    */
-  @ApiOperation({ summary: 'Get cart', description: 'Retrieves the current cart for the authenticated user.' })
+  @ApiOperation({
+    summary: 'Get cart',
+    description: 'Retrieves the current cart for the authenticated user.',
+  })
   @ApiOkResponse({ description: 'Cart retrieved successfully' })
   @ApiStandardErrorResponses()
   @Get()
@@ -57,8 +60,14 @@ export class CartController {
   /**
    * POST /cart/items
    */
-  @ApiOperation({ summary: 'Add item to cart', description: 'Adds a product to the authenticated user cart.' })
-  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Item added to cart successfully' })
+  @ApiOperation({
+    summary: 'Add item to cart',
+    description: 'Adds a product to the authenticated user cart.',
+  })
+  @ApiCreatedResponse({
+    type: SuccessResponseDto,
+    description: 'Item added to cart successfully',
+  })
   @ApiStandardErrorResponses()
   @Post('items')
   addItem(
@@ -76,9 +85,16 @@ export class CartController {
   /**
    * PATCH /cart/items/:productId
    */
-  @ApiOperation({ summary: 'Update cart item', description: 'Updates the quantity or details of a product in the authenticated user cart.' })
+  @ApiOperation({
+    summary: 'Update cart item',
+    description:
+      'Updates the quantity or details of a product in the authenticated user cart.',
+  })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Cart item updated successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Cart item updated successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch('items/:productId')
   updateItem(
@@ -97,12 +113,34 @@ export class CartController {
   /**
    * DELETE /cart/items/:productId
    */
-  @ApiOperation({ summary: 'Remove item from cart', description: 'Removes a specific product from the authenticated user cart. Supports optional variant filtering.' })
+  @ApiOperation({
+    summary: 'Remove item from cart',
+    description:
+      'Removes a specific product from the authenticated user cart. Supports optional variant filtering.',
+  })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
-  @ApiQuery({ name: 'size', required: false, type: String, description: 'Product size variant to remove' })
-  @ApiQuery({ name: 'color', required: false, type: String, description: 'Product color variant to remove' })
-  @ApiQuery({ name: 'variant_id', required: false, type: String, description: 'Specific variant ID to remove' })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Item removed from cart successfully' })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    type: String,
+    description: 'Product size variant to remove',
+  })
+  @ApiQuery({
+    name: 'color',
+    required: false,
+    type: String,
+    description: 'Product color variant to remove',
+  })
+  @ApiQuery({
+    name: 'variant_id',
+    required: false,
+    type: String,
+    description: 'Specific variant ID to remove',
+  })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Item removed from cart successfully',
+  })
   @ApiStandardErrorResponses()
   @Delete('items/:productId')
   removeItem(
@@ -128,8 +166,14 @@ export class CartController {
   /**
    * DELETE /cart
    */
-  @ApiOperation({ summary: 'Clear cart', description: 'Removes all items from the authenticated user cart.' })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Cart cleared successfully' })
+  @ApiOperation({
+    summary: 'Clear cart',
+    description: 'Removes all items from the authenticated user cart.',
+  })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Cart cleared successfully',
+  })
   @ApiStandardErrorResponses()
   @Delete()
   clearCart(@CurrentUser() user: jwtStrategy.JwtAuthUser) {

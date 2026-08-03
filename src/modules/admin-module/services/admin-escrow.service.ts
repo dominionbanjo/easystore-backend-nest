@@ -7,6 +7,7 @@ import { PayoutService } from 'src/modules/finance-module/payout/payout.service'
 import { EscrowMailService } from 'src/modules/shared-module/email/services/escrow-mail.service';
 import { UsersService } from 'src/modules/identity-module/users/users.service';
 import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
+import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
 
 @Injectable()
@@ -40,7 +41,7 @@ export class AdminEscrowService {
 
     const enriched = await Promise.all(
       payouts.map(async (payout) => {
-        let store: any = null;
+        let store: Store | null = null;
         if (payout.vendor_id) {
           store = await this.storeService
             .getStoreByUser(
@@ -193,7 +194,7 @@ export class AdminEscrowService {
                 store_name: p.store.store_name,
                 bank_name: p.store.bank_name,
                 account_number: p.store.account_number,
-                account_name: p.store.account_number
+                account_name: p.store.account_number,
               }
             : null,
         })),

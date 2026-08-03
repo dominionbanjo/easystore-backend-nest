@@ -1,5 +1,20 @@
-import { BadRequestException, Body, Controller, Delete, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiQuery,
+  ApiBody,
+} from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../decorators/api-standard-errors.decorator';
 import { SuccessResponseDto } from '../dto/api-response.dto';
@@ -16,8 +31,17 @@ export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
   @Get('cloudinary-signature')
-  @ApiOperation({ summary: 'Generate Cloudinary upload signature', description: 'Generates a signed signature for direct browser-to-Cloudinary uploads.' })
-  @ApiQuery({ name: 'subfolder', required: false, type: String, description: 'Subfolder within the store or user folder' })
+  @ApiOperation({
+    summary: 'Generate Cloudinary upload signature',
+    description:
+      'Generates a signed signature for direct browser-to-Cloudinary uploads.',
+  })
+  @ApiQuery({
+    name: 'subfolder',
+    required: false,
+    type: String,
+    description: 'Subfolder within the store or user folder',
+  })
   @ApiOkResponse({ description: 'Cloudinary signature generated' })
   @ApiStandardErrorResponses()
   getCloudinarySignature(
@@ -42,9 +66,18 @@ export class UploadController {
   }
 
   @Delete('cloudinary')
-  @ApiOperation({ summary: 'Delete Cloudinary image', description: 'Deletes an image from Cloudinary by its public ID.' })
-  @ApiBody({ description: 'Public ID of the image to delete', schema: { properties: { public_id: { type: 'string' } } } })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Image deleted successfully' })
+  @ApiOperation({
+    summary: 'Delete Cloudinary image',
+    description: 'Deletes an image from Cloudinary by its public ID.',
+  })
+  @ApiBody({
+    description: 'Public ID of the image to delete',
+    schema: { properties: { public_id: { type: 'string' } } },
+  })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Image deleted successfully',
+  })
   @ApiStandardErrorResponses()
   async deleteCloudinaryImage(@Body('public_id') publicId: string) {
     if (!publicId) {

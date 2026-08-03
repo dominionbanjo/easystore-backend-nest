@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ICartItem } from '../../cart/types/types';
 import { OrderStatus } from '../entities/order.entity';
 import { OnlineOrderService } from './online-order.service';
@@ -157,14 +152,18 @@ export class OrderService {
   /**
    * Get order receipt as PDF buffer
    */
-  getSalesHistory(vendorId: string, storeId?: string, query?: {
-    page?: number;
-    limit?: number;
-    staffId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-    search?: string;
-  }) {
+  getSalesHistory(
+    vendorId: string,
+    storeId?: string,
+    query?: {
+      page?: number;
+      limit?: number;
+      staffId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      search?: string;
+    },
+  ) {
     return this.queryService.getSalesHistory(vendorId, storeId, query);
   }
 

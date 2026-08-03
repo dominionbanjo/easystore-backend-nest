@@ -14,7 +14,6 @@ import {
   OneToMany,
   OneToOne,
 } from 'typeorm';
-import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { ICartItem } from '../../cart/types/types';
 import { Delivery } from '../../delivery/entities/delivery.entity';
 import { UserAddress } from 'src/modules/identity-module/users/entities/user-address.entity';
@@ -37,7 +36,13 @@ export type PaymentStatus =
   | 'refunded'
   | 'unpaid';
 
-export type PaymentMethod = 'online' | 'offline' | 'panda' | 'cash' | 'transfer' | 'pos';
+export type PaymentMethod =
+  | 'online'
+  | 'offline'
+  | 'panda'
+  | 'cash'
+  | 'transfer'
+  | 'pos';
 
 @Entity({ name: 'orders' })
 export class Order {

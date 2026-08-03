@@ -49,7 +49,7 @@ export class ProductSearchService {
     // to avoid syntax errors when the user's search term contains them.
     const tsPrefix = q
       .trim()
-      .replace(/[^a-zA-Z0-9\s]/g, ' ')  // strip special chars
+      .replace(/[^a-zA-Z0-9\s]/g, ' ') // strip special chars
       .trim()
       .split(/\s+/)
       .filter(Boolean)
@@ -125,7 +125,6 @@ export class ProductSearchService {
         },
       );
 
-
     if (minPrice) {
       qb.andWhere('product.price >= :minPrice', { minPrice: minPrice * 100 });
     }
@@ -188,8 +187,7 @@ export class ProductSearchService {
     // across all matched products so the frontend can build dynamic sidebar filters.
     const filtersMap = new Map<string, Set<string>>();
     for (const item of items) {
-      const variants: { combinations?: Record<string, string> }[] =
-        (item as any).variants ?? [];
+      const variants = item.variants ?? [];
       for (const v of variants) {
         if (!v.combinations) continue;
         for (const [key, val] of Object.entries(v.combinations)) {
@@ -316,13 +314,7 @@ export class ProductSearchService {
     params: ProductSearchDto,
     pagination: PaginationQueryDto = { page: 1, limit: 20 },
   ) {
-    const {
-      q,
-      minPrice,
-      maxPrice,
-      rating,
-      inStock = true,
-    } = params;
+    const { q, minPrice, maxPrice, rating, inStock = true } = params;
 
     const page = pagination.page ?? 1;
     const limit = pagination.limit ?? 20;
@@ -368,8 +360,6 @@ export class ProductSearchService {
       qb.andWhere('product.is_out_of_stock = :oos', { oos: true });
     }
 
-
-
     const [products, total] = await qb
       .orderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
@@ -393,7 +383,7 @@ export class ProductSearchService {
         address_postal_code: store?.address_postal_code,
 
         options: product.options || [],
-        variants: (product.variants || []).map((v: any) => ({
+        variants: (product.variants || []).map((v) => ({
           ...v,
           price: Number(v.price) / 100,
           discount_price: v.discount_price
@@ -497,8 +487,6 @@ export class ProductSearchService {
       qb.andWhere('product.status = :status', { status: params.status });
     }
 
-
-
     const [products, total] = await qb
       .skip((page - 1) * limit)
       .take(limit)
@@ -551,7 +539,12 @@ export class ProductSearchService {
 
   async getSalesTerminalProducts(
     storeId: string,
-    query: { page?: number; limit?: number; q?: string; category?: string } = {},
+    query: {
+      page?: number;
+      limit?: number;
+      q?: string;
+      category?: string;
+    } = {},
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 24;
@@ -625,7 +618,7 @@ export class ProductSearchService {
       .andWhere('category.name IS NOT NULL')
       .groupBy('category.name')
       .orderBy('category.name', 'ASC')
-      .getRawMany();
+      .getRawMany<{ name: string; count: string }>();
 
     return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
   }

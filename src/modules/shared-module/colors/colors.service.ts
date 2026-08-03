@@ -46,8 +46,9 @@ export class ColorsService {
         message: 'Color created successfully',
         color: saved,
       };
-    } catch (error) {
-      if (error.code === '23505') {
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+      if (err.code === '23505') {
         throw new BadRequestException(
           'A color with this name or hex code already exists in your store or system defaults.',
         );

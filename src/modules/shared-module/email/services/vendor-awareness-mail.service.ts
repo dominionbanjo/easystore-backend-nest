@@ -20,7 +20,11 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Take the next step with your storefront!', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Take the next step with your storefront!',
+      html,
+    });
   }
 
   async sendFirstProductPrompt(email: string, storeName: string) {
@@ -35,7 +39,11 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Your storefront is ready. Time to add products!', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Your storefront is ready. Time to add products!',
+      html,
+    });
   }
 
   async sendCatalogGrowthPrompt(email: string, storeName: string) {
@@ -49,7 +57,11 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Offer more choices to your customers!', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Offer more choices to your customers!',
+      html,
+    });
   }
 
   async sendThemeCustomizationPrompt(email: string, storeName: string) {
@@ -64,7 +76,11 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Make your EasyStore uniquely yours', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Make your EasyStore uniquely yours',
+      html,
+    });
   }
 
   async sendOfflineSalesFeaturePrompt(email: string, storeName: string) {
@@ -79,7 +95,11 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Manage physical sales directly from your dashboard', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Manage physical sales directly from your dashboard',
+      html,
+    });
   }
 
   async sendSocialSharePrompt(email: string, storeName: string) {
@@ -94,7 +114,11 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Easily share your products on social media', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Easily share your products on social media',
+      html,
+    });
   }
 
   async sendBankSetupReminder(email: string, storeName: string) {
@@ -109,10 +133,18 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Action Required: Add your bank details', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Action Required: Add your bank details',
+      html,
+    });
   }
 
-  async sendWeeklyPerformanceSummary(email: string, storeName: string, weeklyOrders: number) {
+  async sendWeeklyPerformanceSummary(
+    email: string,
+    storeName: string,
+    weeklyOrders: number,
+  ) {
     const html = this.tpl.wrapper(
       'Your Weekly Dashboard Summary',
       `
@@ -124,6 +156,10 @@ export class VendorAwarenessMailService {
         </div>
       `,
     );
-    return this.email.sendEmail({ to: email, subject: 'Your weekly performance report is ready', html });
+    return this.email.sendEmail({
+      to: email,
+      subject: 'Your weekly performance report is ready',
+      html,
+    });
   }
 }

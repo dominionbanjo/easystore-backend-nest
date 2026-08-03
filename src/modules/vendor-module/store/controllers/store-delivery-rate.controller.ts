@@ -8,9 +8,19 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from '../../../../common/decorators/api-standard-errors.decorator';
-import { SuccessResponseDto, SuccessWithIdDto } from '../../../../common/dto/api-response.dto';
+import {
+  SuccessResponseDto,
+  SuccessWithIdDto,
+} from '../../../../common/dto/api-response.dto';
 
 import { SetProductDeliveryRateDto } from '../dto/store-delivery-rate.dto';
 
@@ -29,7 +39,10 @@ import { StoreDeliveryRateService } from '../services/store-delivery-rate.servic
 export class StoreDeliveryRateController {
   constructor(private readonly deliveryRateService: StoreDeliveryRateService) {}
 
-  @ApiOperation({ summary: 'Get delivery rates for a store', description: 'Retrieve all delivery rates configured for a store (public)' })
+  @ApiOperation({
+    summary: 'Get delivery rates for a store',
+    description: 'Retrieve all delivery rates configured for a store (public)',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
   @ApiOkResponse({ description: 'List of delivery rates for the store' })
   @ApiStandardErrorResponses()
@@ -38,9 +51,15 @@ export class StoreDeliveryRateController {
     return this.deliveryRateService.getRatesByStore(storeId);
   }
 
-  @ApiOperation({ summary: 'Add delivery rate', description: 'Create a new delivery rate for a store (store owner only)' })
+  @ApiOperation({
+    summary: 'Add delivery rate',
+    description: 'Create a new delivery rate for a store (store owner only)',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
-  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Delivery rate created successfully' })
+  @ApiCreatedResponse({
+    type: SuccessWithIdDto,
+    description: 'Delivery rate created successfully',
+  })
   @ApiStandardErrorResponses()
   @Post('store/:storeId')
   @RequirePermissions(Permission.MANAGE_STORE)
@@ -53,9 +72,16 @@ export class StoreDeliveryRateController {
     return this.deliveryRateService.createRate(user.sub, storeId, dto);
   }
 
-  @ApiOperation({ summary: 'Update delivery rate', description: 'Update an existing delivery rate for a store (store owner only)' })
+  @ApiOperation({
+    summary: 'Update delivery rate',
+    description:
+      'Update an existing delivery rate for a store (store owner only)',
+  })
   @ApiParam({ name: 'rateId', description: 'Delivery rate ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Delivery rate updated successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Delivery rate updated successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':rateId')
   @RequirePermissions(Permission.MANAGE_STORE)
@@ -68,9 +94,15 @@ export class StoreDeliveryRateController {
     return this.deliveryRateService.updateRate(user.sub, rateId, dto);
   }
 
-  @ApiOperation({ summary: 'Delete delivery rate', description: 'Delete a delivery rate from a store (store owner only)' })
+  @ApiOperation({
+    summary: 'Delete delivery rate',
+    description: 'Delete a delivery rate from a store (store owner only)',
+  })
   @ApiParam({ name: 'rateId', description: 'Delivery rate ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Delivery rate deleted successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Delivery rate deleted successfully',
+  })
   @ApiStandardErrorResponses()
   @Delete(':rateId')
   @RequirePermissions(Permission.MANAGE_STORE)

@@ -21,6 +21,7 @@ import { UsersModule } from './modules/identity-module/users/users.module';
 import { CacheModule } from './modules/shared-module/cache/cache.module';
 import { ColorsModule } from './modules/shared-module/colors/colors.module';
 import { EmailModule } from './modules/shared-module/email/email.module';
+import { GeoModule } from './modules/shared-module/geo/geo.module';
 import { StoreAnalyticsModule } from './modules/vendor-module/store-analytics/store-analytics.module';
 import { StoreModule } from './modules/vendor-module/store/store.module';
 import { AdminModule } from './modules/admin-module/admin-module.module';
@@ -86,6 +87,7 @@ import { SchoolZoneModule } from './modules/school-zone/school-zone.module';
     // 📧 / ⚡ INFRA
     EmailModule,
     CacheModule,
+    GeoModule,
     AdminModule,
 
     // 👥 STAFF

@@ -28,20 +28,6 @@ class VendorSummaryDto {
   email: string;
 }
 
-class VendorStoreSummaryDto {
-  @ApiProperty({ description: 'Store ID' })
-  id: string;
-
-  @ApiProperty({ description: 'Store name' })
-  store_name: string;
-
-  @ApiProperty({ description: 'Store slug' })
-  slug: string;
-
-  @ApiPropertyOptional({ description: 'Store logo URL' })
-  logo: string | null;
-}
-
 class DeliverySummaryDto {
   @ApiProperty({ description: 'Delivery ID' })
   id: string;
@@ -93,9 +79,15 @@ export class OrderListItemDto {
   @ApiPropertyOptional({ description: 'Buyer details', type: BuyerSummaryDto })
   buyer?: BuyerSummaryDto;
 
-  @ApiPropertyOptional({ description: 'Vendor details', type: VendorSummaryDto })
+  @ApiPropertyOptional({
+    description: 'Vendor details',
+    type: VendorSummaryDto,
+  })
   vendor?: VendorSummaryDto;
 
-  @ApiPropertyOptional({ description: 'Delivery summary', type: DeliverySummaryDto })
+  @ApiPropertyOptional({
+    description: 'Delivery summary',
+    type: DeliverySummaryDto,
+  })
   delivery?: DeliverySummaryDto;
 }

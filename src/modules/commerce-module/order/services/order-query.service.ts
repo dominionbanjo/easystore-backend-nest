@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../entities/order.entity';
-import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { StoreStaff } from 'src/modules/vendor-module/store/entities/store-staff.entity';
 import { buildPagination } from 'src/utils/response/pagination.util';
 
@@ -127,7 +126,13 @@ export class OrderQueryService {
   async getOrderForApi(id: string, user_id: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      relations: ['delivery', 'vendor', 'vendor.stores', 'delivery_address', 'escrow'],
+      relations: [
+        'delivery',
+        'vendor',
+        'vendor.stores',
+        'delivery_address',
+        'escrow',
+      ],
       select: {
         delivery: {
           id: true,
@@ -410,8 +415,9 @@ export class OrderQueryService {
     if (storeId) {
       qb.andWhere('order.store_id = :storeId', { storeId });
     }
-    qb.andWhere("order.payment_method IN ('cash', 'transfer', 'pos', 'offline')")
-      .andWhere("order.status = 'completed'");
+    qb.andWhere(
+      "order.payment_method IN ('cash', 'transfer', 'pos', 'offline')",
+    ).andWhere("order.status = 'completed'");
 
     qb.select([
       'order.id',

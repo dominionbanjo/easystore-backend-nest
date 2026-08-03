@@ -23,7 +23,10 @@ import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
-import { SuccessResponseDto, SuccessWithIdDto } from 'src/common/dto/api-response.dto';
+import {
+  SuccessResponseDto,
+  SuccessWithIdDto,
+} from 'src/common/dto/api-response.dto';
 import { StoreReviewDto } from './dto/store-review.dto';
 
 @ApiTags('Reviews')
@@ -35,9 +38,16 @@ export class ProductReviewController {
   /* ────────────────────────────────────────────────
      ➕ ADD PRODUCT REVIEW (AUTH REQUIRED)
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Add a product review', description: 'Adds a review and rating for a product. Requires authentication.' })
+  @ApiOperation({
+    summary: 'Add a product review',
+    description:
+      'Adds a review and rating for a product. Requires authentication.',
+  })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
-  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Review added successfully' })
+  @ApiCreatedResponse({
+    type: SuccessWithIdDto,
+    description: 'Review added successfully',
+  })
   @ApiStandardErrorResponses()
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -61,7 +71,11 @@ export class ProductReviewController {
   /* ────────────────────────────────────────────────
      🧾 GET PRODUCT REVIEWS (PUBLIC)
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get product reviews', description: 'Retrieves all reviews for a specific product. Public endpoint - no authentication required.' })
+  @ApiOperation({
+    summary: 'Get product reviews',
+    description:
+      'Retrieves all reviews for a specific product. Public endpoint - no authentication required.',
+  })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
   @ApiPaginatedResponse(Object)
   @ApiStandardErrorResponses()
@@ -73,10 +87,17 @@ export class ProductReviewController {
   /* ────────────────────────────────────────────────
      ❌ DELETE REVIEW (OWNER ONLY)
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Delete a review', description: 'Deletes a product review by its ID. Requires authentication and ownership.' })
+  @ApiOperation({
+    summary: 'Delete a review',
+    description:
+      'Deletes a product review by its ID. Requires authentication and ownership.',
+  })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
   @ApiParam({ name: 'reviewId', description: 'Review ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Review deleted successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Review deleted successfully',
+  })
   @ApiStandardErrorResponses()
   @Delete(':reviewId')
   @UseGuards(JwtAuthGuard)
@@ -96,22 +117,37 @@ export class StoreReviewController {
   constructor(private readonly reviewService: ProductReviewService) {}
 
   @Post('vendor')
-  @ApiOperation({ summary: 'Submit a platform review', description: 'Allows a vendor to submit one review of the platform.' })
+  @ApiOperation({
+    summary: 'Submit a platform review',
+    description: 'Allows a vendor to submit one review of the platform.',
+  })
   async submitStoreReview(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() dto: StoreReviewDto,
   ) {
-    return this.reviewService.submitStoreReview(user.sub, dto.rating, dto.comment);
+    return this.reviewService.submitStoreReview(
+      user.sub,
+      dto.rating,
+      dto.comment,
+    );
   }
 
   @Get('vendor/meta')
-  @ApiOperation({ summary: 'Get review modal metadata', description: 'Returns whether the user has reviewed and prompt timing info.' })
+  @ApiOperation({
+    summary: 'Get review modal metadata',
+    description:
+      'Returns whether the user has reviewed and prompt timing info.',
+  })
   async getStoreReviewMeta(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.reviewService.getStoreReviewMeta(user.sub);
   }
 
   @Post('vendor/dismiss')
-  @ApiOperation({ summary: 'Dismiss review prompt', description: 'Records that the review prompt was dismissed so it can show again later.' })
+  @ApiOperation({
+    summary: 'Dismiss review prompt',
+    description:
+      'Records that the review prompt was dismissed so it can show again later.',
+  })
   async dismissReviewPrompt(@CurrentUser() user: jwtStrategy.JwtAuthUser) {
     return this.reviewService.dismissReviewPrompt(user.sub);
   }

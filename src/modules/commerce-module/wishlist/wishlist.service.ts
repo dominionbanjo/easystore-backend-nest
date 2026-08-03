@@ -10,7 +10,6 @@ import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { Product } from '../product/entities/product.entity';
 import { CartService } from '../cart/cart.service';
 
-
 @Injectable()
 export class WishlistService {
   constructor(
@@ -147,7 +146,11 @@ export class WishlistService {
     });
 
     if (existing) {
-      return { success: true, id: existing.id, message: 'Product already in wishlist' };
+      return {
+        success: true,
+        id: existing.id,
+        message: 'Product already in wishlist',
+      };
     }
 
     const wishlistItem = wRepo.create({

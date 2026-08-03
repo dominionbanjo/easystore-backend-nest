@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { ProductReadService } from './product-read.service';
 import { ProductWriteService } from './product-write.service';
 import { ProductSearchService } from './product-search.service';
@@ -68,7 +69,6 @@ export class ProductService {
     return this.readService.lookupByBarcode(barcode, storeId);
   }
 
-
   /* ────────────────────────────────────────────────
      SEARCH OPERATIONS
   ──────────────────────────────────────────────── */
@@ -100,7 +100,10 @@ export class ProductService {
     return this.searchService.getVendorProducts(storeId, params);
   }
 
-  getSalesTerminalProducts(storeId: string, query?: { page?: number; limit?: number; q?: string; category?: string }) {
+  getSalesTerminalProducts(
+    storeId: string,
+    query?: { page?: number; limit?: number; q?: string; category?: string },
+  ) {
     return this.searchService.getSalesTerminalProducts(storeId, query);
   }
 
@@ -111,15 +114,28 @@ export class ProductService {
   /* ────────────────────────────────────────────────
      WRITE OPERATIONS
   ──────────────────────────────────────────────── */
-  create(user: any, dto: CreateProductDto, files?: any) {
+  create(
+    user: { sub: string; store_id: string | null; status: string },
+    dto: CreateProductDto,
+    files?: {
+      image?: Express.Multer.File[];
+      gallery?: Express.Multer.File[];
+    },
+  ) {
     return this.writeService.create(user, dto, files);
   }
 
-  createWithCloudinary(user: any, dto: CreateProductCloudinaryDto) {
+  createWithCloudinary(
+    user: { sub: string; store_id: string | null },
+    dto: CreateProductCloudinaryDto,
+  ) {
     return this.writeService.createWithCloudinary(user, dto);
   }
 
-  createMany(user: any, dtos: CreateProductDto[]) {
+  createMany(
+    user: { sub: string; store_id: string | null; status: string },
+    dtos: CreateProductDto[],
+  ) {
     return this.writeService.createMany(user, dtos);
   }
 
@@ -143,11 +159,15 @@ export class ProductService {
     return this.writeService.remove(id);
   }
 
-  adjustStock(productId: string, adjustment: number, manager?: any) {
+  adjustStock(productId: string, adjustment: number, manager?: EntityManager) {
     return this.writeService.adjustStock(productId, adjustment, manager);
   }
 
-  adjustVariantStock(variantId: string, adjustment: number, manager?: any) {
+  adjustVariantStock(
+    variantId: string,
+    adjustment: number,
+    manager?: EntityManager,
+  ) {
     return this.writeService.adjustVariantStock(variantId, adjustment, manager);
   }
 }

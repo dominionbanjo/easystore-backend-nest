@@ -8,6 +8,12 @@ import { Reflector } from '@nestjs/core';
 import { Permission, ROLE_PERMISSIONS } from './permissions';
 import { PERMISSIONS_KEY } from './permissions.decorator';
 
+interface AuthUser {
+  account_type?: string;
+  role?: string;
+  permissions?: string[];
+}
+
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -25,7 +31,9 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // 2. Extract user from request (populated by JwtAuthGuard)
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{
+      user?: AuthUser;
+    }>();
     const user = request.user;
 
     if (!user) {
@@ -34,11 +42,13 @@ export class PermissionsGuard implements CanActivate {
 
     // 3. Get permissions associated with the user's role
     const userRole = user.account_type || user.role; // Handle both if needed
-    const rolePermissions = ROLE_PERMISSIONS[userRole] || [];
+    const rolePermissions = ROLE_PERMISSIONS[userRole ?? ''] || [];
 
     // 4. Merge with staff-level overrides (if any)
     const extraPermissions = user.permissions || [];
-    const userPermissions = [...new Set([...rolePermissions, ...extraPermissions])];
+    const userPermissions = [
+      ...new Set([...rolePermissions, ...extraPermissions]),
+    ];
 
     // 5. Check if user has all required permissions
     const hasPermission = requiredPermissions.every((permission) =>

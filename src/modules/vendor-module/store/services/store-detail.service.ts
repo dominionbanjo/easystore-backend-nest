@@ -19,9 +19,7 @@ import {
   addProductCardSelects,
   mapToProductCardData,
 } from 'src/modules/commerce-module/product/utils/product-card.util';
-import {
-  mapToPublicStore,
-} from '../utils/store-sanitizer.util';
+import { mapToPublicStore } from '../utils/store-sanitizer.util';
 import { buildPagination } from 'src/utils/response/pagination.util';
 import { StoreTemplate } from '../entities/store-template.entity';
 import { Store } from '../entities/store.entity';
@@ -88,37 +86,66 @@ export class StoreDetailService {
       store = await this.storeRepo.findOne({
         where: { id: identifier },
         select: {
-          id: true, store_name: true, slug: true, subdomain: true,
-          category: true, description: true, logo: true, cover_image: true,
-          email: true, phone_number: true,
-          rating_average: true, rating_count: true,
-          address_city: true, address_state: true, address_country: true,
+          id: true,
+          store_name: true,
+          slug: true,
+          subdomain: true,
+          category: true,
+          description: true,
+          logo: true,
+          cover_image: true,
+          email: true,
+          phone_number: true,
+          rating_average: true,
+          rating_count: true,
+          address_city: true,
+          address_state: true,
+          address_country: true,
           address_postal_code: true,
-          status: true, user_id: true, total_products: true, created_at: true,
+          status: true,
+          user_id: true,
+          total_products: true,
+          created_at: true,
           user: {
-            first_name: true, last_name: true, username: true,
-            avatar: true, account_status: true,
+            first_name: true,
+            last_name: true,
+            username: true,
+            avatar: true,
+            account_status: true,
           },
         },
         relations: ['user', 'theme_setting', 'theme_setting.template'],
       });
     } else {
       store = await this.storeRepo.findOne({
-        where: [
-          { subdomain: identifier },
-          { slug: identifier },
-        ],
+        where: [{ subdomain: identifier }, { slug: identifier }],
         select: {
-          id: true, store_name: true, slug: true, subdomain: true,
-          category: true, description: true, logo: true, cover_image: true,
-          email: true, phone_number: true,
-          rating_average: true, rating_count: true,
-          address_city: true, address_state: true, address_country: true,
+          id: true,
+          store_name: true,
+          slug: true,
+          subdomain: true,
+          category: true,
+          description: true,
+          logo: true,
+          cover_image: true,
+          email: true,
+          phone_number: true,
+          rating_average: true,
+          rating_count: true,
+          address_city: true,
+          address_state: true,
+          address_country: true,
           address_postal_code: true,
-          status: true, user_id: true, total_products: true, created_at: true,
+          status: true,
+          user_id: true,
+          total_products: true,
+          created_at: true,
           user: {
-            first_name: true, last_name: true, username: true,
-            avatar: true, account_status: true,
+            first_name: true,
+            last_name: true,
+            username: true,
+            avatar: true,
+            account_status: true,
           },
         },
         relations: ['user', 'theme_setting', 'theme_setting.template'],
@@ -130,7 +157,10 @@ export class StoreDetailService {
     }
 
     const isOwner = !!(userId && store.user_id === userId);
-    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
+    if (
+      !isOwner &&
+      (store.status !== 'active' || store.user?.account_status !== 'active')
+    ) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
@@ -190,7 +220,7 @@ export class StoreDetailService {
         .getMany();
     }
 
-    let themeData: any = null;
+    let themeData: StoreThemeData | null = null;
     if (store.theme_setting && store.theme_setting.template) {
       themeData = {
         template: store.theme_setting.template,
@@ -338,10 +368,7 @@ export class StoreDetailService {
     const store = await this.storeRepo.findOne({
       where: isUUID
         ? { id: identifier }
-        : [
-            { subdomain: identifier },
-            { slug: identifier },
-          ],
+        : [{ subdomain: identifier }, { slug: identifier }],
       relations: ['user'],
       select: [
         'id',
@@ -361,7 +388,10 @@ export class StoreDetailService {
     }
 
     const isOwner = !!(userId && store.user_id === userId);
-    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
+    if (
+      !isOwner &&
+      (store.status !== 'active' || store.user?.account_status !== 'active')
+    ) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
@@ -471,10 +501,7 @@ export class StoreDetailService {
     const store = await this.storeRepo.findOne({
       where: isUUID
         ? { id: identifier }
-        : [
-            { subdomain: identifier },
-            { slug: identifier },
-          ],
+        : [{ subdomain: identifier }, { slug: identifier }],
       relations: ['user'],
       select: [
         'id',
@@ -494,7 +521,10 @@ export class StoreDetailService {
     }
 
     const isOwner = !!(userId && store.user_id === userId);
-    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
+    if (
+      !isOwner &&
+      (store.status !== 'active' || store.user?.account_status !== 'active')
+    ) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
@@ -592,10 +622,7 @@ export class StoreDetailService {
     const store = await this.storeRepo.findOne({
       where: isUUID
         ? { id: identifier }
-        : [
-            { subdomain: identifier },
-            { slug: identifier },
-          ],
+        : [{ subdomain: identifier }, { slug: identifier }],
       relations: ['user'],
       select: ['id', 'store_name', 'user_id', 'status', 'slug'],
     });
@@ -605,11 +632,14 @@ export class StoreDetailService {
     }
 
     const isOwner = !!(userId && store.user_id === userId);
-    if (!isOwner && (store.status !== 'active' || store.user?.account_status !== 'active')) {
+    if (
+      !isOwner &&
+      (store.status !== 'active' || store.user?.account_status !== 'active')
+    ) {
       throw new NotFoundException('Store not found or is inactive');
     }
 
-    const rows = await this.productRepo.query(
+    const rows = await this.productRepo.query<StoreGroupedProductRow[]>(
       STORE_PRODUCTS_GROUPED_BY_CATEGORY_SQL,
       [store.id, perCategoryLimit],
     );
@@ -619,7 +649,7 @@ export class StoreDetailService {
       const wishlisted = await this.wishlistRepo.find({
         where: {
           user_id: userId,
-          product_id: In(rows.map((r: any) => r.id)),
+          product_id: In(rows.map((r) => r.id)),
         },
         select: ['product_id'],
       });
@@ -633,18 +663,23 @@ export class StoreDetailService {
     });
 
     const enrichedRows = await this.helpers.resolveColorsForList(rows);
-    const grouped = new Map<string, any[]>();
+    const grouped = new Map<string, GroupedProductItem[]>();
 
-    const extractImageUrl = (image: any): string | null => {
+    const extractImageUrl = (image: unknown): string | null => {
       if (!image) return null;
       if (typeof image === 'string') {
         try {
-          return JSON.parse(image)?.url ?? null;
+          const parsed = JSON.parse(image) as { url?: string | null } | null;
+          return parsed?.url ?? null;
         } catch {
           return null;
         }
       }
-      return image?.url ?? null;
+      if (typeof image === 'object') {
+        const obj = image as { url?: string | null };
+        return obj.url ?? null;
+      }
+      return null;
     };
 
     for (const row of enrichedRows) {
@@ -670,7 +705,7 @@ export class StoreDetailService {
         colors: row.colors || [],
         sizes: row.sizes || [],
         options: row.options || [],
-        variants: (row.variants || []).map((v: any) => ({
+        variants: (row.variants || []).map((v) => ({
           ...v,
           price: v.price ? Number(v.price) / 100 : 0,
           discount_price: v.discount_price
@@ -696,4 +731,45 @@ export class StoreDetailService {
       data,
     };
   }
+}
+
+interface StoreThemeData {
+  template: StoreTemplate | null;
+  custom_config: Record<string, unknown>;
+}
+
+interface StoreGroupedProductRow {
+  id: string;
+  name: string;
+  slug: string;
+  price: string;
+  discount_price: string | null;
+  on_sale: boolean;
+  stock: number;
+  rating_average: string;
+  image: unknown;
+  parent_category_id: string;
+  colors?: unknown[];
+  sizes?: unknown[];
+  options?: unknown[];
+  variants?: Array<{ price: string; discount_price: string | null }>;
+}
+
+export interface GroupedProductItem {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  discount_price: number | null;
+  on_sale: boolean;
+  stock: number;
+  rating_average: number;
+  image: string | null;
+  is_in_wishlist: boolean;
+  store_name: string;
+  store_slug: string;
+  colors: unknown[];
+  sizes: unknown[];
+  options: unknown[];
+  variants: unknown[];
 }

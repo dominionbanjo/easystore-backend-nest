@@ -26,7 +26,9 @@ export class AdminUsersService {
   ) {}
 
   private buildBaseQuery(type?: string): SelectQueryBuilder<User> {
-    const qb = this.userRepo.createQueryBuilder('user').leftJoin('user.stores', 'store');
+    const qb = this.userRepo
+      .createQueryBuilder('user')
+      .leftJoin('user.stores', 'store');
 
     if (type) {
       qb.andWhere('user.account_type = :type', { type });
@@ -216,16 +218,16 @@ export class AdminUsersService {
     ) {
       // Special case for store approval
       const storeName =
-        user.stores.length === 1
-          ? user.stores[0].store_name
-          : 'your store';
+        user.stores.length === 1 ? user.stores[0].store_name : 'your store';
       this.accountStatusMail
         .sendStoreApprovalEmail({
           name: user.first_name,
           email: user.email,
           storeName,
         })
-        .catch((e) => console.error('Store Approval Email Error:', e.message));
+        .catch((e: Error) =>
+          console.error('Store Approval Email Error:', e.message),
+        );
     } else {
       // General status update
       this.accountStatusMail
@@ -236,7 +238,9 @@ export class AdminUsersService {
           },
           newStatus,
         )
-        .catch((e) => console.error('Status Update Email Error:', e.message));
+        .catch((e: Error) =>
+          console.error('Status Update Email Error:', e.message),
+        );
 
       // Notify Admin about the change
       this.adminNotifyMail
@@ -247,7 +251,9 @@ export class AdminUsersService {
           },
           newStatus,
         )
-        .catch((e) => console.error('Admin Status Notify Error:', e.message));
+        .catch((e: Error) =>
+          console.error('Admin Status Notify Error:', e.message),
+        );
     }
 
     return {
@@ -288,7 +294,9 @@ export class AdminUsersService {
           email: store.user.email,
           storeName: store.store_name,
         })
-        .catch((e) => console.error('Store Approval Email Error:', e.message));
+        .catch((e: Error) =>
+          console.error('Store Approval Email Error:', e.message),
+        );
     } else if (store.user) {
       // General status update for store
       this.accountStatusMail
@@ -299,7 +307,9 @@ export class AdminUsersService {
           },
           newStatus,
         )
-        .catch((e) => console.error('Status Update Email Error:', e.message));
+        .catch((e: Error) =>
+          console.error('Status Update Email Error:', e.message),
+        );
     }
 
     return {

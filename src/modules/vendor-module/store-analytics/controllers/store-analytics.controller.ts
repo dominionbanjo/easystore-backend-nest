@@ -7,7 +7,15 @@ import {
   UseGuards,
   NotFoundException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from '../../../../common/decorators/api-standard-errors.decorator';
 import { SuccessResponseDto } from '../../../../common/dto/api-response.dto';
 import { StoreAnalyticsService } from '../services/store-analytics.service';
@@ -18,7 +26,6 @@ import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard'
 import { StoreOwnerGuard } from '../../store/guards/store-owner.guard';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
-import { PermissionsGuard } from '../../../../common/permissions/permissions.guard';
 import { RequirePermissions } from '../../../../common/permissions/permissions.decorator';
 import { Permission } from '../../../../common/permissions/permissions';
 
@@ -29,7 +36,10 @@ import { Permission } from '../../../../common/permissions/permissions';
 export class StoreAnalyticsController {
   constructor(private readonly analytics: StoreAnalyticsService) {}
 
-  @ApiOperation({ summary: 'Get my store analytics', description: 'Retrieve analytics data for the authenticated user\'s store' })
+  @ApiOperation({
+    summary: 'Get my store analytics',
+    description: "Retrieve analytics data for the authenticated user's store",
+  })
   @ApiOkResponse({ description: 'Store analytics data' })
   @ApiStandardErrorResponses()
   @Get('me')
@@ -46,7 +56,10 @@ export class StoreAnalyticsController {
   /* ────────────────────────────────────────────────
      GET FULL ANALYTICS SNAPSHOT
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get store analytics by ID', description: 'Retrieve analytics data for a specific store' })
+  @ApiOperation({
+    summary: 'Get store analytics by ID',
+    description: 'Retrieve analytics data for a specific store',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
   @ApiOkResponse({ description: 'Store analytics data' })
   @ApiStandardErrorResponses()
@@ -60,10 +73,16 @@ export class StoreAnalyticsController {
   /* ────────────────────────────────────────────────
      RECORD ORDER → UPDATE ANALYTICS
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Record order and update analytics', description: 'Record an order event and update the store analytics data' })
+  @ApiOperation({
+    summary: 'Record order and update analytics',
+    description: 'Record an order event and update the store analytics data',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
   @ApiBody({ description: 'Order event data', type: Object })
-  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Analytics updated successfully' })
+  @ApiCreatedResponse({
+    type: SuccessResponseDto,
+    description: 'Analytics updated successfully',
+  })
   @ApiStandardErrorResponses()
   @Post(':storeId/event/order')
   @Roles('vendor', 'admin')
@@ -87,7 +106,11 @@ export class StoreAnalyticsController {
   /* ────────────────────────────────────────────────
      TOP PRODUCTS (FROM ANALYTICS TABLE)
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get top products from analytics', description: 'Retrieve the top-selling products from analytics data for a store' })
+  @ApiOperation({
+    summary: 'Get top products from analytics',
+    description:
+      'Retrieve the top-selling products from analytics data for a store',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
   @ApiOkResponse({ description: 'Top products data' })
   @ApiStandardErrorResponses()
@@ -99,9 +122,15 @@ export class StoreAnalyticsController {
   }
 
   /* 🔐 ADMIN ONLY */
-  @ApiOperation({ summary: 'Initialize store analytics', description: 'Initialize analytics data for a store (admin only)' })
+  @ApiOperation({
+    summary: 'Initialize store analytics',
+    description: 'Initialize analytics data for a store (admin only)',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
-  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Analytics initialized successfully' })
+  @ApiCreatedResponse({
+    type: SuccessResponseDto,
+    description: 'Analytics initialized successfully',
+  })
   @ApiStandardErrorResponses()
   @Post(':storeId/initialize')
   @Roles('admin')

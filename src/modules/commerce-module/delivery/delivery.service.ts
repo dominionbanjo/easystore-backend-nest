@@ -12,7 +12,7 @@ import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service'
 import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { DeliveryMailService } from 'src/modules/shared-module/email/services/delivery-mail.service';
-import { Order } from '../order/entities/order.entity';
+import { Order, OrderStatus } from '../order/entities/order.entity';
 import { StoreAnalyticsService } from 'src/modules/vendor-module/store-analytics/services/store-analytics.service';
 
 @Injectable()
@@ -119,85 +119,85 @@ export class DeliveryService {
         return existing;
       }
 
-    const order = await this.orderRepo.findOne({ where: { id: order_id } });
-    if (!order) throw new NotFoundException('Order not found');
+      const order = await this.orderRepo.findOne({ where: { id: order_id } });
+      if (!order) throw new NotFoundException('Order not found');
 
-    const buyer = await this.userRepo.findOne({ where: { id: buyer_id } });
-    if (!buyer) throw new BadRequestException('Buyer not found');
+      const buyer = await this.userRepo.findOne({ where: { id: buyer_id } });
+      if (!buyer) throw new BadRequestException('Buyer not found');
 
-    const vendor = await this.getVendorEmailAndStoreName(
-      vendor_id,
-      order.store_id ?? undefined,
-    );
+      const vendor = await this.getVendorEmailAndStoreName(
+        vendor_id,
+        order.store_id ?? undefined,
+      );
 
-    const addr = buyer.address ?? {};
+      const addr = buyer.address ?? {};
 
-    const delivery = this.deliveryRepo.create({
-      order_id,
-      buyer_id,
-      vendor_id,
-      store_id: order.store_id ?? null,
-      courier_id: data.courier_id ?? null,
-      order_items: order.order_items,
+      const delivery = this.deliveryRepo.create({
+        order_id,
+        buyer_id,
+        vendor_id,
+        store_id: order.store_id ?? null,
+        courier_id: data.courier_id ?? null,
+        order_items: order.order_items,
 
-      address: data.address ?? addr.street ?? null,
-      city: data.city ?? addr.city ?? null,
-      state: data.state ?? addr.state ?? null,
-      country: data.country ?? addr.country ?? null,
-      postal_code: data.postal_code ?? addr.postal_code ?? null,
+        address: data.address ?? addr.street ?? null,
+        city: data.city ?? addr.city ?? null,
+        state: data.state ?? addr.state ?? null,
+        country: data.country ?? addr.country ?? null,
+        postal_code: data.postal_code ?? addr.postal_code ?? null,
 
-      tracking_number: data.tracking_number ?? null,
-      estimated_delivery: data.estimated_delivery ?? null,
+        tracking_number: data.tracking_number ?? null,
+        estimated_delivery: data.estimated_delivery ?? null,
 
-      delivery_status: 'pending',
-    });
+        delivery_status: 'pending',
+      });
 
-    const saved = await this.deliveryRepo.save(delivery);
-    await this.cache.set(cacheKey, saved);
+      const saved = await this.deliveryRepo.save(delivery);
+      await this.cache.set(cacheKey, saved);
 
-    // 📧 Notifications
-    const buyerEmail = buyer.email;
-    const buyerName = buyer.first_name ?? 'Customer';
+      // 📧 Notifications
+      const buyerEmail = buyer.email;
+      const buyerName = buyer.first_name ?? 'Customer';
 
-    const vendorEmail = vendor?.email;
-    const vendorName =
-      vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
+      const vendorEmail = vendor?.email;
+      const vendorName =
+        vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
-    // 📧 Send notifications (non-blocking)
-    if (buyerEmail) {
-      try {
-        await this.mail.sendDeliveryCreatedBuyer({
-          email: buyerEmail,
-          name: buyerName,
-          order_id,
-          order_items: (order.order_items ?? []) as any[],
-        });
-      } catch (error) {
-        console.error('Failed to send delivery email to buyer:', error);
-      }
-    }
-
-    if (vendorEmail) {
-      try {
-        await this.mail.sendDeliveryCreatedVendor({
-          email: vendorEmail,
-          name: vendorName,
-          order_id,
-          order_items: (order.order_items ?? []) as any[],
-          buyer: {
-            name: buyerName,
+      // 📧 Send notifications (non-blocking)
+      if (buyerEmail) {
+        try {
+          await this.mail.sendDeliveryCreatedBuyer({
             email: buyerEmail,
-            address: buyer.address?.street ?? undefined,
-            city: buyer.address?.city ?? undefined,
-            state: buyer.address?.state ?? undefined,
-          },
-        });
-      } catch (error) {
-        console.error('Failed to send delivery email to vendor:', error);
+            name: buyerName,
+            order_id,
+            order_items: (order.order_items ?? []) as any[],
+          });
+        } catch (error) {
+          console.error('Failed to send delivery email to buyer:', error);
+        }
       }
-    }
 
-    return saved;
+      if (vendorEmail) {
+        try {
+          await this.mail.sendDeliveryCreatedVendor({
+            email: vendorEmail,
+            name: vendorName,
+            order_id,
+            order_items: (order.order_items ?? []) as any[],
+            buyer: {
+              name: buyerName,
+              email: buyerEmail,
+              address: buyer.address?.street ?? undefined,
+              city: buyer.address?.city ?? undefined,
+              state: buyer.address?.state ?? undefined,
+            },
+          });
+        } catch (error) {
+          console.error('Failed to send delivery email to vendor:', error);
+        }
+      }
+
+      return saved;
     } finally {
       await this.cache.releaseLock(lockKey);
     }
@@ -337,21 +337,17 @@ export class DeliveryService {
     const updated = await this.deliveryRepo.save(delivery);
     await this.cache.clearPrefix('delivery');
 
-    const order = await this.orderRepo.findOne({
-      where: { id: delivery.order_id! },
-    });
-
     const buyer = await this.userRepo.findOne({
       where: { id: delivery.buyer_id },
     });
 
-      const vendor = await this.getVendorEmailAndStoreName(
-        delivery.vendor_id,
-        delivery.store_id ?? undefined,
-      );
+    const vendor = await this.getVendorEmailAndStoreName(
+      delivery.vendor_id,
+      delivery.store_id ?? undefined,
+    );
 
-      const vendorName =
-        vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
+    const vendorName =
+      vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
     // 📧 Send notifications (non-blocking)
     if (buyer?.email) {
@@ -467,23 +463,23 @@ export class DeliveryService {
         return { success: true, idempotent: true };
       }
 
-    delivery.delivery_status = status;
+      delivery.delivery_status = status;
 
-    if (status === 'delivered') {
-      delivery.delivered_at = new Date();
-    }
+      if (status === 'delivered') {
+        delivery.delivered_at = new Date();
+      }
 
-    await this.deliveryRepo.save(delivery);
-    await this.cache.clearPrefix('delivery');
+      await this.deliveryRepo.save(delivery);
+      await this.cache.clearPrefix('delivery');
 
-    const order = await this.orderRepo.findOne({
-      where: { id: delivery.order_id! },
-      relations: ['escrow'],
-    });
+      const order = await this.orderRepo.findOne({
+        where: { id: delivery.order_id! },
+        relations: ['escrow'],
+      });
 
-    const buyer = await this.userRepo.findOne({
-      where: { id: delivery.buyer_id },
-    });
+      const buyer = await this.userRepo.findOne({
+        where: { id: delivery.buyer_id },
+      });
 
       const vendor = await this.getVendorEmailAndStoreName(
         delivery.vendor_id,
@@ -493,77 +489,78 @@ export class DeliveryService {
       const vendorName =
         vendor?.stores?.[0]?.store_name ?? vendor?.first_name ?? 'Vendor';
 
-    // 📧 Send notifications (non-blocking)
-    if (buyer?.email) {
-      try {
-        await this.mail.sendDeliveryStatusUpdateBuyer({
-          email: buyer.email,
-          name: buyer.first_name ?? 'Customer',
-          order_id: delivery.order_id!,
-          status,
-          order_items: (delivery.order_items ?? []) as any[],
-        });
-      } catch (error) {
-        console.error('Failed to send status update email to buyer:', error);
-      }
-    }
-
-    if (vendor?.email) {
-      try {
-        await this.mail.sendDeliveryStatusUpdateVendor({
-          email: vendor.email,
-          name: vendorName,
-          order_id: delivery.order_id!,
-          status,
-        });
-      } catch (error) {
-        console.error('Failed to send status update email to vendor:', error);
-      }
-    }
-
-    // 🔐 Escrow logic (online orders only)
-    if (
-      status === 'delivered' &&
-      order?.payment_method === 'online' &&
-      order?.escrow
-    ) {
-      await this.escrowService.markDelivered(delivery.order_id!);
-
-      if (buyer?.email && order.escrow?.release_code) {
+      // 📧 Send notifications (non-blocking)
+      if (buyer?.email) {
         try {
-          await this.mail.sendReleaseCodeToBuyer({
+          await this.mail.sendDeliveryStatusUpdateBuyer({
             email: buyer.email,
             name: buyer.first_name ?? 'Customer',
             order_id: delivery.order_id!,
-            release_code: order.escrow.release_code,
+            status,
+            order_items: (delivery.order_items ?? []) as any[],
           });
         } catch (error) {
-          console.error('Failed to send release code email to buyer:', error);
+          console.error('Failed to send status update email to buyer:', error);
         }
       }
-    }
 
-    // 🔃 Sync order status
-    if (order) {
-      const orderStatusMap: Partial<Record<DeliveryStatus, any>> = {
-        in_transit: 'in_transit',
-        delivered: 'delivered',
-        failed: 'failed',
-        returned: 'canceled',
-      };
-
-      if (orderStatusMap[status]) {
-        order.status = orderStatusMap[status];
-        await this.orderRepo.save(order);
+      if (vendor?.email) {
+        try {
+          await this.mail.sendDeliveryStatusUpdateVendor({
+            email: vendor.email,
+            name: vendorName,
+            order_id: delivery.order_id!,
+            status,
+          });
+        } catch (error) {
+          console.error('Failed to send status update email to vendor:', error);
+        }
       }
-    }
 
-    // Trigger analytics if delivered
-    if (status === 'delivered') {
-      await this.processAnalytics(delivery.order_id!);
-    }
+      // 🔐 Escrow logic (online orders only)
+      if (
+        status === 'delivered' &&
+        order?.payment_method === 'online' &&
+        order?.escrow
+      ) {
+        await this.escrowService.markDelivered(delivery.order_id!);
 
-    return { success: true };
+        if (buyer?.email && order.escrow?.release_code) {
+          try {
+            await this.mail.sendReleaseCodeToBuyer({
+              email: buyer.email,
+              name: buyer.first_name ?? 'Customer',
+              order_id: delivery.order_id!,
+              release_code: order.escrow.release_code,
+            });
+          } catch (error) {
+            console.error('Failed to send release code email to buyer:', error);
+          }
+        }
+      }
+
+      // 🔃 Sync order status
+      if (order) {
+        const orderStatusMap: Partial<Record<DeliveryStatus, OrderStatus>> = {
+          in_transit: 'in_transit',
+          delivered: 'delivered',
+          failed: 'failed',
+          returned: 'canceled',
+        };
+
+        const nextStatus = orderStatusMap[status];
+        if (nextStatus) {
+          order.status = nextStatus;
+          await this.orderRepo.save(order);
+        }
+      }
+
+      // Trigger analytics if delivered
+      if (status === 'delivered') {
+        await this.processAnalytics(delivery.order_id!);
+      }
+
+      return { success: true };
     } finally {
       await this.cache.releaseLock(lockKey);
     }
@@ -620,7 +617,9 @@ export class DeliveryService {
       const isEscrowOrder = order.payment_method === 'online' && order.escrow;
 
       if (isEscrowOrder && !code) {
-        throw new BadRequestException('Confirmation code is required for escrow orders');
+        throw new BadRequestException(
+          'Confirmation code is required for escrow orders',
+        );
       }
 
       delivery.delivery_status = 'confirmed';
@@ -722,7 +721,7 @@ export class DeliveryService {
     delivery.proof_of_delivery_url = uploaded.url;
     delivery.proof_of_delivery_url_public_id = uploaded.public_id;
 
-    const updated = await this.deliveryRepo.save(delivery);
+    await this.deliveryRepo.save(delivery);
     await this.cache.clearPrefix('delivery');
 
     const buyer = await this.userRepo.findOne({
@@ -742,6 +741,9 @@ export class DeliveryService {
       }
     }
 
-    return { success: true, message: 'Proof of delivery uploaded successfully' };
+    return {
+      success: true,
+      message: 'Proof of delivery uploaded successfully',
+    };
   }
 }

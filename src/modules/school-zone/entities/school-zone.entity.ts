@@ -14,6 +14,14 @@ export type SchoolZoneStatus =
   | 'restricted'
   | 'banned';
 
+export const SCHOOL_ZONE_STATUSES: SchoolZoneStatus[] = [
+  'pending',
+  'active',
+  'rejected',
+  'restricted',
+  'banned',
+];
+
 @Entity({ name: 'school_zones' })
 export class SchoolZone {
   @PrimaryGeneratedColumn('uuid')
@@ -74,6 +82,25 @@ export class SchoolZone {
 
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
+
+  /* School rep verification details (submitted at application) */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  department: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  course: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  student_id_number: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  school_id_image: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  school_id_public_id: string | null;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
+  delivery_fee: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   approved_by: string | null;

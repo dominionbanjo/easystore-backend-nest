@@ -25,7 +25,10 @@ export class NewsletterService {
       return { message: 'Subscribed successfully', id: existing.id };
     }
 
-    const subscriber = this.subscriberRepo.create({ email, location: location ?? null });
+    const subscriber = this.subscriberRepo.create({
+      email,
+      location: location ?? null,
+    });
     await this.subscriberRepo.save(subscriber);
     return { message: 'Subscribed successfully', id: subscriber.id };
   }

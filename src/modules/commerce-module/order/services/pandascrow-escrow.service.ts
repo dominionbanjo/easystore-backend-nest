@@ -21,6 +21,18 @@ interface PandascrowInitializeResponse {
   };
 }
 
+interface PandascrowCompleteResponse {
+  success: boolean;
+}
+
+interface PandascrowError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 @Injectable()
 export class PandascrowEscrowService {
   private readonly baseUrl = process.env.PANDASCROW_BASE_URL!;
@@ -91,10 +103,14 @@ export class PandascrowEscrowService {
       );
 
       return response.data;
-    } catch (err: any) {
-      console.error('Pandascrow initialization error:', err?.response?.data);
+    } catch (err: unknown) {
+      const pandascrowError = err as PandascrowError;
+      console.error(
+        'Pandascrow initialization error:',
+        pandascrowError?.response?.data,
+      );
       throw new InternalServerErrorException(
-        err?.response?.data?.message ??
+        pandascrowError?.response?.data?.message ??
           'Pandascrow escrow initialization failed',
       );
     }
@@ -113,19 +129,28 @@ export class PandascrowEscrowService {
       };
 
       const response = await firstValueFrom(
-        this.http.post(`${this.baseUrl}/escrow/complete`, payload, {
-          headers: {
-            Token: this.token,
-            'Content-Type': 'application/json',
+        this.http.post<PandascrowCompleteResponse>(
+          `${this.baseUrl}/escrow/complete`,
+          payload,
+          {
+            headers: {
+              Token: this.token,
+              'Content-Type': 'application/json',
+            },
           },
-        }),
+        ),
       );
 
       return response.data;
-    } catch (err: any) {
-      console.error('Pandascrow completion error:', err?.response?.data);
+    } catch (err: unknown) {
+      const pandascrowError = err as PandascrowError;
+      console.error(
+        'Pandascrow completion error:',
+        pandascrowError?.response?.data,
+      );
       throw new BadRequestException(
-        err?.response?.data?.message ?? 'Pandascrow escrow completion failed',
+        pandascrowError?.response?.data?.message ??
+          'Pandascrow escrow completion failed',
       );
     }
   }

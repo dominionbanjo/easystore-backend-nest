@@ -4,7 +4,6 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  Index,
 } from 'typeorm';
 
 export type BroadcastTarget = 'all' | 'vendors' | 'users' | 'specific';

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, In } from 'typeorm';
 import { Order } from '../entities/order.entity';
@@ -78,10 +78,10 @@ export class OrderCronService {
             },
           });
         }
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.error(
           `Failed to process stale order ${order.id}:`,
-          error.message,
+          (error as Error).message,
         );
       }
     }

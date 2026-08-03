@@ -18,7 +18,10 @@ export class ProductOptionDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ description: 'Option values', example: ['Small', 'Medium', 'Large'] })
+  @ApiProperty({
+    description: 'Option values',
+    example: ['Small', 'Medium', 'Large'],
+  })
   @IsArray()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
@@ -26,7 +29,10 @@ export class ProductOptionDto {
 }
 
 export class ProductVariantDto {
-  @ApiPropertyOptional({ description: 'Variant ID (for updates)', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiPropertyOptional({
+    description: 'Variant ID (for updates)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   @IsUUID()
   @IsOptional()
   id?: string;
@@ -36,13 +42,20 @@ export class ProductVariantDto {
   @IsOptional()
   sku?: string;
 
-  @ApiPropertyOptional({ description: 'Variant barcode/UPC', example: '8901234567891', maxLength: 100 })
+  @ApiPropertyOptional({
+    description: 'Variant barcode/UPC',
+    example: '8901234567891',
+    maxLength: 100,
+  })
   @IsString()
   @MaxLength(100)
   @IsOptional()
   barcode?: string;
 
-  @ApiProperty({ description: 'Variant combination map', example: { Color: 'White', Size: 'M' } })
+  @ApiProperty({
+    description: 'Variant combination map',
+    example: { Color: 'White', Size: 'M' },
+  })
   @IsObject()
   combinations: Record<string, string>;
 
@@ -51,7 +64,11 @@ export class ProductVariantDto {
   @Min(0)
   price: number;
 
-  @ApiPropertyOptional({ description: 'Discount price in kobo', example: 1990000, minimum: 0 })
+  @ApiPropertyOptional({
+    description: 'Discount price in kobo',
+    example: 1990000,
+    minimum: 0,
+  })
   @IsNumber()
   @Min(0)
   @IsOptional()
@@ -62,12 +79,20 @@ export class ProductVariantDto {
   @Min(0)
   stock: number;
 
-  @ApiPropertyOptional({ description: 'Variant image URL', example: 'https://example.com/image.jpg', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Variant image URL',
+    example: 'https://example.com/image.jpg',
+    nullable: true,
+  })
   @IsString()
   @IsOptional()
   image_url?: string | null;
 
-  @ApiPropertyOptional({ description: 'Cloudinary public ID for variant image', example: 'products/abc123', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Cloudinary public ID for variant image',
+    example: 'products/abc123',
+    nullable: true,
+  })
   @IsString()
   @IsOptional()
   image_public_id?: string | null;

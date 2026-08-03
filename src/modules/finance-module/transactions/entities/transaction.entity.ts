@@ -120,7 +120,7 @@ export class Transaction {
   status: TransactionStatus;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: any | null;
+  metadata: any;
 
   @Column({ type: 'boolean', default: false })
   is_flagged: boolean;

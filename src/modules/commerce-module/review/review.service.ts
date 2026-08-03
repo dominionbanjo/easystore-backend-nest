@@ -98,7 +98,11 @@ export class ProductReviewService {
     await this.cache.clearPrefix('review');
     await this.cache.clearPrefix('product');
 
-    return { success: true, id: saved.id, message: 'Review added successfully' };
+    return {
+      success: true,
+      id: saved.id,
+      message: 'Review added successfully',
+    };
   }
 
   /* ────────────────────────────────────────────────
@@ -207,12 +211,18 @@ export class ProductReviewService {
   // STORE REVIEW (vendor platform review)
   // ------------------------------------------------------------------
   async submitStoreReview(vendorId: string, rating: number, comment?: string) {
-    const existing = await this.storeReviewRepo.findOne({ where: { vendor_id: vendorId } });
+    const existing = await this.storeReviewRepo.findOne({
+      where: { vendor_id: vendorId },
+    });
     if (existing) {
       throw new BadRequestException('You have already submitted a review');
     }
 
-    const review = this.storeReviewRepo.create({ vendor_id: vendorId, rating, comment: comment ?? null });
+    const review = this.storeReviewRepo.create({
+      vendor_id: vendorId,
+      rating,
+      comment: comment ?? null,
+    });
     await this.storeReviewRepo.save(review);
     await this.userRepo.update(vendorId, { has_submitted_review: true });
     await this.cache.clearPrefix('review');
@@ -220,10 +230,16 @@ export class ProductReviewService {
   }
 
   async getStoreReviewMeta(vendorId: string) {
-    const review = await this.storeReviewRepo.findOne({ where: { vendor_id: vendorId } });
+    const review = await this.storeReviewRepo.findOne({
+      where: { vendor_id: vendorId },
+    });
     const user = await this.userRepo.findOne({
       where: { id: vendorId },
-      select: { has_submitted_review: true, last_review_prompt_at: true, created_at: true },
+      select: {
+        has_submitted_review: true,
+        last_review_prompt_at: true,
+        created_at: true,
+      },
     });
     return {
       hasReviewed: !!review,

@@ -1,6 +1,21 @@
-import { Controller, Post, Body, Req, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { AuthService } from './auth.service';
@@ -28,7 +43,11 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @Post('register')
-  @ApiOperation({ summary: 'Register a new user account', description: 'Creates a new user account and sends an OTP verification email.' })
+  @ApiOperation({
+    summary: 'Register a new user account',
+    description:
+      'Creates a new user account and sends an OTP verification email.',
+  })
   @ApiCreatedResponse({ description: 'Account created successfully' })
   @ApiStandardErrorResponses()
   async register(@Body() dto: CreateAccountDto) {
@@ -38,7 +57,11 @@ export class AuthController {
   @Post('switch-store')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Switch active store', description: 'Switches the active store for the current user and returns a new JWT.' })
+  @ApiOperation({
+    summary: 'Switch active store',
+    description:
+      'Switches the active store for the current user and returns a new JWT.',
+  })
   @ApiOkResponse({ description: 'Store switched successfully' })
   @ApiStandardErrorResponses()
   async switchStore(
@@ -58,7 +81,11 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @Post('login')
-  @ApiOperation({ summary: 'Login with email and password', description: 'Authenticates a user and returns JWT access and refresh tokens.' })
+  @ApiOperation({
+    summary: 'Login with email and password',
+    description:
+      'Authenticates a user and returns JWT access and refresh tokens.',
+  })
   @ApiOkResponse({ description: 'Login successful' })
   @ApiStandardErrorResponses()
   async login(@Body() dto: LoginDto) {
@@ -66,7 +93,10 @@ export class AuthController {
   }
 
   @Post('google')
-  @ApiOperation({ summary: 'Login or register with Google', description: 'Authenticates or registers a user via a Google OAuth token.' })
+  @ApiOperation({
+    summary: 'Login or register with Google',
+    description: 'Authenticates or registers a user via a Google OAuth token.',
+  })
   @ApiOkResponse({ description: 'Google authentication successful' })
   @ApiStandardErrorResponses()
   continueWithGoogle(@Body() dto: GoogleLoginDto) {
@@ -75,7 +105,11 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @Post('verify-otp')
-  @ApiOperation({ summary: 'Verify OTP code', description: 'Verifies the one-time password sent to the user email during registration.' })
+  @ApiOperation({
+    summary: 'Verify OTP code',
+    description:
+      'Verifies the one-time password sent to the user email during registration.',
+  })
   @ApiOkResponse({ description: 'OTP verified successfully' })
   @ApiStandardErrorResponses()
   async verifyOtp(@Body() dto: VerifyOtpDto) {
@@ -84,7 +118,10 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @Post('resend-otp')
-  @ApiOperation({ summary: 'Resend OTP code', description: 'Resends a new one-time password to the user email.' })
+  @ApiOperation({
+    summary: 'Resend OTP code',
+    description: 'Resends a new one-time password to the user email.',
+  })
   @ApiOkResponse({ description: 'OTP resent successfully' })
   @ApiStandardErrorResponses()
   async resendOtp(@Body() dto: ResendOtpDto) {
@@ -93,7 +130,10 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Request password reset', description: 'Sends a password reset OTP to the user email.' })
+  @ApiOperation({
+    summary: 'Request password reset',
+    description: 'Sends a password reset OTP to the user email.',
+  })
   @ApiOkResponse({ description: 'Password reset OTP sent' })
   @ApiStandardErrorResponses()
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -102,7 +142,11 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60 } })
   @Post('reset-password')
-  @ApiOperation({ summary: 'Reset password with OTP', description: 'Resets the user password using the OTP code and new password.' })
+  @ApiOperation({
+    summary: 'Reset password with OTP',
+    description:
+      'Resets the user password using the OTP code and new password.',
+  })
   @ApiOkResponse({ description: 'Password reset successfully' })
   @ApiStandardErrorResponses()
   async resetPassword(@Body() dto: ResetPasswordDto) {
@@ -112,7 +156,11 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Logout current user', description: 'Invalidates the refresh token for the currently authenticated user.' })
+  @ApiOperation({
+    summary: 'Logout current user',
+    description:
+      'Invalidates the refresh token for the currently authenticated user.',
+  })
   @ApiOkResponse({ description: 'User logged out successfully' })
   @ApiStandardErrorResponses()
   logout(@Req() req: Request & { user: jwtStrategy.JwtAuthUser }) {
@@ -120,12 +168,17 @@ export class AuthController {
   }
 
   @Post('google-risc')
-  @ApiOperation({ summary: 'Receive Google RISC security events', description: 'Technical endpoint to receive cross-account protection security events from Google.' })
+  @ApiOperation({
+    summary: 'Receive Google RISC security events',
+    description:
+      'Technical endpoint to receive cross-account protection security events from Google.',
+  })
   @ApiBody({ description: 'Google RISC event payload', type: Object })
   @ApiOkResponse({ description: 'RISC event processed' })
   @ApiStandardErrorResponses()
   async googleRisc(@Body() body: Record<string, unknown>) {
-    const tokenString = typeof body === 'string' ? body : (body?.token as string);
+    const tokenString =
+      typeof body === 'string' ? body : (body?.token as string);
 
     if (!tokenString) {
       console.warn(

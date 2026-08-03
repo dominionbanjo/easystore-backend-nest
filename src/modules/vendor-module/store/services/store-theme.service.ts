@@ -1,9 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
 import { StoreTemplate } from '../entities/store-template.entity';
 import { Store } from '../entities/store.entity';
 
@@ -28,10 +25,7 @@ export class StoreThemeService {
 
   async getStoreTheme(slug: string) {
     const store = await this.storeRepo.findOne({
-      where: [
-        { subdomain: slug },
-        { slug },
-      ],
+      where: [{ subdomain: slug }, { slug }],
       relations: ['user', 'theme_setting', 'theme_setting.template'],
       select: ['id', 'slug', 'subdomain', 'user_id', 'status'],
     });

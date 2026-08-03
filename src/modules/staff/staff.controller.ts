@@ -1,5 +1,11 @@
 import { Controller, Get, Patch, Post, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 import { SuccessResponseDto } from 'src/common/dto/api-response.dto';
 import { StaffService } from './staff.service';
@@ -23,13 +29,26 @@ export class StaffController {
   }
 
   @Patch('me')
-  @ApiOperation({ summary: 'Update staff profile', description: 'Update name, phone, avatar (NOT store info)' })
+  @ApiOperation({
+    summary: 'Update staff profile',
+    description: 'Update name, phone, avatar (NOT store info)',
+  })
   @ApiOkResponse({ type: SuccessResponseDto, description: 'Profile updated' })
-  @ApiBody({ description: 'Profile fields', schema: { properties: { first_name: { type: 'string' }, last_name: { type: 'string' }, phone_number: { type: 'string' } } } })
+  @ApiBody({
+    description: 'Profile fields',
+    schema: {
+      properties: {
+        first_name: { type: 'string' },
+        last_name: { type: 'string' },
+        phone_number: { type: 'string' },
+      },
+    },
+  })
   @ApiStandardErrorResponses()
   async updateProfile(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
-    @Body() body: { first_name?: string; last_name?: string; phone_number?: string },
+    @Body()
+    body: { first_name?: string; last_name?: string; phone_number?: string },
   ) {
     return this.staffService.updateProfile(user.sub, body);
   }
@@ -37,13 +56,25 @@ export class StaffController {
   @Post('me/change-password')
   @ApiOperation({ summary: 'Change own password' })
   @ApiOkResponse({ type: SuccessResponseDto, description: 'Password changed' })
-  @ApiBody({ description: 'Current and new password', schema: { properties: { current_password: { type: 'string' }, new_password: { type: 'string' } } } })
+  @ApiBody({
+    description: 'Current and new password',
+    schema: {
+      properties: {
+        current_password: { type: 'string' },
+        new_password: { type: 'string' },
+      },
+    },
+  })
   @ApiStandardErrorResponses()
   async changePassword(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Body() body: { current_password: string; new_password: string },
   ) {
-    return this.staffService.changePassword(user.sub, body.current_password, body.new_password);
+    return this.staffService.changePassword(
+      user.sub,
+      body.current_password,
+      body.new_password,
+    );
   }
 
   @Get('summary')

@@ -17,6 +17,37 @@ import { normalizeJson } from 'src/utils/response/normalizeJson';
 import { ProductHelperService } from './product-helper.service';
 import { applyProductSort } from 'src/utils/helpers/product-sort.util';
 
+interface GroupedProductRow {
+  id: string;
+  name: string;
+  slug: string;
+  price: string;
+  discount_price: string | null;
+  stock: number;
+  rating_average: string;
+  on_sale: boolean;
+  image: unknown;
+  options: { name: string; values: string[] }[] | null;
+  variants: GroupedVariantRow[] | null;
+  store_name: string;
+  store_slug: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_country: string | null;
+  address_postal_code: string | null;
+  parent_category_id: string;
+}
+
+interface GroupedVariantRow {
+  id: string;
+  sku: string | null;
+  combinations: Record<string, string>;
+  price: string;
+  discount_price: string | null;
+  stock: number;
+  image_url: string | null;
+}
+
 @Injectable()
 export class ProductReadService {
   constructor(
@@ -38,7 +69,7 @@ export class ProductReadService {
     userId?: string,
   ) {
     const perCategoryLimit = pagination.limit ?? 10;
-    const rows = await this.productRepo.query(
+    const rows = await this.productRepo.query<GroupedProductRow[]>(
       PRODUCTS_GROUPED_BY_CATEGORY_SQL,
       [perCategoryLimit],
     );
@@ -80,7 +111,7 @@ export class ProductReadService {
         image: this.helpers.extractImageUrl(row.image),
         is_in_wishlist: wishlistSet.has(row.id),
         options: row.options || [],
-        variants: (row.variants || []).map((v: any) => ({
+        variants: (row.variants || []).map((v) => ({
           ...v,
           price: Number(v.price) / 100,
           discount_price: v.discount_price
@@ -287,7 +318,7 @@ export class ProductReadService {
       discount_price: p.discount_price ? Number(p.discount_price) / 100 : null,
       on_sale: p.on_sale,
       options: p.options || [],
-      variants: (p.variants || []).map((v: any) => ({
+      variants: (p.variants || []).map((v) => ({
         ...v,
         price: Number(v.price) / 100,
         discount_price: v.discount_price
@@ -477,6 +508,9 @@ export class ProductReadService {
     );
 
     const { store: _s, reviews: _r, variants: _v, ...productOnly } = product;
+    void _s;
+    void _r;
+    void _v;
     productOnly.specs = normalizeJson(productOnly.specs);
 
     return {
@@ -565,6 +599,8 @@ export class ProductReadService {
     }));
 
     const { store: _s, variants: _v, ...productOnly } = product;
+    void _s;
+    void _v;
     productOnly.specs = normalizeJson(productOnly.specs);
 
     return {
@@ -574,8 +610,8 @@ export class ProductReadService {
           ...productOnly,
           price: Number(product.price) / 100,
           discount_price: product.discount_price
-              ? Number(product.discount_price) / 100
-              : null,
+            ? Number(product.discount_price) / 100
+            : null,
           options: product.options || [],
           variants,
           store_id: product.store_id || product.store?.id,
@@ -583,7 +619,6 @@ export class ProductReadService {
       },
     };
   }
-
 
   async getByStore(
     storeId: string,
@@ -667,7 +702,11 @@ export class ProductReadService {
         },
       },
     });
-    if (variant && variant.product.store_id === storeId && variant.product.status === ProductStatus.ACTIVE) {
+    if (
+      variant &&
+      variant.product.store_id === storeId &&
+      variant.product.status === ProductStatus.ACTIVE
+    ) {
       return { product: variant.product, variant };
     }
 

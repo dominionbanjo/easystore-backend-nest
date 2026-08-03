@@ -111,7 +111,9 @@ export class PayoutService {
         ? 'Manual payout pending (awaiting admin transfer)'
         : 'Payout initiated via Paystack (pending)',
       status: 'pending',
-      metadata: (transfer_data ?? undefined) as Record<string, unknown> | undefined,
+      metadata: (transfer_data ?? undefined) as
+        | Record<string, unknown>
+        | undefined,
     });
 
     return saved;
@@ -184,10 +186,7 @@ export class PayoutService {
   /* ────────────────────────────────────────────────
      MARK PAYOUT AS MANUALLY TRANSFERRED (ADMIN)
   ──────────────────────────────────────────────── */
-  async markManuallyTransferred(
-    payout_id: string,
-    admin_note?: string,
-  ) {
+  async markManuallyTransferred(payout_id: string, admin_note?: string) {
     const payout = await this.findById(payout_id);
 
     if (payout.status === 'success') return { success: true }; // idempotent
@@ -202,7 +201,7 @@ export class PayoutService {
     payout.transferred_at = new Date();
     payout.admin_note = admin_note ?? null;
 
-    const updated = await this.payoutRepo.save(payout);
+    await this.payoutRepo.save(payout);
     await this.cache.clearPrefix('svc:payout');
 
     // Mark the linked order as completed
@@ -226,10 +225,7 @@ export class PayoutService {
   /* ────────────────────────────────────────────────
      MARK PAYOUT SUCCESS (IDEMPOTENT — AUTO PAYSTACK)
   ──────────────────────────────────────────────── */
-  async markSuccess(
-    transfer_code: string,
-    payload: PaystackTransferData,
-  ) {
+  async markSuccess(transfer_code: string, payload: PaystackTransferData) {
     const payout = await this.findByTransferCode(transfer_code);
     if (!payout) throw new NotFoundException('Payout not found');
 
@@ -239,7 +235,7 @@ export class PayoutService {
     payout.metadata = {
       ...(payout.metadata ?? {}),
       webhook: payload,
-    };
+    } as unknown as Record<string, unknown>;
 
     await this.payoutRepo.save(payout);
     await this.cache.clearPrefix('svc:payout');
@@ -262,10 +258,7 @@ export class PayoutService {
   /* ────────────────────────────────────────────────
      MARK PAYOUT FAILED (IDEMPOTENT)
   ──────────────────────────────────────────────── */
-  async markFailed(
-    transfer_code: string,
-    payload: PaystackTransferData,
-  ) {
+  async markFailed(transfer_code: string, payload: PaystackTransferData) {
     const payout = await this.findByTransferCode(transfer_code);
     if (!payout) throw new NotFoundException('Payout not found');
 
@@ -275,7 +268,7 @@ export class PayoutService {
     payout.metadata = {
       ...(payout.metadata ?? {}),
       webhook: payload,
-    };
+    } as unknown as Record<string, unknown>;
 
     await this.payoutRepo.save(payout);
     await this.cache.clearPrefix('svc:payout');
@@ -298,10 +291,7 @@ export class PayoutService {
   /* ────────────────────────────────────────────────
      MARK PAYOUT REVERSED (IDEMPOTENT)
   ──────────────────────────────────────────────── */
-  async markReversed(
-    transfer_code: string,
-    payload: PaystackTransferData,
-  ) {
+  async markReversed(transfer_code: string, payload: PaystackTransferData) {
     const payout = await this.findByTransferCode(transfer_code);
     if (!payout) throw new NotFoundException('Payout not found');
 
@@ -311,7 +301,7 @@ export class PayoutService {
     payout.metadata = {
       ...(payout.metadata ?? {}),
       webhook: payload,
-    };
+    } as unknown as Record<string, unknown>;
 
     await this.payoutRepo.save(payout);
     await this.cache.clearPrefix('svc:payout');

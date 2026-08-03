@@ -5,7 +5,6 @@ import {
   Patch,
   Body,
   Param,
-  Req,
   UseGuards,
   UploadedFile,
   UseInterceptors,
@@ -31,7 +30,10 @@ import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.g
 import { DeliveryService } from './delivery.service';
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
-import { SuccessResponseDto, SuccessWithIdDto } from 'src/common/dto/api-response.dto';
+import {
+  SuccessResponseDto,
+  SuccessWithIdDto,
+} from 'src/common/dto/api-response.dto';
 
 @ApiTags('Delivery')
 @ApiBearerAuth('JWT-auth')
@@ -43,8 +45,14 @@ export class DeliveryController {
   // ------------------------------------------------------------------
   // CREATE DELIVERY (INTERNAL / ORDER FLOW)
   // ------------------------------------------------------------------
-  @ApiOperation({ summary: 'Create a delivery', description: 'Creates a new delivery record for an order.' })
-  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Delivery created successfully' })
+  @ApiOperation({
+    summary: 'Create a delivery',
+    description: 'Creates a new delivery record for an order.',
+  })
+  @ApiCreatedResponse({
+    type: SuccessWithIdDto,
+    description: 'Delivery created successfully',
+  })
   @ApiStandardErrorResponses()
   @Post()
   async createDelivery(@Body() dto: CreateDeliveryDto) {
@@ -54,7 +62,10 @@ export class DeliveryController {
   // ------------------------------------------------------------------
   // GET DELIVERY BY ID
   // ------------------------------------------------------------------
-  @ApiOperation({ summary: 'Get delivery by ID', description: 'Retrieves delivery details by its ID.' })
+  @ApiOperation({
+    summary: 'Get delivery by ID',
+    description: 'Retrieves delivery details by its ID.',
+  })
   @ApiParam({ name: 'id', description: 'Delivery ID', type: String })
   @ApiOkResponse({ description: 'Delivery details retrieved successfully' })
   @ApiStandardErrorResponses()
@@ -66,9 +77,15 @@ export class DeliveryController {
   // ------------------------------------------------------------------
   // ASSIGN COURIER (VENDOR / ADMIN)
   // ------------------------------------------------------------------
-  @ApiOperation({ summary: 'Assign courier to delivery', description: 'Assigns a courier to handle a specific delivery.' })
+  @ApiOperation({
+    summary: 'Assign courier to delivery',
+    description: 'Assigns a courier to handle a specific delivery.',
+  })
   @ApiParam({ name: 'id', description: 'Delivery ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Courier assigned successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Courier assigned successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':id/assign-courier')
   async assignCourier(
@@ -81,9 +98,16 @@ export class DeliveryController {
   // ------------------------------------------------------------------
   // UPDATE DELIVERY STATUS
   // ------------------------------------------------------------------
-  @ApiOperation({ summary: 'Update delivery status', description: 'Updates the status of a delivery (e.g. in-transit, delivered).' })
+  @ApiOperation({
+    summary: 'Update delivery status',
+    description:
+      'Updates the status of a delivery (e.g. in-transit, delivered).',
+  })
   @ApiParam({ name: 'id', description: 'Delivery ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Delivery status updated successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Delivery status updated successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':id/status')
   async updateStatus(
@@ -103,8 +127,15 @@ export class DeliveryController {
   // ------------------------------------------------------------------
   // CONFIRM DELIVERY (VENDOR → RELEASE ESCROW)
   // ------------------------------------------------------------------
-  @ApiOperation({ summary: 'Confirm delivery', description: 'Confirms delivery completion using a verification code, releasing escrow payment to the vendor.' })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Delivery confirmed successfully' })
+  @ApiOperation({
+    summary: 'Confirm delivery',
+    description:
+      'Confirms delivery completion using a verification code, releasing escrow payment to the vendor.',
+  })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Delivery confirmed successfully',
+  })
   @ApiStandardErrorResponses()
   @Post('confirm')
   async confirmDelivery(
@@ -122,9 +153,16 @@ export class DeliveryController {
   // ------------------------------------------------------------------
   // UPLOAD PROOF OF DELIVERY
   // ------------------------------------------------------------------
-  @ApiOperation({ summary: 'Upload proof of delivery', description: 'Uploads an image file as proof that a delivery has been completed.' })
+  @ApiOperation({
+    summary: 'Upload proof of delivery',
+    description:
+      'Uploads an image file as proof that a delivery has been completed.',
+  })
   @ApiParam({ name: 'id', description: 'Delivery ID', type: String })
-  @ApiCreatedResponse({ type: SuccessResponseDto, description: 'Proof of delivery uploaded successfully' })
+  @ApiCreatedResponse({
+    type: SuccessResponseDto,
+    description: 'Proof of delivery uploaded successfully',
+  })
   @ApiStandardErrorResponses()
   @Post(':id/proof')
   @UseInterceptors(FileInterceptor('file'))

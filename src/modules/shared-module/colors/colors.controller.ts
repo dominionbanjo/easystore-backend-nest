@@ -8,7 +8,14 @@ import {
   Delete,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiCreatedResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ColorsService } from './colors.service';
 import { CreateColorDto } from './dto/create-color.dto';
@@ -39,7 +46,8 @@ export class ColorsController {
     @Body() dto: CreateColorDto,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
-    const vendorId = user.role === 'admin' ? undefined : (user.store_id ?? undefined);
+    const vendorId =
+      user.role === 'admin' ? undefined : (user.store_id ?? undefined);
     return this.colorsService.create(dto, vendorId);
   }
 
@@ -48,7 +56,11 @@ export class ColorsController {
   ──────────────────────────────────────────────── */
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
-  @ApiOperation({ summary: 'Get all colors', description: 'Retrieve all product colors, optionally scoped to vendor store' })
+  @ApiOperation({
+    summary: 'Get all colors',
+    description:
+      'Retrieve all product colors, optionally scoped to vendor store',
+  })
   @ApiOkResponse({ description: 'Colors retrieved successfully' })
   @ApiStandardErrorResponses()
   findAll(@CurrentUser() user?: jwtStrategy.JwtAuthUser) {

@@ -6,12 +6,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import {
-  OAuth2Client,
-  TokenPayload,
-  GoogleAuth,
-  JWT,
-} from 'google-auth-library';
+import { OAuth2Client, TokenPayload, JWT } from 'google-auth-library';
 import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
@@ -34,6 +29,23 @@ import { comparePassword, hashPassword } from 'src/utils/auth/passwordUtil';
 import { sanitizeUser } from 'src/utils/response/sanitizeUser';
 import createHash from 'src/utils/auth/createHash';
 import { StoreService } from 'src/modules/vendor-module/store/services/store.service';
+
+interface RiscCredentials {
+  client_email?: string;
+  private_key?: string;
+}
+
+interface RiscServiceAccountJson {
+  client_email?: string;
+  private_key?: string;
+}
+
+interface RiscTokenPayload {
+  sub?: string;
+  email?: string;
+  subject?: { email?: string };
+  events?: Record<string, unknown>;
+}
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -181,7 +193,9 @@ export class AuthService implements OnModuleInit {
           email: dto.email,
           role: dto.account_type,
         })
-        .catch((e) => console.error('Admin Signup Notify Error:', e.message));
+        .catch((e: Error) =>
+          console.error('Admin Signup Notify Error:', e.message),
+        );
 
       if (dto.account_type === 'user') {
         // Send regular Welcome Email
@@ -343,7 +357,7 @@ export class AuthService implements OnModuleInit {
           email,
           role: 'user',
         })
-        .catch((e) =>
+        .catch((e: Error) =>
           console.error('Admin Google Signup Notify Error:', e.message),
         );
 
@@ -354,7 +368,9 @@ export class AuthService implements OnModuleInit {
           email,
           role: 'user',
         })
-        .catch((e) => console.error('Google Welcome Email Error:', e.message));
+        .catch((e: Error) =>
+          console.error('Google Welcome Email Error:', e.message),
+        );
     }
 
     if (user.account_status === 'banned') {
@@ -543,12 +559,14 @@ export class AuthService implements OnModuleInit {
     const receiverUrl = `${process.env.BASE_URL}/auth/google-risc`;
     console.log(`Registering RISC stream for endpoint: ${receiverUrl}`);
 
-    let credentials;
+    let credentials: RiscCredentials | null = null;
 
     // Use full JSON from env (Recommended for Render/Heroku)
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
       try {
-        const json = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+        const json = JSON.parse(
+          process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
+        ) as RiscServiceAccountJson;
         credentials = {
           client_email: json.client_email?.trim(),
           private_key: json.private_key?.trim(),
@@ -646,13 +664,18 @@ export class AuthService implements OnModuleInit {
         },
       );
 
-      const data = await response.json();
+      const data = (await response.json()) as unknown;
       console.log('RISC Stream Registration Result:', data);
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as {
+        message?: unknown;
+        response?: { data?: unknown };
+        cause?: unknown;
+      };
       console.error('[RISC Error] Failed to register stream. Details:', {
-        message: error.message,
-        response: error.response?.data,
-        cause: error.cause, // catch-all for nested errors
+        message: err.message,
+        response: err.response?.data,
+        cause: err.cause, // catch-all for nested errors
       });
       // Re-throw if critical
       // throw error;
@@ -663,7 +686,7 @@ export class AuthService implements OnModuleInit {
   // RISC (Cross-Account Protection)
   // ------------------------------------------------------------------
   async handleRiscEvent(token: string) {
-    let payload;
+    let payload: RiscTokenPayload | undefined;
     try {
       // Verify the token (SET)
       // verifyIdToken fetches Google's public keys and verifies the signature
@@ -671,18 +694,18 @@ export class AuthService implements OnModuleInit {
         idToken: token,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
-      payload = ticket.getPayload();
-    } catch (error) {
+      payload = ticket.getPayload() as RiscTokenPayload | undefined;
+    } catch {
       throw new BadRequestException('Invalid RISC token');
     }
 
-    if (!payload || !payload['events']) {
+    if (!payload || !payload.events) {
       throw new BadRequestException('Invalid RISC payload: missing events');
     }
 
     // 1. Handle Verification Event
     if (
-      payload['events'][
+      payload.events[
         'https://schemas.openid.net/secevent/risc/event-type/verification'
       ]
     ) {
@@ -726,7 +749,7 @@ export class AuthService implements OnModuleInit {
     ];
 
     const hasCriticalEvent = criticalEvents.some(
-      (type) => payload['events'][type],
+      (type) => payload?.events?.[type],
     );
 
     if (hasCriticalEvent) {

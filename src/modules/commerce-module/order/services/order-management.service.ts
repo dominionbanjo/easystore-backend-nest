@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Order, OrderStatus } from '../entities/order.entity';
 import { EscrowService } from 'src/modules/finance-module/escrow/escrow.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
@@ -53,7 +53,7 @@ export class OrderManagementService {
         order.total,
         order.buyer_id,
         order.order_items,
-        order.payment_method === 'offline' // Track if this is offline revenue
+        order.payment_method === 'offline', // Track if this is offline revenue
       );
 
       await this.orderRepo.update(orderId, { analytics_processed: true });
@@ -65,7 +65,7 @@ export class OrderManagementService {
   /* ────────────────────────────────────────────────
      PUBLIC: CREATE VERIFIED PRODUCT CUSTOMERS
   ──────────────────────────────────────────────── */
-  public async createProductCustomers(order: Order, manager: any) {
+  public async createProductCustomers(order: Order, manager: EntityManager) {
     if (!order.order_items || order.order_items.length === 0) return;
 
     for (const item of order.order_items) {
@@ -78,12 +78,12 @@ export class OrderManagementService {
         await manager.insert(ProductCustomer, {
           product_id: item.product_id,
           vendor_id: item.vendor_id || order.vendor_id,
-          user_id: order.buyer_id, // Could be null for pure offline
+          user_id: order.buyer_id ?? undefined, // Could be null for pure offline
           order_id: order.id,
-          customer_name: order.buyer?.first_name 
-            ? `${order.buyer.first_name} ${order.buyer.last_name}`.trim() 
-            : null,
-          customer_email: order.buyer?.email || null,
+          customer_name: order.buyer?.first_name
+            ? `${order.buyer.first_name} ${order.buyer.last_name}`.trim()
+            : undefined,
+          customer_email: order.buyer?.email ?? undefined,
         });
       }
     }
@@ -147,7 +147,15 @@ export class OrderManagementService {
   async updateOrderStatus(id: string, status: OrderStatus, storeId?: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      select: { id: true, vendor_id: true, store_id: true, status: true, order_items: true, payment_method: true, buyer_id: true },
+      select: {
+        id: true,
+        vendor_id: true,
+        store_id: true,
+        status: true,
+        order_items: true,
+        payment_method: true,
+        buyer_id: true,
+      },
     });
     if (!order) throw new BadRequestException('Order not found');
     if (order.store_id !== storeId) {
@@ -232,12 +240,21 @@ export class OrderManagementService {
   async cancelOrder(id: string, requestedBy: string, storeId?: string) {
     const order = await this.orderRepo.findOne({
       where: { id },
-      select: { id: true, buyer_id: true, vendor_id: true, store_id: true, status: true, order_items: true, payment_method: true },
+      select: {
+        id: true,
+        buyer_id: true,
+        vendor_id: true,
+        store_id: true,
+        status: true,
+        order_items: true,
+        payment_method: true,
+      },
     });
     if (!order) throw new BadRequestException('Order not found');
 
     if (requestedBy !== order.buyer_id && requestedBy !== order.vendor_id) {
-      if (order.store_id !== storeId) throw new ForbiddenException('Unauthorized');
+      if (order.store_id !== storeId)
+        throw new ForbiddenException('Unauthorized');
     }
 
     const previousStatus = order.status;
@@ -268,7 +285,7 @@ export class OrderManagementService {
     });
 
     if (order.escrow_id && order.payment_method === 'online') {
-      await this.escrowService.refundEscrow(order.escrow_id, requestedBy);
+      await this.escrowService.refundEscrow(order.escrow_id);
     }
 
     await this.cache.clearPrefix('svc:order');

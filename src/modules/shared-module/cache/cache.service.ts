@@ -52,17 +52,17 @@ export class CacheService {
     if (!this.client) {
       // Graceful local fallback if Redis is down
       if (this.localLocks.has(key)) return false;
-      
+
       this.localLocks.add(key);
-      
+
       // Auto-release local lock after TTL
       setTimeout(() => {
         this.localLocks.delete(key);
       }, ttlSeconds * 1000);
-      
+
       return true;
     }
-    
+
     // SET resource_name my_random_value NX EX max-lock-time
     const result = await this.client.set(key, 'locked', 'EX', ttlSeconds, 'NX');
     return result === 'OK';

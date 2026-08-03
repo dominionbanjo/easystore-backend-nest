@@ -4,10 +4,37 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailLog } from './entities/email-log.entity';
 
+interface BrevoAuth {
+  apiKey?: string;
+}
+
+interface BrevoApiClient {
+  authentications: Record<string, BrevoAuth>;
+}
+
+interface BrevoTransactionalEmailRequest {
+  sender: { email: string; name: string };
+  to: { email: string }[];
+  subject: string;
+  htmlContent: string;
+  attachment?: { content: string; name: string }[];
+}
+
+interface BrevoTransactionalEmailsApi {
+  sendTransacEmail: (data: BrevoTransactionalEmailRequest) => Promise<unknown>;
+}
+
+interface BrevoSdk {
+  ApiClient: { instance: BrevoApiClient };
+  TransactionalEmailsApi: new () => BrevoTransactionalEmailsApi;
+}
+
+const brevo = SibApiV3Sdk as unknown as BrevoSdk;
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private client = SibApiV3Sdk.ApiClient.instance;
+  private client = brevo.ApiClient.instance;
 
   constructor(
     @InjectRepository(EmailLog)
@@ -31,7 +58,7 @@ export class EmailService {
     logId?: string; // Optional: if provided, update existing log
   }) {
     try {
-      const transactional = new SibApiV3Sdk.TransactionalEmailsApi();
+      const transactional = new brevo.TransactionalEmailsApi();
 
       await transactional.sendTransacEmail({
         sender: {
@@ -48,8 +75,14 @@ export class EmailService {
       if (logId) {
         await this.logRepo.update(logId, { status: 'sent' });
       }
-    } catch (e: any) {
-      const errorDetail = e.response?.body || e.response?.text || e.message;
+    } catch (e: unknown) {
+      const err = e as {
+        response?: { body?: unknown; text?: string };
+        message?: string;
+      };
+      const errorDetail: string = (err.response?.body ||
+        err.response?.text ||
+        err.message) as string;
       this.logger.error(`EMAIL ERROR → ${JSON.stringify(errorDetail)}`);
 
       // Log the failure for retry
@@ -68,7 +101,9 @@ export class EmailService {
         await this.logRepo.update(logId, { last_error: errorDetail });
       }
 
-      throw new Error(`Email sending failed: ${e.message}`);
+      throw new Error(
+        `Email sending failed: ${(e as { message?: string }).message}`,
+      );
     }
   }
 }

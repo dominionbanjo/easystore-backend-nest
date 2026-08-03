@@ -10,8 +10,6 @@ import {
   UseInterceptors,
   UploadedFiles,
   UseGuards,
-  NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -57,9 +55,23 @@ export class ProductController {
    * 1️⃣ Homepage: Categories with limited products (20 max per category)
    */
 
-  @ApiOperation({ summary: 'Get products grouped by category', description: 'Returns products organized by category, with a configurable limit per category. Useful for homepage display.' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiOperation({
+    summary: 'Get products grouped by category',
+    description:
+      'Returns products organized by category, with a configurable limit per category. Useful for homepage display.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('by-category')
@@ -76,17 +88,72 @@ export class ProductController {
   /**
    * 2️⃣ Search products
    */
-  @ApiOperation({ summary: 'Search products', description: 'Performs a full-text search across products with filters for category, price range, rating, and more.' })
-  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search query' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'minPrice', required: false, type: Number, description: 'Minimum price' })
-  @ApiQuery({ name: 'maxPrice', required: false, type: Number, description: 'Maximum price' })
-  @ApiQuery({ name: 'sort', required: false, type: String, description: 'Sort order' })
-  @ApiQuery({ name: 'state', required: false, type: String, description: 'Filter by state' })
-  @ApiQuery({ name: 'local', required: false, type: Boolean, description: 'Local-first mode: rank matches from this state first instead of filtering (requires state)' })
-  @ApiQuery({ name: 'rating', required: false, type: Number, description: 'Minimum rating' })
-  @ApiQuery({ name: 'inStock', required: false, type: Boolean, description: 'Filter by in-stock' })
+  @ApiOperation({
+    summary: 'Search products',
+    description:
+      'Performs a full-text search across products with filters for category, price range, rating, and more.',
+  })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    type: String,
+    description: 'Search query',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'minPrice',
+    required: false,
+    type: Number,
+    description: 'Minimum price',
+  })
+  @ApiQuery({
+    name: 'maxPrice',
+    required: false,
+    type: Number,
+    description: 'Maximum price',
+  })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    type: String,
+    description: 'Sort order',
+  })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    type: String,
+    description: 'Filter by state',
+  })
+  @ApiQuery({
+    name: 'local',
+    required: false,
+    type: Boolean,
+    description:
+      'Local-first mode: rank matches from this state first instead of filtering (requires state)',
+  })
+  @ApiQuery({
+    name: 'rating',
+    required: false,
+    type: Number,
+    description: 'Minimum rating',
+  })
+  @ApiQuery({
+    name: 'inStock',
+    required: false,
+    type: Boolean,
+    description: 'Filter by in-stock',
+  })
   @ApiOkResponse({ description: 'Search results retrieved successfully' })
   @ApiStandardErrorResponses()
   @Get('search')
@@ -100,10 +167,28 @@ export class ProductController {
   /**
    * 3️⃣ Products by single category (id or slug)
    */
-  @ApiOperation({ summary: 'Get products by category', description: 'Returns all products belonging to a specific category, identified by ID or slug.' })
-  @ApiParam({ name: 'identifier', description: 'Category ID or slug', type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiOperation({
+    summary: 'Get products by category',
+    description:
+      'Returns all products belonging to a specific category, identified by ID or slug.',
+  })
+  @ApiParam({
+    name: 'identifier',
+    description: 'Category ID or slug',
+    type: String,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('category/:identifier')
@@ -123,9 +208,23 @@ export class ProductController {
    * 🏪 Products for current vendor's store
    * GET /product/store/me
    */
-  @ApiOperation({ summary: 'Get my store products', description: 'Retrieves all products for the currently authenticated vendor store.' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiOperation({
+    summary: 'Get my store products',
+    description:
+      'Retrieves all products for the currently authenticated vendor store.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('store/me')
@@ -139,10 +238,24 @@ export class ProductController {
   /**
    * 4️⃣ Products by store
    */
-  @ApiOperation({ summary: 'Get products by store', description: 'Returns all products belonging to a specific store by its ID.' })
+  @ApiOperation({
+    summary: 'Get products by store',
+    description:
+      'Returns all products belonging to a specific store by its ID.',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('store/:storeId')
@@ -157,10 +270,29 @@ export class ProductController {
   /**
    * 5️⃣ All products (flat list)
    */
-  @ApiOperation({ summary: 'Get all products', description: 'Returns a flat paginated list of all products available on the platform.' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'state', required: false, type: String, description: 'Rank products from stores in this state first (local-first)' })
+  @ApiOperation({
+    summary: 'Get all products',
+    description:
+      'Returns a flat paginated list of all products available on the platform.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    type: String,
+    description: 'Rank products from stores in this state first (local-first)',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get()
@@ -175,10 +307,29 @@ export class ProductController {
    * ⭐ Featured products (homepage)
    */
 
-  @ApiOperation({ summary: 'Get featured products', description: 'Returns a curated list of featured products for display on the homepage.' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'state', required: false, type: String, description: 'Rank products from stores in this state first (local-first)' })
+  @ApiOperation({
+    summary: 'Get featured products',
+    description:
+      'Returns a curated list of featured products for display on the homepage.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    type: String,
+    description: 'Rank products from stores in this state first (local-first)',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('featured')
@@ -200,8 +351,15 @@ export class ProductController {
    * 6️⃣ Get single product (id or slug)
    */
 
-  @ApiOperation({ summary: 'Get a single product', description: 'Retrieves a single product by its ID or slug.' })
-  @ApiParam({ name: 'identifier', description: 'Product ID or slug', type: String })
+  @ApiOperation({
+    summary: 'Get a single product',
+    description: 'Retrieves a single product by its ID or slug.',
+  })
+  @ApiParam({
+    name: 'identifier',
+    description: 'Product ID or slug',
+    type: String,
+  })
   @ApiOkResponse({ description: 'Product retrieved successfully' })
   @ApiStandardErrorResponses()
   @Get(':identifier')
@@ -219,7 +377,11 @@ export class ProductController {
   /**
    * 7️⃣ Create product (generic)
    */
-  @ApiOperation({ summary: 'Create a product', description: 'Creates a new product with optional image and gallery uploads. Restricted to store owners.' })
+  @ApiOperation({
+    summary: 'Create a product',
+    description:
+      'Creates a new product with optional image and gallery uploads. Restricted to store owners.',
+  })
   @ApiCreatedResponse({ description: 'Product created successfully' })
   @ApiStandardErrorResponses()
   @Post()
@@ -243,7 +405,11 @@ export class ProductController {
     return this.productService.create(user, dto, files);
   }
 
-  @ApiOperation({ summary: 'Bulk create products', description: 'Creates multiple products at once. Restricted to store owners.' })
+  @ApiOperation({
+    summary: 'Bulk create products',
+    description:
+      'Creates multiple products at once. Restricted to store owners.',
+  })
   @ApiCreatedResponse({ description: 'Products created in bulk successfully' })
   @ApiStandardErrorResponses()
   @Post('bulk')
@@ -258,7 +424,10 @@ export class ProductController {
   /**
    * 9️⃣ Update product
    */
-  @ApiOperation({ summary: 'Update a product', description: 'Updates an existing product by its ID.' })
+  @ApiOperation({
+    summary: 'Update a product',
+    description: 'Updates an existing product by its ID.',
+  })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
   @ApiOkResponse({ description: 'Product updated successfully' })
   @ApiStandardErrorResponses()
@@ -272,7 +441,10 @@ export class ProductController {
   /**
    * 🔟 Delete product
    */
-  @ApiOperation({ summary: 'Delete a product', description: 'Permanently removes a product by its ID.' })
+  @ApiOperation({
+    summary: 'Delete a product',
+    description: 'Permanently removes a product by its ID.',
+  })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
   @ApiOkResponse({ description: 'Product deleted successfully' })
   @ApiStandardErrorResponses()

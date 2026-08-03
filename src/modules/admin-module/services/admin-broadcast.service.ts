@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -37,7 +42,7 @@ export class AdminBroadcastService {
     // ONLY send immediately if NOT scheduled and NOT recurring
     // (If scheduled_at was provided but is now/past, it will be picked up by the next Cron run)
     if (!dto.scheduled_at && !broadcast.is_recurring) {
-      this.sendBroadcast(saved.id);
+      void this.sendBroadcast(saved.id);
     }
 
     return saved;
@@ -49,13 +54,20 @@ export class AdminBroadcastService {
       select: { id: true, status: true, scheduled_at: true },
     });
     if (!broadcast) throw new BadRequestException('Broadcast not found');
-    if (broadcast.status !== 'pending' || (broadcast.scheduled_at && broadcast.scheduled_at < new Date())) {
-      throw new BadRequestException('Cannot edit a broadcast that has been sent or is currently being processed');
+    if (
+      broadcast.status !== 'pending' ||
+      (broadcast.scheduled_at && broadcast.scheduled_at < new Date())
+    ) {
+      throw new BadRequestException(
+        'Cannot edit a broadcast that has been sent or is currently being processed',
+      );
     }
-    
+
     const updated = {
       ...dto,
-      scheduled_at: dto.scheduled_at ? new Date(dto.scheduled_at) : broadcast.scheduled_at,
+      scheduled_at: dto.scheduled_at
+        ? new Date(dto.scheduled_at)
+        : broadcast.scheduled_at,
     };
 
     await this.broadcastRepo.update(id, updated);
@@ -98,12 +110,14 @@ export class AdminBroadcastService {
     });
 
     if (pending.length > 0) {
-      this.logger.log(`Found ${pending.length} scheduled broadcasts to process`);
+      this.logger.log(
+        `Found ${pending.length} scheduled broadcasts to process`,
+      );
       for (const b of pending) {
         if (b.is_recurring) {
-           await this.processRecurringBroadcast(b);
+          await this.processRecurringBroadcast(b);
         } else {
-           await this.sendBroadcast(b.id);
+          await this.sendBroadcast(b.id);
         }
       }
     }
@@ -126,15 +140,18 @@ export class AdminBroadcastService {
       b.last_executed_at = new Date();
       b.scheduled_at = this.calculateNextExecutionTime(b);
       await this.broadcastRepo.save(b);
-    } catch (err) {
-      this.logger.error(`Recurring broadcast failed: ${b.subject}`, err.stack);
+    } catch (err: unknown) {
+      this.logger.error(
+        `Recurring broadcast failed: ${b.subject}`,
+        err instanceof Error ? err.stack : undefined,
+      );
     }
   }
 
   calculateNextExecutionTime(b: Broadcast): Date {
     const now = new Date();
-    let next = new Date();
-    
+    const next = new Date();
+
     // Set time if provided (format "HH:mm")
     if (b.recurrence_time) {
       const [hours, minutes] = b.recurrence_time.split(':').map(Number);
@@ -144,28 +161,31 @@ export class AdminBroadcastService {
     if (b.recurrence_type === 'daily') {
       if (next <= now) next.setDate(next.getDate() + 1);
     } else if (b.recurrence_type === 'weekly' && b.recurrence_days) {
-      const days = b.recurrence_days.map(d => parseInt(d)).sort();
+      const days = b.recurrence_days.map((d) => parseInt(d)).sort();
       const currentDay = next.getDay();
-      
-      let nextDay = days.find(d => d > currentDay);
+
+      let nextDay = days.find((d) => d > currentDay);
       if (nextDay === undefined) {
         nextDay = days[0];
         next.setDate(next.getDate() + (7 - currentDay + nextDay));
       } else {
         // If it's today but already passed the time, move to next selected day
         if (nextDay === currentDay && next <= now) {
-            nextDay = days.find(d => d > currentDay) || days[0];
-            if (nextDay === days[0]) next.setDate(next.getDate() + (7 - currentDay + nextDay));
-            else next.setDate(next.getDate() + (nextDay - currentDay));
+          nextDay = days.find((d) => d > currentDay) || days[0];
+          if (nextDay === days[0])
+            next.setDate(next.getDate() + (7 - currentDay + nextDay));
+          else next.setDate(next.getDate() + (nextDay - currentDay));
         } else {
-            next.setDate(next.getDate() + (nextDay - currentDay));
+          next.setDate(next.getDate() + (nextDay - currentDay));
         }
       }
     } else if (b.recurrence_type === 'monthly' && b.recurrence_day_of_month) {
-      const days = b.recurrence_day_of_month.map(d => parseInt(d)).sort((a,b) => a-b);
+      const days = b.recurrence_day_of_month
+        .map((d) => parseInt(d))
+        .sort((a, b) => a - b);
       const currentDay = next.getDate();
-      
-      let nextDay = days.find(d => d > currentDay);
+
+      let nextDay = days.find((d) => d > currentDay);
       if (nextDay === undefined) {
         // Move to first day of next month
         next.setMonth(next.getMonth() + 1);
@@ -173,15 +193,15 @@ export class AdminBroadcastService {
       } else {
         // If it's today but time passed, check if there's another day this month
         if (nextDay === currentDay && next <= now) {
-            nextDay = days.find(d => d > currentDay);
-            if (nextDay === undefined) {
-                next.setMonth(next.getMonth() + 1);
-                next.setDate(days[0]);
-            } else {
-                next.setDate(nextDay);
-            }
-        } else {
+          nextDay = days.find((d) => d > currentDay);
+          if (nextDay === undefined) {
+            next.setMonth(next.getMonth() + 1);
+            next.setDate(days[0]);
+          } else {
             next.setDate(nextDay);
+          }
+        } else {
+          next.setDate(nextDay);
         }
       }
     }
@@ -190,12 +210,12 @@ export class AdminBroadcastService {
     while (next <= now) {
       if (b.recurrence_type === 'daily') next.setDate(next.getDate() + 1);
       else if (b.recurrence_type === 'weekly' && b.recurrence_days) {
-         // This should be handled by the logic above, but for safety:
-         next.setDate(next.getDate() + 1);
-         // (Recursion would be cleaner but loop is fine here if we re-check day)
-      }
-      else if (b.recurrence_type === 'monthly') next.setMonth(next.getMonth() + 1);
-      else break; 
+        // This should be handled by the logic above, but for safety:
+        next.setDate(next.getDate() + 1);
+        // (Recursion would be cleaner but loop is fine here if we re-check day)
+      } else if (b.recurrence_type === 'monthly')
+        next.setMonth(next.getMonth() + 1);
+      else break;
     }
 
     return next;
@@ -263,7 +283,13 @@ export class AdminBroadcastService {
             successCount++;
           } else {
             failureCount++;
-            this.logger.error(`Failed to send broadcast to ${chunk[idx]}: ${res.reason?.message}`);
+            this.logger.error(
+              `Failed to send broadcast to ${chunk[idx]}: ${
+                res.reason instanceof Error
+                  ? res.reason.message
+                  : String(res.reason)
+              }`,
+            );
           }
         });
       }
@@ -275,11 +301,17 @@ export class AdminBroadcastService {
       }
       await this.broadcastRepo.save(broadcast);
 
-      this.logger.log(`Broadcast completed. Success: ${successCount}, Failures: ${failureCount}`);
-    } catch (error) {
-      this.logger.error(`Broadcast failed: ${broadcast.subject}`, error.stack);
+      this.logger.log(
+        `Broadcast completed. Success: ${successCount}, Failures: ${failureCount}`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Broadcast failed: ${broadcast.subject}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       broadcast.status = 'failed';
-      broadcast.failure_reason = error.message;
+      broadcast.failure_reason =
+        error instanceof Error ? error.message : String(error);
       await this.broadcastRepo.save(broadcast);
     }
   }

@@ -18,6 +18,19 @@ import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { CartService } from '../../cart/cart.service';
 import { StoreDeliveryRateService } from 'src/modules/vendor-module/store/services/store-delivery-rate.service';
 
+/* ────────────────────────────────────────────────
+   PAYSTACK RESPONSE TYPES
+──────────────────────────────────────────────── */
+interface PaystackInitializeResponse {
+  reference: string;
+  authorization_url: string;
+  access_code: string;
+}
+
+interface PaystackSplitResponse {
+  split_code: string;
+}
+
 @Injectable()
 export class OnlineOrderService {
   constructor(
@@ -76,11 +89,16 @@ export class OnlineOrderService {
         throw new BadRequestException('No items to order');
       }
       if (groups.length > 1) {
-        throw new BadRequestException('Multi-vendor checkout is deprecated. Please order from one vendor at a time.');
+        throw new BadRequestException(
+          'Multi-vendor checkout is deprecated. Please order from one vendor at a time.',
+        );
       }
 
-      const { store_id, vendor_id } = groups[0]!;
-      await this.storeService.validateVendorForOnline(vendor_id, store_id ?? undefined);
+      const { store_id, vendor_id } = groups[0];
+      await this.storeService.validateVendorForOnline(
+        vendor_id,
+        store_id ?? undefined,
+      );
 
       /* CALCULATE TOTALS IN KOBO */
       let subtotalKobo = 0;
@@ -88,28 +106,38 @@ export class OnlineOrderService {
 
       // Use delivery rate ID if provided
       if (data.delivery_rate_id) {
-        const rate = await this.deliveryRateService.getRateById(data.delivery_rate_id);
-        const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
+        const rate = await this.deliveryRateService.getRateById(
+          data.delivery_rate_id,
+        );
+        const store = await this.storeService.getStoreByUser(
+          vendor_id,
+          store_id ?? undefined,
+        );
         if (rate && rate.store_id === store.id) {
           shippingKobo = Number(rate.fee) * 100; // Convert to Kobo
         }
       }
 
-      for (const item of groups[0]!.items) {
+      for (const item of groups[0].items) {
         subtotalKobo += item.unit_price * item.quantity;
       }
 
       /*
        * FEE MODEL v2 (ESCROW)
        * ─────────────────────────────────────────────────────────────
-       * Escrow Payment: Buyer pays 3% escrow-fee (capped ₦3,000). 
+       * Escrow Payment: Buyer pays 3% escrow-fee (capped ₦3,000).
        * No additional 1% platform fee is added.
        */
       const ESCROW_FEE_RATE = 0.03; // 3%
       const ESCROW_FEE_CAP_KOBO = 300_000; // ₦3,000 cap
 
-      const rawEscrowFeeKobo = Math.round((subtotalKobo + shippingKobo) * ESCROW_FEE_RATE);
-      const totalEscrowFeeKobo = Math.min(rawEscrowFeeKobo, ESCROW_FEE_CAP_KOBO);
+      const rawEscrowFeeKobo = Math.round(
+        (subtotalKobo + shippingKobo) * ESCROW_FEE_RATE,
+      );
+      const totalEscrowFeeKobo = Math.min(
+        rawEscrowFeeKobo,
+        ESCROW_FEE_CAP_KOBO,
+      );
 
       const platformFeeKobo = totalEscrowFeeKobo;
       const grandTotalKobo = subtotalKobo + shippingKobo + platformFeeKobo;
@@ -123,23 +151,25 @@ export class OnlineOrderService {
           qty: item.quantity,
           price: item.unit_price,
         })),
-        vendors: [{
-          vendor_id,
-          subtotal: subtotalKobo,
-          shipping: shippingKobo,
-          escrow_fee: totalEscrowFeeKobo,
-        }],
+        vendors: [
+          {
+            vendor_id,
+            subtotal: subtotalKobo,
+            shipping: shippingKobo,
+            escrow_fee: totalEscrowFeeKobo,
+          },
+        ],
         platform_fee: 0, // No 1% platform fee for escrow
         escrow_fee: totalEscrowFeeKobo,
         order_type: 'escrow_order',
       };
 
       /* INIT PAYSTACK PAYMENT */
-      const payment = await this.paystack.initializePayment(
+      const payment = (await this.paystack.initializePayment(
         email,
         grandTotalKobo,
         { metadata: paystackMetadata },
-      );
+      )) as PaystackInitializeResponse;
       const reference = payment.reference;
 
       const storeForOrder = await this.storeService.getStoreByUser(
@@ -153,7 +183,7 @@ export class OnlineOrderService {
         buyer_id,
         vendor_id,
         store_id: storeForOrder.id,
-        order_items: groups[0]!.items,
+        order_items: groups[0].items,
         subtotal: subtotalKobo,
         shipping_fee: shippingKobo,
         platform_fee: platformFeeKobo,
@@ -173,20 +203,22 @@ export class OnlineOrderService {
         }),
       });
 
-      const { savedOrder, escrow } = await this.dataSource.transaction(async (manager) => {
-        const saved = await manager.save(Order, orderData);
+      const { savedOrder } = await this.dataSource.transaction(
+        async (manager) => {
+          const saved = await manager.save(Order, orderData);
 
-        const escrowRecord = await this.escrowService.createEscrow({
-          order_id: saved.id,
-          buyer_id,
-          vendor_id,
-          amount: subtotalKobo + shippingKobo,
-        });
+          const escrowRecord = await this.escrowService.createEscrow({
+            order_id: saved.id,
+            buyer_id,
+            vendor_id,
+            amount: subtotalKobo + shippingKobo,
+          });
 
-        await manager.update(Order, saved.id, { escrow_id: escrowRecord.id });
+          await manager.update(Order, saved.id, { escrow_id: escrowRecord.id });
 
-        return { savedOrder: saved, escrow: escrowRecord };
-      });
+          return { savedOrder: saved, escrow: escrowRecord };
+        },
+      );
 
       await this.cache.clearPrefix('svc:order');
       await this.cartService.removeSpecificItems(buyer_id, validatedItems);
@@ -231,17 +263,23 @@ export class OnlineOrderService {
         buyer_id,
       );
 
-      const groups = await this.validationService.groupItemsByStore(validatedItems);
+      const groups =
+        await this.validationService.groupItemsByStore(validatedItems);
 
       if (groups.length === 0) throw new BadRequestException('No items');
       if (groups.length > 1) {
         throw new BadRequestException('Multi-vendor checkout is deprecated.');
       }
 
-      const { store_id, vendor_id } = groups[0]!;
-      const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
+      const { store_id, vendor_id } = groups[0];
+      const store = await this.storeService.getStoreByUser(
+        vendor_id,
+        store_id ?? undefined,
+      );
       if (!store || !store.paystack_subaccount_code) {
-        throw new BadRequestException('Vendor not verified for online payments');
+        throw new BadRequestException(
+          'Vendor not verified for online payments',
+        );
       }
 
       /* CALCULATE TOTALS */
@@ -249,13 +287,15 @@ export class OnlineOrderService {
       let shippingKobo = 0;
 
       if (data.delivery_rate_id) {
-        const rate = await this.deliveryRateService.getRateById(data.delivery_rate_id);
+        const rate = await this.deliveryRateService.getRateById(
+          data.delivery_rate_id,
+        );
         if (rate && rate.store_id === store.id) {
           shippingKobo = Number(rate.fee) * 100;
         }
       }
 
-      for (const item of groups[0]!.items) {
+      for (const item of groups[0].items) {
         subtotalKobo += item.unit_price * item.quantity;
       }
 
@@ -264,8 +304,11 @@ export class OnlineOrderService {
       const VENDOR_FEE_RATE = 0.015;
 
       const rawBuyerFeeKobo = Math.round(subtotalKobo * BUYER_FEE_RATE);
-      const buyerPlatformFeeKobo = Math.min(rawBuyerFeeKobo, BUYER_FEE_CAP_KOBO);
-      
+      const buyerPlatformFeeKobo = Math.min(
+        rawBuyerFeeKobo,
+        BUYER_FEE_CAP_KOBO,
+      );
+
       const grandTotalKobo = subtotalKobo + shippingKobo + buyerPlatformFeeKobo;
       const reference = `ref_${uuidv4().replace(/-/g, '')}`;
 
@@ -287,10 +330,12 @@ export class OnlineOrderService {
         bearer_subaccount: store.paystack_subaccount_code,
       };
 
-      const splitData = await this.paystack.createSplit(splitPayload);
+      const splitData = (await this.paystack.createSplit(
+        splitPayload,
+      )) as PaystackSplitResponse;
 
       /* INIT PAYMENT */
-      const payment = await this.paystack.initializePayment(
+      const payment = (await this.paystack.initializePayment(
         email,
         grandTotalKobo,
         {
@@ -308,7 +353,7 @@ export class OnlineOrderService {
             order_type: 'direct_order',
           },
         },
-      );
+      )) as PaystackInitializeResponse;
 
       const orderData = this.orderRepo.create({
         id: uuidv4(),
@@ -325,7 +370,7 @@ export class OnlineOrderService {
         payment_access_code: payment.access_code,
         payment_status: 'pending',
         status: 'pending',
-        order_items: groups[0]!.items,
+        order_items: groups[0].items,
         delivery_address_id: data.delivery_address_id,
         notes: JSON.stringify({
           subtotal_kobo: subtotalKobo,
@@ -378,7 +423,8 @@ export class OnlineOrderService {
         buyer_id,
       );
 
-      const groups = await this.validationService.groupItemsByStore(validatedItems);
+      const groups =
+        await this.validationService.groupItemsByStore(validatedItems);
       let subtotalKobo = 0;
       let totalShippingKobo = 0;
       const vendorSubtotals: Record<string, number> = {};
@@ -386,13 +432,21 @@ export class OnlineOrderService {
 
       for (const group of groups) {
         const { store_id, vendor_id } = group;
-        await this.storeService.validateVendorForOnline(vendor_id, store_id ?? undefined);
+        await this.storeService.validateVendorForOnline(
+          vendor_id,
+          store_id ?? undefined,
+        );
         let vendorSubtotalKobo = 0;
         let vendorMaxShippingKobo = 0;
 
         if (data.delivery_rate_id) {
-          const rate = await this.deliveryRateService.getRateById(data.delivery_rate_id);
-          const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
+          const rate = await this.deliveryRateService.getRateById(
+            data.delivery_rate_id,
+          );
+          const store = await this.storeService.getStoreByUser(
+            vendor_id,
+            store_id ?? undefined,
+          );
           if (rate && rate.store_id === store.id) {
             vendorMaxShippingKobo = Number(rate.fee) * 100;
           }
@@ -402,8 +456,10 @@ export class OnlineOrderService {
           vendorSubtotalKobo += item.unit_price * item.quantity;
         }
 
-        vendorSubtotals[`${vendor_id}:${store_id ?? 'default'}`] = vendorSubtotalKobo;
-        vendorShippingFees[`${vendor_id}:${store_id ?? 'default'}`] = vendorMaxShippingKobo;
+        vendorSubtotals[`${vendor_id}:${store_id ?? 'default'}`] =
+          vendorSubtotalKobo;
+        vendorShippingFees[`${vendor_id}:${store_id ?? 'default'}`] =
+          vendorMaxShippingKobo;
         subtotalKobo += vendorSubtotalKobo;
         totalShippingKobo += vendorMaxShippingKobo;
       }
@@ -414,38 +470,53 @@ export class OnlineOrderService {
       const ESCROW_FEE_CAP_KOBO = 300_000;
 
       const rawBuyerFeeKobo = Math.round(subtotalKobo * BUYER_FEE_RATE);
-      const buyerPlatformFeeKobo = Math.min(rawBuyerFeeKobo, BUYER_FEE_CAP_KOBO);
-      
-      const rawEscrowFeeKobo = Math.round((subtotalKobo + totalShippingKobo) * ESCROW_FEE_RATE);
-      const totalEscrowFeeKobo = Math.min(rawEscrowFeeKobo, ESCROW_FEE_CAP_KOBO);
+      const buyerPlatformFeeKobo = Math.min(
+        rawBuyerFeeKobo,
+        BUYER_FEE_CAP_KOBO,
+      );
+
+      const rawEscrowFeeKobo = Math.round(
+        (subtotalKobo + totalShippingKobo) * ESCROW_FEE_RATE,
+      );
+      const totalEscrowFeeKobo = Math.min(
+        rawEscrowFeeKobo,
+        ESCROW_FEE_CAP_KOBO,
+      );
 
       const platformFeeKobo = buyerPlatformFeeKobo + totalEscrowFeeKobo;
       const grandTotalKobo = subtotalKobo + totalShippingKobo + platformFeeKobo;
 
-      const payment = await this.paystack.initializePayment(email, grandTotalKobo, {
-        metadata: {
-          vendors: Object.keys(groups).map((vId) => ({
-            vendor_id: vId,
-            subtotal: vendorSubtotals[vId],
-            shipping: vendorShippingFees[vId],
-          })),
-          order_type: 'escrow_order_multi',
+      const payment = (await this.paystack.initializePayment(
+        email,
+        grandTotalKobo,
+        {
+          metadata: {
+            vendors: Object.keys(groups).map((vId) => ({
+              vendor_id: vId,
+              subtotal: vendorSubtotals[vId],
+              shipping: vendorShippingFees[vId],
+            })),
+            order_type: 'escrow_order_multi',
+          },
         },
-      });
+      )) as PaystackInitializeResponse;
 
       const orders: Order[] = [];
       for (const group of groups) {
         const { store_id, vendor_id } = group;
         const groupKey = `${vendor_id}:${store_id ?? 'default'}`;
-        const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
+        const store = await this.storeService.getStoreByUser(
+          vendor_id,
+          store_id ?? undefined,
+        );
         const order = this.orderRepo.create({
           id: uuidv4(),
           buyer_id,
           vendor_id,
           store_id: store.id,
           order_items: group.items,
-          subtotal: vendorSubtotals[groupKey]!,
-          shipping_fee: vendorShippingFees[groupKey]!,
+          subtotal: vendorSubtotals[groupKey],
+          shipping_fee: vendorShippingFees[groupKey],
           payment_reference: payment.reference,
           status: 'pending',
           payment_method: 'online',
@@ -456,12 +527,16 @@ export class OnlineOrderService {
           order_id: saved.id,
           buyer_id,
           vendor_id,
-          amount: vendorSubtotals[groupKey]!,
+          amount: vendorSubtotals[groupKey],
         });
       }
 
       await this.cartService.clearCart(buyer_id);
-      return { success: true, payment_url: payment.authorization_url, order_ids: orders.map(o => o.id) };
+      return {
+        success: true,
+        payment_url: payment.authorization_url,
+        order_ids: orders.map((o) => o.id),
+      };
     } finally {
       await this.cache.releaseLock(lockKey);
     }
@@ -470,15 +545,9 @@ export class OnlineOrderService {
   /**
    * [DEPRECATED] Create online order without escrow (Direct payment — MULTI VENDOR)
    */
-  async createOnlineOrderDirectMultiVendorDeprecated(data: {
-    buyer_id: string;
-    email: string;
-    order_items: ICartItem[];
-    delivery_rate_id?: string;
-    delivery_address_id?: string;
-  }) {
-     // Implementation remains logic-only for preservation as requested
-     // But essentially follows the old multi-vendor loop patterns
-     return { success: false, message: 'Deprecated' };
+  createOnlineOrderDirectMultiVendorDeprecated() {
+    // Implementation remains logic-only for preservation as requested
+    // But essentially follows the old multi-vendor loop patterns
+    return { success: false, message: 'Deprecated' };
   }
 }

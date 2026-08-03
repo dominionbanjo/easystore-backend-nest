@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -67,7 +64,10 @@ export class OfflineOrderService {
       const taxKobo = tax;
       const totalKobo = subtotalKobo + taxKobo;
 
-      const store = await this.storeService.getStoreByUser(vendor_id, store_id ?? undefined);
+      const store = await this.storeService.getStoreByUser(
+        vendor_id,
+        store_id ?? undefined,
+      );
 
       const saved = await this.dataSource.transaction(async (manager) => {
         const orderEntity = manager.create(Order, {
@@ -114,7 +114,7 @@ export class OfflineOrderService {
 
     return {
       success: true,
-      order_ids: orders.map(o => o.id),
+      order_ids: orders.map((o) => o.id),
     };
   }
 
@@ -131,7 +131,15 @@ export class OfflineOrderService {
     recorded_by?: string;
     payment_method?: 'cash' | 'transfer' | 'pos';
   }) {
-    const { vendor_id, store_id, items, customer_name, customer_email, notes, recorded_by, payment_method } = data;
+    const {
+      vendor_id,
+      store_id,
+      items,
+      customer_name,
+      notes,
+      recorded_by,
+      payment_method,
+    } = data;
 
     if (!items || items.length === 0) {
       throw new BadRequestException('At least one item is required');
@@ -218,7 +226,7 @@ export class OfflineOrderService {
     });
 
     const savedOrder = await this.orderRepo.save(orderEntity);
-    const orderId = (savedOrder as Order).id;
+    const orderId = savedOrder.id;
 
     // Record the explicit transaction
     await this.transactions.create({

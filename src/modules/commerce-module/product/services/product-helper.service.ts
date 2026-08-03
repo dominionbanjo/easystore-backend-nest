@@ -23,15 +23,18 @@ export class ProductHelperService {
     }
   }
 
-  extractImageUrl(image: any): string | null {
+  extractImageUrl(image: unknown): string | null {
     if (!image) return null;
     if (typeof image === 'string') {
       try {
-        return JSON.parse(image)?.url ?? null;
+        return (JSON.parse(image) as { url?: string } | null)?.url ?? null;
       } catch {
         return null;
       }
     }
-    return image?.url ?? null;
+    if (typeof image === 'object') {
+      return (image as { url?: string }).url ?? null;
+    }
+    return null;
   }
 }

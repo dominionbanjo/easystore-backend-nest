@@ -6,6 +6,8 @@ import { SchoolZone } from './entities/school-zone.entity';
 import { SchoolZoneAdmin } from './entities/school-zone-admin.entity';
 import { SchoolZoneMember } from './entities/school-zone-member.entity';
 import { Store } from 'src/modules/vendor-module/store/entities/store.entity';
+import { StoreDeliveryRate } from 'src/modules/vendor-module/store/entities/store-delivery-rate.entity';
+import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { Product } from 'src/modules/commerce-module/product/entities/product.entity';
 import { Wishlist } from 'src/modules/commerce-module/wishlist/entities/wishlist.entity';
 import { SchoolZoneController } from './controllers/school-zone.controller';
@@ -20,6 +22,8 @@ import { ZoneAdminGuard } from './guards/zone-admin.guard';
       SchoolZoneAdmin,
       SchoolZoneMember,
       Store,
+      StoreDeliveryRate,
+      User,
       Product,
       Wishlist,
     ]),
@@ -27,11 +31,7 @@ import { ZoneAdminGuard } from './guards/zone-admin.guard';
     StoreModule,
   ],
   controllers: [SchoolZoneController],
-  providers: [
-    SchoolZoneService,
-    SchoolZoneMemberService,
-    ZoneAdminGuard,
-  ],
+  providers: [SchoolZoneService, SchoolZoneMemberService, ZoneAdminGuard],
   exports: [SchoolZoneService, SchoolZoneMemberService],
 })
 export class SchoolZoneModule {}

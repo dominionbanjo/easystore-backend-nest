@@ -5,13 +5,29 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, Not } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 
 import { Conversation } from './entities/conversation.entity';
 import { Message } from './entities/message.entity';
 import { MessageRead } from './entities/message-read.entity';
 import { SendMessageDto } from './dto/send-message.dto';
 import { GetMessagesDto } from './dto/get-messages.dto';
+import {
+  User,
+  AccountType,
+} from 'src/modules/identity-module/users/entities/user.entity';
+
+export interface SanitizedParticipant {
+  id: string;
+  first_name: string;
+  last_name: string;
+  username: string;
+  avatar: string | null;
+  account_type: AccountType;
+  store_name: string | null;
+  store_slug: string | null;
+  created_at: Date;
+}
 
 @Injectable()
 export class MessagingService {
@@ -31,18 +47,11 @@ export class MessagingService {
   ─────────────────────────────────────────────── */
 
   /** Normalise participant order so (A,B) === (B,A) */
-  private normalisePair(
-    a: string,
-    b: string,
-  ): { one: string; two: string } {
+  private normalisePair(a: string, b: string): { one: string; two: string } {
     return a < b ? { one: a, two: b } : { one: b, two: a };
   }
 
-  private buildPagination(
-    total: number,
-    page: number,
-    limit: number,
-  ) {
+  private buildPagination(total: number, page: number, limit: number) {
     const pages = Math.ceil(total / limit);
     return {
       total,
@@ -54,7 +63,7 @@ export class MessagingService {
     };
   }
 
-  private sanitizeParticipant(user: any) {
+  private sanitizeParticipant(user: User | null): SanitizedParticipant | null {
     if (!user) return null;
     return {
       id: user.id,
@@ -79,7 +88,9 @@ export class MessagingService {
     recipientId: string,
   ): Promise<{ conversation: Conversation; isNew: boolean }> {
     if (requesterId === recipientId) {
-      throw new BadRequestException('Cannot start a conversation with yourself');
+      throw new BadRequestException(
+        'Cannot start a conversation with yourself',
+      );
     }
 
     const { one, two } = this.normalisePair(requesterId, recipientId);
@@ -117,10 +128,9 @@ export class MessagingService {
       .leftJoinAndSelect('p1.stores', 's1')
       .leftJoinAndSelect('c.participant_two', 'p2')
       .leftJoinAndSelect('p2.stores', 's2')
-      .where(
-        'c.participant_one_id = :uid OR c.participant_two_id = :uid',
-        { uid: userId },
-      )
+      .where('c.participant_one_id = :uid OR c.participant_two_id = :uid', {
+        uid: userId,
+      })
       .orderBy('c.last_message_at', 'DESC', 'NULLS LAST')
       .addOrderBy('c.created_at', 'DESC')
       .getMany();
@@ -151,7 +161,12 @@ export class MessagingService {
   async getConversation(conversationId: string, userId: string) {
     const conv = await this.conversationRepo.findOne({
       where: { id: conversationId },
-      relations: ['participant_one', 'participant_one.stores', 'participant_two', 'participant_two.stores'],
+      relations: [
+        'participant_one',
+        'participant_one.stores',
+        'participant_two',
+        'participant_two.stores',
+      ],
     });
 
     if (!conv) throw new NotFoundException('Conversation not found');
@@ -166,7 +181,9 @@ export class MessagingService {
     const isOne = conv.participant_one_id === userId;
     return {
       id: conv.id,
-      other_participant: this.sanitizeParticipant(isOne ? conv.participant_two : conv.participant_one),
+      other_participant: this.sanitizeParticipant(
+        isOne ? conv.participant_two : conv.participant_one,
+      ),
       unread_count: isOne
         ? conv.participant_one_unread
         : conv.participant_two_unread,
@@ -222,28 +239,27 @@ export class MessagingService {
     const isOne = conv.participant_one_id === senderId;
     await this.conversationRepo.update(conversationId, {
       last_message_preview:
-        dto.content.length > 80
-          ? dto.content.slice(0, 80) + '…'
-          : dto.content,
+        dto.content.length > 80 ? dto.content.slice(0, 80) + '…' : dto.content,
       last_message_at: message.created_at,
       participant_one_unread: isOne
         ? 0 // sender doesn't have unread
         : conv.participant_one_unread + 1,
-      participant_two_unread: !isOne
-        ? 0
-        : conv.participant_two_unread + 1,
+      participant_two_unread: !isOne ? 0 : conv.participant_two_unread + 1,
     });
 
     // Reload with sender relation for WS emit
-    const finalMessage = await this.messageRepo.findOne({
-      where: { id: message.id },
-      relations: ['sender', 'sender.store'],
-    });
+    const finalMessage: (Message & { local_id?: string }) | null =
+      await this.messageRepo.findOne({
+        where: { id: message.id },
+        relations: ['sender', 'sender.store'],
+      });
 
     if (finalMessage) {
-      finalMessage.sender = this.sanitizeParticipant(finalMessage.sender) as any;
+      finalMessage.sender = this.sanitizeParticipant(
+        finalMessage.sender,
+      ) as unknown as User;
       if (dto.local_id) {
-        (finalMessage as any).local_id = dto.local_id;
+        finalMessage.local_id = dto.local_id;
       }
     }
 
@@ -357,15 +373,18 @@ export class MessagingService {
 
     message = await this.messageRepo.save(message);
 
-    const finalMessage = await this.messageRepo.findOne({
-      where: { id: message.id },
-      relations: ['sender', 'sender.stores'],
-    });
+    const finalMessage: (Message & { local_id?: string }) | null =
+      await this.messageRepo.findOne({
+        where: { id: message.id },
+        relations: ['sender', 'sender.stores'],
+      });
 
     if (finalMessage) {
-      finalMessage.sender = this.sanitizeParticipant(finalMessage.sender) as any;
+      finalMessage.sender = this.sanitizeParticipant(
+        finalMessage.sender,
+      ) as unknown as User;
       if (dto.local_id) {
-        (finalMessage as any).local_id = dto.local_id;
+        finalMessage.local_id = dto.local_id;
       }
     }
 
@@ -460,7 +479,7 @@ export class MessagingService {
             read_at: r.read_at,
           }))
         : undefined,
-      read_count: message.is_public ? message.reads?.length ?? 0 : undefined,
+      read_count: message.is_public ? (message.reads?.length ?? 0) : undefined,
       created_at: message.created_at,
       updated_at: message.updated_at,
     };

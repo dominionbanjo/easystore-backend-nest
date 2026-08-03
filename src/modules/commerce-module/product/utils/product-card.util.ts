@@ -60,7 +60,7 @@ export function mapToProductCardData(
   p: Product,
   options?: {
     wishlistSet?: Set<string>;
-    extra?: any;
+    extra?: Record<string, unknown>;
   },
 ) {
   const isInWishlist = options?.wishlistSet?.has(p.id) ?? false;

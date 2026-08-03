@@ -13,7 +13,8 @@ interface OrderItem {
 @Injectable()
 export class EscrowMailService {
   private readonly brandColor: string;
-  private readonly baseUrl = process.env.FRONTEND_URL || 'https://eazystore.com.ng';
+  private readonly baseUrl =
+    process.env.FRONTEND_URL || 'https://eazystore.com.ng';
 
   constructor(
     private email: EmailService,
@@ -24,13 +25,19 @@ export class EscrowMailService {
 
   private renderOrderItems(items: OrderItem[]): string {
     if (!items || items.length === 0) return '';
-    const rows = items.map((item) => {
-      const price = ((item.price ?? 0) / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 });
-      const lineTotal = (((item.price ?? 0) * (item.quantity ?? 1)) / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 });
-      const imageHtml = item.image
-        ? `<img src="${item.image}" alt="${item.name}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />`
-        : `<div style="width:56px;height:56px;background:#f3f4f6;border-radius:6px;font-size:22px;display:flex;align-items:center;justify-content:center;">📦</div>`;
-      return `<tr>
+    const rows = items
+      .map((item) => {
+        const price = ((item.price ?? 0) / 100).toLocaleString('en-NG', {
+          minimumFractionDigits: 2,
+        });
+        const lineTotal = (
+          ((item.price ?? 0) * (item.quantity ?? 1)) /
+          100
+        ).toLocaleString('en-NG', { minimumFractionDigits: 2 });
+        const imageHtml = item.image
+          ? `<img src="${item.image}" alt="${item.name}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" />`
+          : `<div style="width:56px;height:56px;background:#f3f4f6;border-radius:6px;font-size:22px;display:flex;align-items:center;justify-content:center;">📦</div>`;
+        return `<tr>
         <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;vertical-align:middle;">${imageHtml}</td>
         <td style="padding:12px 8px;border-bottom:1px solid #f3f4f6;vertical-align:middle;">
           <p style="margin:0;font-weight:700;font-size:14px;color:#111827;">${item.name ?? 'Product'}</p>
@@ -42,7 +49,8 @@ export class EscrowMailService {
           <p style="margin:4px 0 0;font-weight:800;font-size:14px;color:#111827;">₦${lineTotal}</p>
         </td>
       </tr>`;
-    }).join('');
+      })
+      .join('');
     return `<div style="margin:25px 0;">
       <p style="margin:0 0 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;">Items Ordered</p>
       <table style="width:100%;border-collapse:collapse;background:#ffffff;border:1px solid #f3f4f6;border-radius:${this.tpl.borderRadius};">

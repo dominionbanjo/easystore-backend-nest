@@ -15,6 +15,7 @@ import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { StoreAnalyticsService } from '../../store-analytics/services/store-analytics.service';
 import { Store } from '../entities/store.entity';
 import { CreateStoreDto } from '../dto/create-store.dto';
+import { UpdateStoreDto } from '../dto/update-store.dto';
 import { StoreHelperService } from './store-helper.service';
 import { VerifiedBankInfo } from '../types/store-analytics.interface';
 import { AdminNotifyMailService } from 'src/modules/shared-module/email/services/admin-notify-mail.service';
@@ -106,7 +107,9 @@ export class StoreWriteService {
         ownerName: `${user.first_name} ${user.last_name}`,
         email: saved.email || user.email,
       })
-      .catch((e) => console.error('Admin Store Notify Error:', e.message));
+      .catch((e: Error) =>
+        console.error('Admin Store Notify Error:', e.message),
+      );
 
     // Send Welcome & Setup Guide to Vendor
     this.storeWelcomeMail
@@ -115,7 +118,9 @@ export class StoreWriteService {
         email: user.email,
         storeName: saved.store_name,
       })
-      .catch((e) => console.error('Vendor Welcome Email Error:', e.message));
+      .catch((e: Error) =>
+        console.error('Vendor Welcome Email Error:', e.message),
+      );
 
     await this.analyticsService.initializeAnalyticsForStore(saved.id, manager);
 
@@ -127,7 +132,7 @@ export class StoreWriteService {
 
   async updateStore(
     storeId: string,
-    data: any,
+    data: UpdateStoreDto,
     files?: {
       logo?: Express.Multer.File[];
       cover_image?: Express.Multer.File[];
@@ -158,19 +163,26 @@ export class StoreWriteService {
       'cover_image_public_id',
       'setup_stage',
       'escrow_enabled',
-    ];
+    ] as const;
 
     const filtered: Partial<Store> = {};
+    const assignFiltered = <K extends keyof Store>(key: K, value: Store[K]) => {
+      filtered[key] = value;
+    };
+
     for (const key of allowed) {
       if (data[key] !== undefined) {
         if (key === 'social_links' && typeof data[key] === 'string') {
           try {
-            filtered[key] = JSON.parse(data[key]);
-          } catch (e) {
+            assignFiltered(
+              'social_links',
+              JSON.parse(data[key]) as Store['social_links'],
+            );
+          } catch {
             // skip invalid json
           }
         } else {
-          filtered[key] = data[key];
+          assignFiltered(key, data[key]);
         }
       }
     }
@@ -247,7 +259,7 @@ export class StoreWriteService {
 
     filtered.updated_at = new Date();
 
-    const updated = await this.storeRepo.save({
+    await this.storeRepo.save({
       ...store,
       ...filtered,
     });
@@ -307,7 +319,9 @@ export class StoreWriteService {
     ];
 
     if (reserved.includes(cleanSubdomain)) {
-      throw new BadRequestException('This subdomain name is reserved and cannot be used');
+      throw new BadRequestException(
+        'This subdomain name is reserved and cannot be used',
+      );
     }
 
     const regex = /^[a-z0-9-]+$/;
@@ -318,11 +332,11 @@ export class StoreWriteService {
     }
 
     // Check if another store has this subdomain as custom subdomain
-    // OR if their slug matches this subdomain when they have no custom subdomain set.
+    // OR if their slug matches this subdomain (both resolve the storefront).
     const query = this.storeRepo
       .createQueryBuilder('store')
       .where(
-        '(LOWER(store.subdomain) = :subdomain OR (store.subdomain IS NULL AND LOWER(store.slug) = :subdomain))',
+        '(LOWER(store.subdomain) = :subdomain OR LOWER(store.slug) = :subdomain)',
         { subdomain: cleanSubdomain },
       );
 
@@ -343,10 +357,13 @@ export class StoreWriteService {
       .createQueryBuilder()
       .select('zone.id')
       .from('school_zones', 'zone')
-      .where('LOWER(zone.subdomain) = :subdomain OR LOWER(zone.slug) = :subdomain', {
-        subdomain: cleanSubdomain,
-      })
-      .getRawOne();
+      .where(
+        'LOWER(zone.subdomain) = :subdomain OR LOWER(zone.slug) = :subdomain',
+        {
+          subdomain: cleanSubdomain,
+        },
+      )
+      .getRawOne<{ id: string }>();
 
     if (zoneExists) {
       throw new BadRequestException(
@@ -396,7 +413,7 @@ export class StoreWriteService {
       percentage_charge: 1.5, // 1.5% platform fee deducted from vendor on each sale
     });
 
-    const updated = await this.storeRepo.save({
+    await this.storeRepo.save({
       ...store,
       account_number,
       bank_code,
@@ -445,6 +462,7 @@ export class StoreWriteService {
     let verified: VerifiedBankInfo | null = null;
     let recipient_code = store.recipient_code;
     let bank_name = store.bank_name;
+    let paystack_subaccount_code = store.paystack_subaccount_code;
 
     const detailsChanged =
       (account_number && account_number !== store.account_number) ||
@@ -459,15 +477,16 @@ export class StoreWriteService {
           'Bank account number and bank code are required',
         );
 
-      verified = await this.paystack.verifyBankAccount(acct, code);
+      verified = (await this.paystack.verifyBankAccount(acct, code)) ?? null;
       if (!verified?.account_name)
         throw new BadRequestException('Bank verification failed');
 
-      recipient_code = await this.paystack.createTransferRecipient({
-        name: verified.account_name,
-        account_number: acct,
-        bank_code: code,
-      });
+      recipient_code =
+        (await this.paystack.createTransferRecipient({
+          name: verified.account_name,
+          account_number: acct,
+          bank_code: code,
+        })) ?? null;
 
       const subaccount_code = await this.paystack.createSubaccount({
         business_name: store.store_name,
@@ -477,18 +496,16 @@ export class StoreWriteService {
       });
 
       bank_name = verified.bank_name || verified.account_name;
-      (updates as any).paystack_subaccount_code = subaccount_code;
+      paystack_subaccount_code = subaccount_code ?? paystack_subaccount_code;
     }
 
-    const updated = await this.storeRepo.save({
+    await this.storeRepo.save({
       ...store,
       account_number: account_number ?? store.account_number,
       bank_code: bank_code ?? store.bank_code,
       bank_name,
       recipient_code,
-      paystack_subaccount_code:
-        (updates as any).paystack_subaccount_code ??
-        store.paystack_subaccount_code,
+      paystack_subaccount_code,
       payout_verified: true,
       settlement_email: settlement_email ?? store.settlement_email,
       last_bank_update: new Date(),
@@ -510,7 +527,7 @@ export class StoreWriteService {
     const store = await this.storeRepo.findOne({ where: { id: storeId } });
     if (!store) throw new NotFoundException('Store not found');
 
-    const updated = await this.storeRepo.save({
+    await this.storeRepo.save({
       ...store,
       account_number: null,
       bank_code: null,

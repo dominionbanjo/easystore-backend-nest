@@ -46,9 +46,9 @@ export class SeedProductCategories1700000000000 implements MigrationInterface {
 
     /* ───────────────── SUBCATEGORIES ───────────────── */
 
-    const parentMap = await queryRunner.query(
+    const parentMap: { id: string; slug: string }[] = (await queryRunner.query(
       `SELECT id, slug FROM product_categories WHERE parent_id IS NULL`,
-    );
+    )) as { id: string; slug: string }[];
 
     const parents: Record<string, string> = {};
     for (const p of parentMap) parents[p.slug] = p.id;

@@ -7,9 +7,7 @@ import { User } from 'src/modules/identity-module/users/entities/user.entity';
 import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([StoreStaff, User, Order]),
-  ],
+  imports: [TypeOrmModule.forFeature([StoreStaff, User, Order])],
   controllers: [StaffController],
   providers: [StaffService],
 })

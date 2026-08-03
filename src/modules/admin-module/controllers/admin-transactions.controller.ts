@@ -6,7 +6,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
 import { TransactionListItemDto } from '../../../common/dto/response/transaction-response.dto';
@@ -27,12 +34,41 @@ export class AdminTransactionsController {
     private readonly adminTransactionsService: AdminTransactionsService,
   ) {}
 
-  @ApiOperation({ summary: 'Get all transactions', description: 'Retrieve paginated list of all transactions with optional status, type, and search filters' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by transaction status' })
-  @ApiQuery({ name: 'type', required: false, type: String, description: 'Filter by transaction type' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term' })
+  @ApiOperation({
+    summary: 'Get all transactions',
+    description:
+      'Retrieve paginated list of all transactions with optional status, type, and search filters',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter by transaction status',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    type: String,
+    description: 'Filter by transaction type',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search term',
+  })
   @ApiPaginatedResponse(TransactionListItemDto)
   @ApiStandardErrorResponses()
   @Get()
@@ -47,7 +83,10 @@ export class AdminTransactionsController {
     return this.adminTransactionsService.getAllTransactions(query);
   }
 
-  @ApiOperation({ summary: 'Get transaction by ID', description: 'Retrieve a single transaction by its ID' })
+  @ApiOperation({
+    summary: 'Get transaction by ID',
+    description: 'Retrieve a single transaction by its ID',
+  })
   @ApiParam({ name: 'id', description: 'Transaction ID', type: String })
   @ApiOkResponse({ description: 'Transaction details' })
   @ApiStandardErrorResponses()
@@ -56,9 +95,15 @@ export class AdminTransactionsController {
     return this.adminTransactionsService.getOne(id);
   }
 
-  @ApiOperation({ summary: 'Flag a transaction', description: 'Flag a transaction for manual review' })
+  @ApiOperation({
+    summary: 'Flag a transaction',
+    description: 'Flag a transaction for manual review',
+  })
   @ApiParam({ name: 'id', description: 'Transaction ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Transaction flagged successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Transaction flagged successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':id/flag')
   async flagTransaction(@Param('id') id: string) {

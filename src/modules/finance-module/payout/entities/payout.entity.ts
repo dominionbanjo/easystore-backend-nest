@@ -137,7 +137,7 @@ export class Payout {
      METADATA (JSONB)
   ─────────────────────────────────────────────── */
   @Column({ type: 'jsonb', nullable: true })
-  metadata: any | null;
+  metadata: any;
 
   /* ───────────────────────────────────────────────
      TIMESTAMPS

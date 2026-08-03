@@ -7,7 +7,6 @@ import {
   Body,
   Query,
   UseGuards,
-  NotFoundException,
   Delete,
 } from '@nestjs/common';
 import {
@@ -23,7 +22,10 @@ import {
 
 import { ApiPaginatedResponse } from '../../../../common/decorators/api-paginated-response.decorator';
 import { ProductCardResponseDto } from '../../../../common/dto/response/product-response.dto';
-import { SuccessResponseDto, SuccessWithIdDto } from '../../../../common/dto/api-response.dto';
+import {
+  SuccessResponseDto,
+  SuccessWithIdDto,
+} from '../../../../common/dto/api-response.dto';
 import { ProductService } from '../services/product.service';
 import { ProductStatus } from '../entities/product.entity';
 import { ProductSearchDto } from '../dto/product-search.dto';
@@ -52,13 +54,47 @@ export class VendorProductController {
      📋 VENDOR: GET ALL MY PRODUCTS (Unified Search & List)
      GET /vendor/products
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get all vendor products', description: 'Retrieves all products for the authenticated vendor with optional search and filters.' })
-  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search query' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by product status' })
-  @ApiQuery({ name: 'inStock', required: false, type: Boolean, description: 'Filter by in-stock' })
-  @ApiQuery({ name: 'onSale', required: false, type: Boolean, description: 'Filter by on-sale' })
+  @ApiOperation({
+    summary: 'Get all vendor products',
+    description:
+      'Retrieves all products for the authenticated vendor with optional search and filters.',
+  })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    type: String,
+    description: 'Search query',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter by product status',
+  })
+  @ApiQuery({
+    name: 'inStock',
+    required: false,
+    type: Boolean,
+    description: 'Filter by in-stock',
+  })
+  @ApiQuery({
+    name: 'onSale',
+    required: false,
+    type: Boolean,
+    description: 'Filter by on-sale',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get()
@@ -75,11 +111,25 @@ export class VendorProductController {
      💰 SALES TERMINAL: GET PAGINATED PRODUCTS
      GET /vendor/products/sales-terminal
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get sales terminal products', description: 'Returns paginated active products for the sales terminal grid' })
+  @ApiOperation({
+    summary: 'Get sales terminal products',
+    description:
+      'Returns paginated active products for the sales terminal grid',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search by product or category name' })
-  @ApiQuery({ name: 'category', required: false, type: String, description: 'Filter by category name' })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    type: String,
+    description: 'Search by product or category name',
+  })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    type: String,
+    description: 'Filter by category name',
+  })
   @ApiOkResponse({ description: 'Paginated sales terminal products' })
   @ApiStandardErrorResponses()
   @Get('sales-terminal')
@@ -104,7 +154,11 @@ export class VendorProductController {
      💰 SALES TERMINAL: GET CATEGORIES
      GET /vendor/products/sales-terminal/categories
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get sales terminal categories', description: 'Returns distinct categories with product counts for the sales terminal' })
+  @ApiOperation({
+    summary: 'Get sales terminal categories',
+    description:
+      'Returns distinct categories with product counts for the sales terminal',
+  })
   @ApiOkResponse({ description: 'Sales terminal categories returned' })
   @ApiStandardErrorResponses()
   @Get('sales-terminal/categories')
@@ -118,12 +172,41 @@ export class VendorProductController {
      🔍 VENDOR: SEARCH PRODUCTS IN MY STORE
      GET /vendor/products/store/me/search
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Search vendor products', description: 'Searches within the authenticated vendor store products using various filters.' })
-  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search query' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  @ApiQuery({ name: 'minPrice', required: false, type: Number, description: 'Minimum price' })
-  @ApiQuery({ name: 'maxPrice', required: false, type: Number, description: 'Maximum price' })
+  @ApiOperation({
+    summary: 'Search vendor products',
+    description:
+      'Searches within the authenticated vendor store products using various filters.',
+  })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    type: String,
+    description: 'Search query',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
+  @ApiQuery({
+    name: 'minPrice',
+    required: false,
+    type: Number,
+    description: 'Minimum price',
+  })
+  @ApiQuery({
+    name: 'maxPrice',
+    required: false,
+    type: Number,
+    description: 'Maximum price',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('store/me/search')
@@ -140,8 +223,16 @@ export class VendorProductController {
      🔍 VENDOR: GET SINGLE PRODUCT (For Editing)
      GET /vendor/products/:idOrSlug
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Get vendor product by ID or slug', description: 'Retrieves a single product by ID or slug for vendor editing purposes.' })
-  @ApiParam({ name: 'idOrSlug', description: 'Product ID or slug', type: String })
+  @ApiOperation({
+    summary: 'Get vendor product by ID or slug',
+    description:
+      'Retrieves a single product by ID or slug for vendor editing purposes.',
+  })
+  @ApiParam({
+    name: 'idOrSlug',
+    description: 'Product ID or slug',
+    type: String,
+  })
   @ApiOkResponse({ description: 'Product retrieved successfully' })
   @ApiStandardErrorResponses()
   @Get(':idOrSlug')
@@ -154,16 +245,34 @@ export class VendorProductController {
     return this.productService.getVendorSingle(identifier, user.store_id!);
   }
 
-
   /* ────────────────────────────────────────────────
      🔍 PUBLIC: SEARCH PRODUCTS IN A STORE
      GET /vendor/products/store/:storeId/search
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Search products in a store', description: 'Public endpoint to search products within a specific store by store ID.' })
+  @ApiOperation({
+    summary: 'Search products in a store',
+    description:
+      'Public endpoint to search products within a specific store by store ID.',
+  })
   @ApiParam({ name: 'storeId', description: 'Store ID', type: String })
-  @ApiQuery({ name: 'q', required: false, type: String, description: 'Search query' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({
+    name: 'q',
+    required: false,
+    type: String,
+    description: 'Search query',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiPaginatedResponse(ProductCardResponseDto)
   @ApiStandardErrorResponses()
   @Get('store/:storeId/search')
@@ -180,7 +289,11 @@ export class VendorProductController {
      📷 BARCODE LOOKUP
      GET /vendor/products/barcode/:code
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Lookup product by barcode', description: 'Returns the product and optional variant for a scanned barcode.' })
+  @ApiOperation({
+    summary: 'Lookup product by barcode',
+    description:
+      'Returns the product and optional variant for a scanned barcode.',
+  })
   @ApiParam({ name: 'code', description: 'Barcode / UPC / EAN', type: String })
   @ApiOkResponse({ description: 'Product found' })
   @ApiStandardErrorResponses()
@@ -198,8 +311,15 @@ export class VendorProductController {
      🆕 VENDOR: CREATE PRODUCT (CLOUDINARY)
      POST /vendor/products
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Create a vendor product', description: 'Creates a new product for the authenticated vendor store with Cloudinary image support.' })
-  @ApiCreatedResponse({ type: SuccessWithIdDto, description: 'Product created successfully' })
+  @ApiOperation({
+    summary: 'Create a vendor product',
+    description:
+      'Creates a new product for the authenticated vendor store with Cloudinary image support.',
+  })
+  @ApiCreatedResponse({
+    type: SuccessWithIdDto,
+    description: 'Product created successfully',
+  })
   @ApiStandardErrorResponses()
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -215,9 +335,16 @@ export class VendorProductController {
      ✏️ VENDOR: UPDATE PRODUCT
      PATCH /vendor/products/:id
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Update a vendor product', description: 'Updates an existing product for the authenticated vendor store.' })
+  @ApiOperation({
+    summary: 'Update a vendor product',
+    description:
+      'Updates an existing product for the authenticated vendor store.',
+  })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
-  @ApiOkResponse({ type: SuccessWithIdDto, description: 'Product updated successfully' })
+  @ApiOkResponse({
+    type: SuccessWithIdDto,
+    description: 'Product updated successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -233,10 +360,20 @@ export class VendorProductController {
      🔒 VENDOR: ACTIVATE / DEACTIVATE PRODUCT
      PATCH /vendor/products/:id/status
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Update product status', description: 'Activates or deactivates a product listing for the vendor store.' })
+  @ApiOperation({
+    summary: 'Update product status',
+    description:
+      'Activates or deactivates a product listing for the vendor store.',
+  })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
-  @ApiBody({ description: 'New product status', schema: { properties: { status: { type: 'string' } } } })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Product status updated successfully' })
+  @ApiBody({
+    description: 'New product status',
+    schema: { properties: { status: { type: 'string' } } },
+  })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Product status updated successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -252,10 +389,19 @@ export class VendorProductController {
      🏷️ VENDOR: MARK / UNMARK PRODUCT AS ON SALE
      PATCH /vendor/products/:id/on-sale
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Toggle product on-sale status', description: 'Marks or unmarks a product as being on sale.' })
+  @ApiOperation({
+    summary: 'Toggle product on-sale status',
+    description: 'Marks or unmarks a product as being on sale.',
+  })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
-  @ApiBody({ description: 'Toggle on sale', schema: { properties: { on_sale: { type: 'boolean' } } } })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Product on-sale status updated successfully' })
+  @ApiBody({
+    description: 'Toggle on sale',
+    schema: { properties: { on_sale: { type: 'boolean' } } },
+  })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Product on-sale status updated successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':id/on-sale')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
@@ -271,9 +417,15 @@ export class VendorProductController {
      🗑️ VENDOR: DELETE PRODUCT
      DELETE /vendor/products/:id
   ──────────────────────────────────────────────── */
-  @ApiOperation({ summary: 'Delete a vendor product', description: 'Permanently removes a product from the vendor store.' })
+  @ApiOperation({
+    summary: 'Delete a vendor product',
+    description: 'Permanently removes a product from the vendor store.',
+  })
   @ApiParam({ name: 'id', description: 'Product ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Product deleted successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Product deleted successfully',
+  })
   @ApiStandardErrorResponses()
   @Delete(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)

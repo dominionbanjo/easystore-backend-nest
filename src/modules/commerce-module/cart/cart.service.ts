@@ -88,7 +88,6 @@ export class CartService {
 
   private calculateTotals(cartItems: ICartItem[]) {
     let subtotalKobo = 0;
-    const vendorShippingFees: Record<string, number> = {};
 
     for (const item of cartItems) {
       const priceKobo = item.unit_price;

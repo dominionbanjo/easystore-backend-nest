@@ -16,12 +16,18 @@ export class SetProductDeliveryRateDto {
   @IsNumber()
   fee: number;
 
-  @ApiPropertyOptional({ description: 'Estimated delivery duration', example: '2-3 business days' })
+  @ApiPropertyOptional({
+    description: 'Estimated delivery duration',
+    example: '2-3 business days',
+  })
   @IsString()
   @IsOptional()
   duration?: string;
 
-  @ApiPropertyOptional({ description: 'Additional notes', example: 'Weekend delivery available' })
+  @ApiPropertyOptional({
+    description: 'Additional notes',
+    example: 'Weekend delivery available',
+  })
   @IsString()
   @IsOptional()
   notes?: string;

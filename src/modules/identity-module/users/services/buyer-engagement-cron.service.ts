@@ -32,9 +32,15 @@ export class BuyerEngagementCronService {
         const useTrending = Math.random() > 0.5;
 
         if (useTrending) {
-          await this.buyerMail.sendTrendingPrompt(buyer.email, buyer.first_name);
+          await this.buyerMail.sendTrendingPrompt(
+            buyer.email,
+            buyer.first_name,
+          );
         } else {
-          await this.buyerMail.sendDiscoveryEmail(buyer.email, buyer.first_name);
+          await this.buyerMail.sendDiscoveryEmail(
+            buyer.email,
+            buyer.first_name,
+          );
         }
       } catch (err) {
         this.logger.error(

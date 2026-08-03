@@ -74,7 +74,7 @@ export class EmailTemplateService {
     `;
   }
 
-  wrapperWithLogo(title: string, content: string, logoUrl: string) {
+  wrapperWithLogo(title: string, content: string) {
     // Keep it similar but maybe allow custom logo for vendors if needed in future
     return this.wrapper(title, content);
   }

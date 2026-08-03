@@ -51,12 +51,16 @@ export function mapToPublicStore(store: Store, totalProductsCount?: number) {
 export function mapToOwnerStore(store: Store) {
   if (!store) return null;
 
-  const {
-    paystack_subaccount_code, // strip internal token
-    logo_public_id,
-    cover_image_public_id,
-    ...safeStore
-  } = store;
+  const safeStore: Partial<Store> = { ...store };
+
+  const internalKeys = [
+    'paystack_subaccount_code', // strip internal token
+    'logo_public_id',
+    'cover_image_public_id',
+  ] as const;
+  for (const key of internalKeys) {
+    delete safeStore[key];
+  }
 
   return {
     ...safeStore,

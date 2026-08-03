@@ -1,10 +1,5 @@
-import {
-  Controller,
-  Get,
-  UseGuards,
-  Query,
-} from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse } from '@nestjs/swagger';
+import { Controller, Get, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 import { ApiStandardErrorResponses } from '../../../common/decorators/api-standard-errors.decorator';
 import { ApiPaginatedResponse } from '../../../common/decorators/api-paginated-response.decorator';
@@ -32,7 +27,11 @@ export class PayoutController {
   @RequirePermissions(Permission.VIEW_TRANSACTIONS)
   @UseGuards(PermissionsGuard, RolesGuard)
   @Roles('vendor')
-  @ApiOperation({ summary: 'Get vendor payouts', description: 'Retrieves paginated payouts for the currently authenticated vendor.' })
+  @ApiOperation({
+    summary: 'Get vendor payouts',
+    description:
+      'Retrieves paginated payouts for the currently authenticated vendor.',
+  })
   @ApiPaginatedResponse(PayoutListItemDto)
   @ApiStandardErrorResponses()
   async getMyPayouts(

@@ -1,13 +1,27 @@
-import { IsString, IsOptional, IsArray, ValidateNested, IsNumber, Min, IsIn } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+  Min,
+  IsIn,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class OfflineSaleItemDto {
-  @ApiProperty({ description: 'Product ID', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiProperty({
+    description: 'Product ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   @IsString()
   product_id: string;
 
-  @ApiPropertyOptional({ description: 'Product variant ID', example: '550e8400-e29b-41d4-a716-446655440001' })
+  @ApiPropertyOptional({
+    description: 'Product variant ID',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
   @IsOptional()
   @IsString()
   variant_id?: string;
@@ -19,7 +33,10 @@ class OfflineSaleItemDto {
 }
 
 export class RecordVendorOfflineSaleDto {
-  @ApiProperty({ description: 'List of items sold', type: [OfflineSaleItemDto] })
+  @ApiProperty({
+    description: 'List of items sold',
+    type: [OfflineSaleItemDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OfflineSaleItemDto)
@@ -30,17 +47,27 @@ export class RecordVendorOfflineSaleDto {
   @IsString()
   customer_name?: string;
 
-  @ApiPropertyOptional({ description: 'Customer email', example: 'john@example.com' })
+  @ApiPropertyOptional({
+    description: 'Customer email',
+    example: 'john@example.com',
+  })
   @IsOptional()
   @IsString()
   customer_email?: string;
 
-  @ApiPropertyOptional({ description: 'Sale notes', example: 'Sold at physical store' })
+  @ApiPropertyOptional({
+    description: 'Sale notes',
+    example: 'Sold at physical store',
+  })
   @IsOptional()
   @IsString()
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Payment method', example: 'cash', enum: ['cash', 'transfer', 'pos'] })
+  @ApiPropertyOptional({
+    description: 'Payment method',
+    example: 'cash',
+    enum: ['cash', 'transfer', 'pos'],
+  })
   @IsOptional()
   @IsIn(['cash', 'transfer', 'pos'])
   payment_method?: 'cash' | 'transfer' | 'pos';

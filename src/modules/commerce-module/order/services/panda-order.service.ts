@@ -65,7 +65,9 @@ export class PandaOrderService {
 
       for (const group of groups) {
         const { store_id, vendor_id } = group;
-        const vendor = await this.userRepo.findOne({ where: { id: vendor_id } });
+        const vendor = await this.userRepo.findOne({
+          where: { id: vendor_id },
+        });
         if (!vendor) throw new NotFoundException('Vendor not found');
 
         const items = group.items;
@@ -159,12 +161,14 @@ export class PandaOrderService {
       throw new BadRequestException('Order is not a Panda escrow order');
     }
 
-    let pandascrowEscrowId: number;
+    let pandascrowEscrowId = 0;
     try {
-      const metadata = JSON.parse(order.notes || '{}');
-      pandascrowEscrowId = metadata.pandascrow_escrow_id;
+      const metadata = JSON.parse(order.notes || '{}') as {
+        pandascrow_escrow_id?: number;
+      };
+      pandascrowEscrowId = metadata.pandascrow_escrow_id ?? 0;
       if (!pandascrowEscrowId) throw new Error('ID not found');
-    } catch (err) {
+    } catch {
       throw new BadRequestException('Invalid order metadata');
     }
 

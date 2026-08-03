@@ -16,12 +16,19 @@ export class CreateUserDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ description: 'Password (min 6 characters)', example: 'securePass123', minLength: 6 })
+  @ApiProperty({
+    description: 'Password (min 6 characters)',
+    example: 'securePass123',
+    minLength: 6,
+  })
   @IsString()
   @MinLength(6)
   password: string;
 
-  @ApiPropertyOptional({ description: 'Phone number', example: '+2348012345678' })
+  @ApiPropertyOptional({
+    description: 'Phone number',
+    example: '+2348012345678',
+  })
   @IsOptional()
   @IsString()
   phone_number?: string;

@@ -1,5 +1,11 @@
 import { Controller, Patch, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiOkResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { OfflineFulfillmentService } from '../services/offline-fulfillment.service';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -17,9 +23,15 @@ import { SuccessResponseDto } from 'src/common/dto/api-response.dto';
 export class OfflineFulfillmentController {
   constructor(private readonly fulfillment: OfflineFulfillmentService) {}
 
-  @ApiOperation({ summary: 'Fulfill an offline order', description: 'Marks an offline order as fulfilled by the seller.' })
+  @ApiOperation({
+    summary: 'Fulfill an offline order',
+    description: 'Marks an offline order as fulfilled by the seller.',
+  })
   @ApiParam({ name: 'id', description: 'Offline order ID', type: String })
-  @ApiOkResponse({ type: SuccessResponseDto, description: 'Offline order fulfilled successfully' })
+  @ApiOkResponse({
+    type: SuccessResponseDto,
+    description: 'Offline order fulfilled successfully',
+  })
   @ApiStandardErrorResponses()
   @Patch(':id/fulfill')
   async fulfillOfflineOrder(

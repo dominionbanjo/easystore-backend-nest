@@ -13,9 +13,9 @@ export class StoreOwnerGuard implements CanActivate {
   constructor(private readonly storeService: StoreService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest();
+    const req = context.switchToHttp().getRequest<StoreOwnerRequest>();
 
-    const user = req.user as JwtAuthUser;
+    const user = req.user;
 
     if (!user || !user.sub) {
       throw new BadRequestException('Invalid authentication context');
@@ -40,10 +40,15 @@ export class StoreOwnerGuard implements CanActivate {
     // ✅ Staff check: active staff of this store can access
     const isStaff = await this.storeService.isStoreStaff(storeId, user.sub);
     if (isStaff) {
-      req.user.store_id = storeId;
+      user.store_id = storeId;
       return true;
     }
 
     throw new ForbiddenException('You do not own this store');
   }
+}
+
+interface StoreOwnerRequest {
+  user?: JwtAuthUser;
+  params?: { storeId?: string };
 }

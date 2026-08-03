@@ -10,7 +10,18 @@ import {
 } from 'typeorm';
 import { SchoolZone } from './school-zone.entity';
 
-export type SchoolZoneMemberStatus = 'pending' | 'active' | 'rejected';
+export type SchoolZoneMemberStatus =
+  | 'pending'
+  | 'active'
+  | 'rejected'
+  | 'suspended';
+
+export const SCHOOL_ZONE_MEMBER_STATUSES: SchoolZoneMemberStatus[] = [
+  'pending',
+  'active',
+  'rejected',
+  'suspended',
+];
 
 @Entity({ name: 'school_zone_members' })
 @Index('IDX_SCHOOL_ZONE_MEMBER_PAIR', ['school_zone_id', 'store_id'], {
@@ -35,7 +46,7 @@ export class SchoolZoneMember {
   @Index('IDX_SCHOOL_ZONE_MEMBER_STATUS')
   @Column({
     type: 'enum',
-    enum: ['pending', 'active', 'rejected'],
+    enum: ['pending', 'active', 'rejected', 'suspended'],
     default: 'pending',
   })
   status: SchoolZoneMemberStatus;

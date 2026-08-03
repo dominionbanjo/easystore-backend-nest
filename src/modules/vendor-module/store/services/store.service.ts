@@ -4,6 +4,7 @@ import { StoreReadService } from './store-read.service';
 import { StoreWriteService } from './store-write.service';
 import { PaginationQueryDto as PaginationDto } from 'src/common/dto/pagination.dto';
 import { CreateStoreDto } from '../dto/create-store.dto';
+import { UpdateStoreDto } from '../dto/update-store.dto';
 import { UpdateThemeDto } from '../dto/update-theme.dto';
 
 @Injectable()
@@ -20,7 +21,16 @@ export class StoreService {
     return this.readService.searchStores(q, pagination);
   }
 
-  getStore(identifier: string, options?: any) {
+  getStore(
+    identifier: string,
+    options?: {
+      includeProducts?: boolean;
+      includeCategories?: boolean;
+      productPage?: number;
+      productLimit?: number;
+      userId?: string;
+    },
+  ) {
     return this.readService.getStore(identifier, options);
   }
 
@@ -108,7 +118,14 @@ export class StoreService {
     return this.writeService.createStore(data, manager);
   }
 
-  updateStore(storeId: string, data: any, files?: any) {
+  updateStore(
+    storeId: string,
+    data: UpdateStoreDto,
+    files?: {
+      logo?: Express.Multer.File[];
+      cover_image?: Express.Multer.File[];
+    },
+  ) {
     return this.writeService.updateStore(storeId, data, files);
   }
 
@@ -142,7 +159,14 @@ export class StoreService {
     return this.writeService.updateStoreTheme(storeId, userId, dto);
   }
 
-  updateBankAccount(storeId: string, updates: any) {
+  updateBankAccount(
+    storeId: string,
+    updates: {
+      account_number?: string;
+      bank_code?: string;
+      settlement_email?: string;
+    },
+  ) {
     return this.writeService.updateBankAccount(storeId, updates);
   }
 

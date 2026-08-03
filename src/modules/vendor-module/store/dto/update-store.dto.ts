@@ -12,17 +12,27 @@ import {
 } from 'class-validator';
 
 class UpdateStoreBaseDto {
-  @ApiPropertyOptional({ description: 'Store name', example: 'My Online Store' })
+  @ApiPropertyOptional({
+    description: 'Store name',
+    example: 'My Online Store',
+  })
   @IsOptional()
   @IsString()
   store_name?: string;
 
-  @ApiPropertyOptional({ description: 'Store subdomain', example: 'mystore', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Store subdomain',
+    example: 'mystore',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   subdomain?: string | null;
 
-  @ApiPropertyOptional({ description: 'Store description', example: 'We sell the best products' })
+  @ApiPropertyOptional({
+    description: 'Store description',
+    example: 'We sell the best products',
+  })
   @IsOptional()
   @IsString()
   description?: string;
@@ -32,47 +42,71 @@ class UpdateStoreBaseDto {
   @IsString()
   category?: string;
 
-  @ApiPropertyOptional({ description: 'Category IDs', example: ['cat-1', 'cat-2'] })
+  @ApiPropertyOptional({
+    description: 'Category IDs',
+    example: ['cat-1', 'cat-2'],
+  })
   @IsOptional()
   @IsArray()
   category_ids?: string[];
 
-  @ApiPropertyOptional({ description: 'Store email', example: 'store@example.com' })
+  @ApiPropertyOptional({
+    description: 'Store email',
+    example: 'store@example.com',
+  })
   @IsOptional()
   @IsEmail()
   email?: string;
 
-  @ApiPropertyOptional({ description: 'Phone number', example: '+2348012345678' })
+  @ApiPropertyOptional({
+    description: 'Phone number',
+    example: '+2348012345678',
+  })
   @IsOptional()
   @IsString()
   phone_number?: string;
 
-  @ApiPropertyOptional({ description: 'Website URL', example: 'https://mystore.com' })
+  @ApiPropertyOptional({
+    description: 'Website URL',
+    example: 'https://mystore.com',
+  })
   @IsOptional()
   @IsString()
   website?: string;
 
-  @ApiPropertyOptional({ description: 'Social media links', example: { instagram: '@myStore', facebook: 'MyStore' } })
+  @ApiPropertyOptional({
+    description: 'Social media links',
+    example: { instagram: '@myStore', facebook: 'MyStore' },
+  })
   @IsOptional()
   @Transform(({ value }) => {
-    if (typeof value === 'string') {
+    const raw = value as unknown;
+    if (typeof raw === 'string') {
       try {
-        return JSON.parse(value);
-      } catch (e) {
-        return value;
+        return JSON.parse(raw) as Record<string, string>;
+      } catch {
+        return raw;
       }
     }
-    return value;
+    return raw;
   })
   @IsObject()
   social_links?: Record<string, string>;
 
-  @ApiPropertyOptional({ description: 'Street address', example: '123 Main Street', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Street address',
+    example: '123 Main Street',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   address_street?: string | null;
 
-  @ApiPropertyOptional({ description: 'City', example: 'Lagos', nullable: true })
+  @ApiPropertyOptional({
+    description: 'City',
+    example: 'Lagos',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   address_city?: string | null;
@@ -82,32 +116,56 @@ class UpdateStoreBaseDto {
   @IsString()
   address_state?: string | null;
 
-  @ApiPropertyOptional({ description: 'Country', example: 'NG', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Country',
+    example: 'NG',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   address_country?: string | null;
 
-  @ApiPropertyOptional({ description: 'Postal code', example: '100001', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Postal code',
+    example: '100001',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   address_postal_code?: string | null;
 
-  @ApiPropertyOptional({ description: 'Cover image URL', example: 'https://example.com/cover.jpg', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Cover image URL',
+    example: 'https://example.com/cover.jpg',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   cover_image?: string | null;
 
-  @ApiPropertyOptional({ description: 'Cloudinary public ID for cover image', example: 'stores/cover_abc123', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Cloudinary public ID for cover image',
+    example: 'stores/cover_abc123',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   cover_image_public_id?: string | null;
 
-  @ApiPropertyOptional({ description: 'Logo URL', example: 'https://example.com/logo.jpg', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Logo URL',
+    example: 'https://example.com/logo.jpg',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   logo?: string | null;
 
-  @ApiPropertyOptional({ description: 'Cloudinary public ID for logo', example: 'stores/logo_abc123', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Cloudinary public ID for logo',
+    example: 'stores/logo_abc123',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   logo_public_id?: string | null;
@@ -118,7 +176,10 @@ class UpdateStoreBaseDto {
   @IsNumber()
   setup_stage?: number;
 
-  @ApiPropertyOptional({ description: 'Escrow payments enabled', example: false })
+  @ApiPropertyOptional({
+    description: 'Escrow payments enabled',
+    example: false,
+  })
   @IsOptional()
   @Transform(({ obj }) => {
     const raw = (obj as { escrow_enabled?: unknown } | undefined)

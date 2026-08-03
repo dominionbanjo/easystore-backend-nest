@@ -10,13 +10,7 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiQuery,
-  ApiParam,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from 'src/modules/identity-module/auth/guards/optional-jwt.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
@@ -34,6 +28,8 @@ import {
   ApplyToZoneDto,
   ZoneMemberDecisionDto,
   ZoneApprovalDecisionDto,
+  SchoolZoneListQueryDto,
+  ZoneMembersQueryDto,
 } from '../dto/school-zone.dto';
 
 @ApiTags('School Zones')
@@ -52,6 +48,15 @@ export class SchoolZoneController {
     return this.zoneService.list(pagination);
   }
 
+  @Get('check-subdomain')
+  @ApiOperation({
+    summary: 'Check school zone subdomain availability (shared with stores)',
+  })
+  @ApiQuery({ name: 'subdomain', required: true, type: String })
+  async checkSubdomain(@Query('subdomain') subdomain: string) {
+    return this.zoneService.checkSubdomainAvailability(subdomain);
+  }
+
   @Get('search')
   @ApiOperation({ summary: 'Search active school zones' })
   async search(@Query() pagination: PaginationQueryDto) {
@@ -61,8 +66,21 @@ export class SchoolZoneController {
   @Get('me/memberships')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'My school zone memberships (vendor)' })
-  async myMemberships(@Req() req: RequestWithUser) {
-    return this.zoneService.getMyMemberships(req.user.store_id!);
+  async myMemberships(
+    @Req() req: RequestWithUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.zoneService.getMyMemberships(req.user.store_id!, pagination);
+  }
+
+  @Get('me/created')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'School zones I created (pending/active/rejected)' })
+  async myCreatedZones(
+    @Req() req: RequestWithUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.zoneService.getMyCreatedZones(req.user.sub, pagination);
   }
 
   @Get('admin/mine')
@@ -73,30 +91,43 @@ export class SchoolZoneController {
     return this.zoneService.getZonesWhereAdmin(req.user.sub);
   }
 
+  @Get('admin/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiOperation({ summary: 'School zone stats (admin, cached)' })
+  async adminStats() {
+    return this.zoneService.getAdminStats();
+  }
+
   @Get('admin/all')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   @ApiOperation({ summary: 'List all school zones (admin, all statuses)' })
-  async listAll(@Query() pagination: PaginationQueryDto) {
+  async listAll(@Query() pagination: SchoolZoneListQueryDto) {
     return this.zoneService.listAll(pagination);
+  }
+
+  @Get('admin/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiOperation({ summary: 'Admin school zone detail with requester info' })
+  async adminZoneDetail(@Param('id') id: string) {
+    return this.zoneService.getAdminZoneDetail(id);
   }
 
   @Get(':identifier')
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({
-    summary: 'Get school zone by slug, id or subdomain (rep can see own pending zone)',
+    summary:
+      'Get school zone by slug, id or subdomain (rep can see own pending zone)',
   })
   async getByIdentifier(
     @Param('identifier') identifier: string,
     @Req() req: RequestWithUser | undefined,
   ) {
-    const user = (req as RequestWithUser | undefined)?.user;
+    const user = req?.user;
     const isAdmin = user?.role === 'admin';
-    return this.zoneService.getForUser(
-      identifier,
-      user?.sub,
-      isAdmin,
-    );
+    return this.zoneService.getForUser(identifier, user?.sub, isAdmin);
   }
 
   @Get(':identifier/stores')
@@ -118,12 +149,8 @@ export class SchoolZoneController {
     @Req() req: RequestWithUser | undefined,
   ) {
     const zone = await this.zoneService.getByIdentifier(identifier);
-    const user = (req as RequestWithUser | undefined)?.user;
-    return this.zoneService.getZoneProducts(
-      zone.id,
-      pagination,
-      user?.sub,
-    );
+    const user = req?.user;
+    return this.zoneService.getZoneProducts(zone.id, pagination, user?.sub);
   }
 
   /* ───────────────────────── AUTH (ANY USER / VENDOR) ───────────────────────── */
@@ -131,10 +158,7 @@ export class SchoolZoneController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Apply to create a school zone (school rep)' })
-  async create(
-    @Req() req: RequestWithUser,
-    @Body() dto: CreateSchoolZoneDto,
-  ) {
+  async create(@Req() req: RequestWithUser, @Body() dto: CreateSchoolZoneDto) {
     return this.zoneService.create(req.user.sub, dto);
   }
 
@@ -152,10 +176,7 @@ export class SchoolZoneController {
   @Delete(':id/leave')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Vendor leaves a school zone' })
-  async leave(
-    @Param('id') id: string,
-    @Req() req: RequestWithUser,
-  ) {
+  async leave(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.memberService.leave(id, req.user.store_id!);
   }
 
@@ -165,10 +186,7 @@ export class SchoolZoneController {
   @UseGuards(JwtAuthGuard, PermissionsGuard, ZoneAdminGuard)
   @RequirePermissions(Permission.MANAGE_ZONE)
   @ApiOperation({ summary: 'Update school zone (rep or admin)' })
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateSchoolZoneDto,
-  ) {
+  async update(@Param('id') id: string, @Body() dto: UpdateSchoolZoneDto) {
     return this.zoneService.update(id, dto);
   }
 
@@ -176,19 +194,24 @@ export class SchoolZoneController {
   @UseGuards(JwtAuthGuard, PermissionsGuard, ZoneAdminGuard)
   @RequirePermissions(Permission.MANAGE_ZONE)
   @ApiOperation({ summary: 'List zone member applications (rep or admin)' })
-  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'active', 'rejected'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'active', 'rejected'],
+  })
   async members(
     @Param('id') id: string,
-    @Query('status') status?: 'pending' | 'active' | 'rejected',
-    @Query() pagination: PaginationQueryDto = {},
+    @Query() pagination: ZoneMembersQueryDto,
   ) {
-    return this.memberService.listMembers(id, status, pagination);
+    return this.memberService.listMembers(id, pagination.status, pagination);
   }
 
   @Post(':id/members/:memberId/decision')
   @UseGuards(JwtAuthGuard, PermissionsGuard, ZoneAdminGuard)
   @RequirePermissions(Permission.MANAGE_ZONE)
-  @ApiOperation({ summary: 'Approve or reject a vendor application (rep or admin)' })
+  @ApiOperation({
+    summary: 'Approve or reject a vendor application (rep or admin)',
+  })
   async memberDecision(
     @Param('id') id: string,
     @Param('memberId') memberId: string,
@@ -202,6 +225,42 @@ export class SchoolZoneController {
       req.user.sub,
       dto.reason,
     );
+  }
+
+  @Post(':id/members/:memberId/suspend')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ZoneAdminGuard)
+  @RequirePermissions(Permission.MANAGE_ZONE)
+  @ApiOperation({ summary: 'Suspend a member from the zone (rep or admin)' })
+  async suspendMember(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.memberService.suspend(id, memberId, req.user.sub);
+  }
+
+  @Post(':id/members/:memberId/unsuspend')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ZoneAdminGuard)
+  @RequirePermissions(Permission.MANAGE_ZONE)
+  @ApiOperation({ summary: 'Restore a suspended member (rep or admin)' })
+  async unsuspendMember(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.memberService.unsuspend(id, memberId);
+  }
+
+  @Delete(':id/members/:memberId')
+  @UseGuards(JwtAuthGuard, PermissionsGuard, ZoneAdminGuard)
+  @RequirePermissions(Permission.MANAGE_ZONE)
+  @ApiOperation({
+    summary: 'Remove a member from the zone entirely (rep or admin)',
+  })
+  async removeMember(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+  ) {
+    return this.memberService.removeFromZone(id, memberId);
   }
 
   /* ───────────────────────── PLATFORM ADMIN ───────────────────────── */

@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ProductService } from '../../product/services/product.service';
+import { ProductVariant } from '../../product/entities/product-variant.entity';
 import { ICartItem } from '../../cart/types/types';
 
 @Injectable()
@@ -39,7 +40,7 @@ export class OrderValidationService {
       let variantOptions: Record<string, string> | null = null;
 
       // 🔍 Identify variant: try by ID first, then fallback to combinations (size/color)
-      let variant: any = null;
+      let variant: ProductVariant | undefined;
       if (item.variant_id && product.variants?.length) {
         variant = product.variants.find((v) => v.id === item.variant_id);
       }
@@ -165,6 +166,6 @@ export class OrderValidationService {
       groups[key].items.push(item);
     }
 
-    return Object.values(groups);
+    return Promise.resolve(Object.values(groups));
   }
 }

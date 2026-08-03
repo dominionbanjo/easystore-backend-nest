@@ -2,6 +2,94 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 
+interface PaystackApiResponse<T> {
+  status: boolean;
+  message: string;
+  data: T;
+}
+
+export interface PaystackBank {
+  name: string;
+  code: string;
+  slug: string;
+  type: string;
+}
+
+interface PaystackSubaccountData {
+  subaccount_code: string;
+}
+
+interface PaystackSplitData {
+  split_code: string;
+}
+
+export interface PaystackInitializeData {
+  authorization_url: string;
+  access_code: string;
+  reference: string;
+}
+
+export interface PaystackVerifyData {
+  status: string;
+  amount: number;
+  reference: string;
+}
+
+interface PaystackBankResolveData {
+  account_name: string;
+  account_number: string;
+  bank_id: number;
+}
+
+export interface VerifiedBankAccount {
+  account_name: string;
+  account_number: string;
+  bank_id: number;
+  bank_name: string;
+}
+
+interface PaystackRecipientData {
+  recipient_code: string;
+}
+
+interface PaystackTransferData {
+  reference: string;
+  transfer_code: string;
+}
+
+interface PaystackError {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+}
+
+interface InitializePaymentOptions {
+  subaccount?: string;
+  split_code?: string;
+  reference?: string;
+  transaction_charge?: number;
+  bearer?: 'account' | 'subaccount';
+  callback_url?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface InitializePaymentPayload {
+  email: string;
+  amount: number;
+  currency: string;
+  callback_url: string;
+  metadata?: Record<string, unknown>;
+  reference?: string;
+  subaccount?: string;
+  bearer?: 'account' | 'subaccount';
+  split_code?: string;
+  transaction_charge?: number;
+}
+
 @Injectable()
 export class PaystackService {
   private readonly baseUrl = 'https://api.paystack.co';
@@ -53,19 +141,19 @@ export class PaystackService {
   /* ────────────────────────────────────────────────
      INTERNAL ERROR HANDLER
   ──────────────────────────────────────────────── */
-  private handleError(error: any, context: string): never {
+  private handleError(error: unknown, context: string): never {
+    const err = error as PaystackError;
+
     console.error('🔥 PAYSTACK ERROR:', {
       context,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
     });
 
-    const status = error.response?.status;
+    const status = err.response?.status;
     const message =
-      error.response?.data?.message ||
-      error.message ||
-      'Paystack request failed';
+      err.response?.data?.message || err.message || 'Paystack request failed';
 
     if (status === 401) {
       throw new BadRequestException(
@@ -80,7 +168,9 @@ export class PaystackService {
     }
 
     if (status === 400) {
-      throw new BadRequestException(message || `${context} failed — bad request`);
+      throw new BadRequestException(
+        message || `${context} failed — bad request`,
+      );
     }
 
     throw new BadRequestException(`${context} failed: ${message}`);
@@ -88,18 +178,21 @@ export class PaystackService {
   /* ────────────────────────────────────────────────
    GET NIGERIAN BANKS
 ──────────────────────────────────────────────── */
-  async getBanksNigeria() {
+  async getBanksNigeria(): Promise<PaystackBank[] | undefined> {
     try {
-      const res = await axios.get(`${this.baseUrl}/bank`, {
-        headers: this.headers,
-        params: {
-          country: 'nigeria',
-          currency: 'NGN',
-          enabled_for_verification: true,
+      const res = await axios.get<PaystackApiResponse<PaystackBank[]>>(
+        `${this.baseUrl}/bank`,
+        {
+          headers: this.headers,
+          params: {
+            country: 'nigeria',
+            currency: 'NGN',
+            enabled_for_verification: true,
+          },
         },
-      });
+      );
 
-      return res.data?.data?.map((bank: any) => ({
+      return res.data?.data?.map((bank) => ({
         name: bank.name,
         code: bank.code,
         slug: bank.slug,
@@ -127,9 +220,9 @@ export class PaystackService {
     bank_code: string;
     account_number: string;
     percentage_charge?: number;
-  }) {
+  }): Promise<string | undefined> {
     try {
-      const res = await axios.post(
+      const res = await axios.post<PaystackApiResponse<PaystackSubaccountData>>(
         `${this.baseUrl}/subaccount`,
         {
           business_name,
@@ -153,11 +246,15 @@ export class PaystackService {
     subaccounts: { subaccount: string; share: number }[];
     bearer_type: 'subaccount' | 'account' | 'all-pro-rata' | 'all';
     bearer_subaccount?: string;
-  }) {
+  }): Promise<PaystackSplitData | undefined> {
     try {
-      const res = await axios.post(`${this.baseUrl}/split`, data, {
-        headers: this.headers,
-      });
+      const res = await axios.post<PaystackApiResponse<PaystackSplitData>>(
+        `${this.baseUrl}/split`,
+        data,
+        {
+          headers: this.headers,
+        },
+      );
       return res.data?.data;
     } catch (error) {
       this.handleError(error, 'Split creation');
@@ -171,18 +268,10 @@ export class PaystackService {
   async initializePayment(
     email: string,
     amountKobo: number,
-    options?: {
-      subaccount?: string;
-      split_code?: string;
-      reference?: string;
-      transaction_charge?: number;
-      bearer?: 'account' | 'subaccount';
-      callback_url?: string;
-      metadata?: any;
-    },
-  ) {
+    options?: InitializePaymentOptions,
+  ): Promise<PaystackInitializeData | undefined> {
     try {
-      const payload: any = {
+      const payload: InitializePaymentPayload = {
         email,
         amount: Math.round(amountKobo), // ALREADY IN KOBO
         currency: 'NGN',
@@ -209,10 +298,12 @@ export class PaystackService {
         payload.transaction_charge = options.transaction_charge;
       }
 
-      const res = await axios.post(
+      const res = await axios.post<PaystackApiResponse<PaystackInitializeData>>(
         `${this.baseUrl}/transaction/initialize`,
         payload,
-        { headers: this.headers },
+        {
+          headers: this.headers,
+        },
       );
 
       return res.data.data;
@@ -221,9 +312,11 @@ export class PaystackService {
     }
   }
 
-  async verifyPayment(reference: string) {
+  async verifyPayment(
+    reference: string,
+  ): Promise<PaystackVerifyData | undefined> {
     try {
-      const res = await axios.get(
+      const res = await axios.get<PaystackApiResponse<PaystackVerifyData>>(
         `${this.baseUrl}/transaction/verify/${reference}`,
         { headers: this.headers },
       );
@@ -238,13 +331,19 @@ export class PaystackService {
      BANK VERIFICATION
   ──────────────────────────────────────────────── */
 
-  async verifyBankAccount(account_number: string, bank_code: string) {
+  async verifyBankAccount(
+    account_number: string,
+    bank_code: string,
+  ): Promise<VerifiedBankAccount | undefined> {
     try {
       // Resolve account
-      const res = await axios.get(`${this.baseUrl}/bank/resolve`, {
-        headers: this.headers,
-        params: { account_number, bank_code },
-      });
+      const res = await axios.get<PaystackApiResponse<PaystackBankResolveData>>(
+        `${this.baseUrl}/bank/resolve`,
+        {
+          headers: this.headers,
+          params: { account_number, bank_code },
+        },
+      );
 
       const data = res.data?.data;
 
@@ -253,11 +352,14 @@ export class PaystackService {
       }
 
       // Fetch bank name
-      const banksRes = await axios.get(`${this.baseUrl}/bank`, {
-        headers: this.headers,
-      });
+      const banksRes = await axios.get<PaystackApiResponse<PaystackBank[]>>(
+        `${this.baseUrl}/bank`,
+        {
+          headers: this.headers,
+        },
+      );
 
-      const bank = banksRes.data?.data?.find((b: any) => b.code === bank_code);
+      const bank = banksRes.data?.data?.find((b) => b.code === bank_code);
 
       return {
         account_name: data.account_name,
@@ -282,9 +384,9 @@ export class PaystackService {
     name: string;
     account_number: string;
     bank_code: string;
-  }) {
+  }): Promise<string | undefined> {
     try {
-      const res = await axios.post(
+      const res = await axios.post<PaystackApiResponse<PaystackRecipientData>>(
         `${this.baseUrl}/transferrecipient`,
         {
           type: 'nuban',
@@ -328,7 +430,7 @@ export class PaystackService {
     const reference = `pay_${uuidv4().replace(/-/g, '')}`;
 
     try {
-      const res = await axios.post(
+      const res = await axios.post<PaystackApiResponse<PaystackTransferData>>(
         `${this.baseUrl}/transfer`,
         {
           source: 'balance',
@@ -342,15 +444,15 @@ export class PaystackService {
 
       return {
         ok: true,
-        reference,
         ...res.data.data,
+        reference,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as PaystackError;
       return {
         ok: false,
         reference,
-        error:
-          error.response?.data || error.message || 'Unknown transfer error',
+        error: err.response?.data || err.message || 'Unknown transfer error',
       };
     }
   }

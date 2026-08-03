@@ -44,7 +44,11 @@ export class ProductCategoryController {
   ──────────────────────────────────────────────── */
   @Post()
   @RequirePermissions(Permission.MANAGE_CATEGORIES)
-  @ApiOperation({ summary: 'Create a category', description: 'Creates a new product category. Restricted to admin and vendor roles.' })
+  @ApiOperation({
+    summary: 'Create a category',
+    description:
+      'Creates a new product category. Restricted to admin and vendor roles.',
+  })
   @ApiCreatedResponse({ description: 'Category created successfully' })
   @ApiStandardErrorResponses()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -52,7 +56,8 @@ export class ProductCategoryController {
     @Body() dto: CreateProductCategoryDto,
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
   ) {
-    const vendorId = user.role === 'admin' ? undefined : (user.store_id ?? undefined);
+    const vendorId =
+      user.role === 'admin' ? undefined : (user.store_id ?? undefined);
     return this.productCategoryService.create(dto, vendorId);
   }
 
@@ -61,7 +66,11 @@ export class ProductCategoryController {
      GET /product-categories
   ──────────────────────────────────────────────── */
   @Get()
-  @ApiOperation({ summary: 'Get all categories', description: 'Retrieves all product categories in a tree structure. Optional authentication for vendor-specific categories.' })
+  @ApiOperation({
+    summary: 'Get all categories',
+    description:
+      'Retrieves all product categories in a tree structure. Optional authentication for vendor-specific categories.',
+  })
   @ApiPaginatedResponse(Object)
   @ApiStandardErrorResponses()
   @UseGuards(OptionalJwtAuthGuard)
@@ -74,8 +83,15 @@ export class ProductCategoryController {
      GET /product-categories/:identifier
   ──────────────────────────────────────────────── */
   @Get(':identifier')
-  @ApiOperation({ summary: 'Get a category', description: 'Retrieves a single category by its ID or slug.' })
-  @ApiParam({ name: 'identifier', description: 'Category ID or slug', type: String })
+  @ApiOperation({
+    summary: 'Get a category',
+    description: 'Retrieves a single category by its ID or slug.',
+  })
+  @ApiParam({
+    name: 'identifier',
+    description: 'Category ID or slug',
+    type: String,
+  })
   @ApiOkResponse({ description: 'Category retrieved successfully' })
   @ApiStandardErrorResponses()
   findOne(@Param('identifier') identifier: string) {
@@ -88,7 +104,11 @@ export class ProductCategoryController {
   ──────────────────────────────────────────────── */
   @Patch(':id')
   @RequirePermissions(Permission.MANAGE_CATEGORIES)
-  @ApiOperation({ summary: 'Update a category', description: 'Updates an existing product category. Restricted to admin role.' })
+  @ApiOperation({
+    summary: 'Update a category',
+    description:
+      'Updates an existing product category. Restricted to admin role.',
+  })
   @ApiParam({ name: 'id', description: 'Category ID', type: String })
   @ApiOkResponse({ description: 'Category updated successfully' })
   @ApiStandardErrorResponses()
@@ -107,7 +127,11 @@ export class ProductCategoryController {
   ──────────────────────────────────────────────── */
   @Delete(':id')
   @RequirePermissions(Permission.MANAGE_CATEGORIES)
-  @ApiOperation({ summary: 'Delete a category', description: 'Permanently removes a product category. Restricted to admin role.' })
+  @ApiOperation({
+    summary: 'Delete a category',
+    description:
+      'Permanently removes a product category. Restricted to admin role.',
+  })
   @ApiParam({ name: 'id', description: 'Category ID', type: String })
   @ApiOkResponse({ description: 'Category deleted successfully' })
   @ApiStandardErrorResponses()
