@@ -10,6 +10,7 @@ import { ProductSearchDto } from '../dto/product-search.dto';
 import { ProductStatus } from '../entities/product.entity';
 import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
 import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
+import { SaveProductDraftDto } from '../dto/save-product-draft.dto';
 
 @Injectable()
 export class ProductService {
@@ -153,6 +154,36 @@ export class ProductService {
 
   updateOnSale(productId: string, onSale: boolean) {
     return this.writeService.updateOnSale(productId, onSale);
+  }
+
+  saveDraft(
+    user: { sub: string; store_id: string | null },
+    dto: SaveProductDraftDto,
+  ) {
+    return this.writeService.saveDraft(user, dto);
+  }
+
+  publishDraft(
+    user: { sub: string; store_id: string | null },
+    draftId: string,
+    dto: CreateProductCloudinaryDto,
+  ) {
+    return this.writeService.publishDraft(user, draftId, dto);
+  }
+
+  discardDraft(
+    user: { sub: string; store_id: string | null },
+    draftId: string,
+  ) {
+    return this.writeService.discardDraft(user, draftId);
+  }
+
+  getVendorDrafts(storeId: string, params: ProductSearchDto) {
+    return this.readService.getVendorDrafts(storeId, params);
+  }
+
+  getVendorDraft(storeId: string, id: string) {
+    return this.readService.getVendorDraft(storeId, id);
   }
 
   remove(id: string) {

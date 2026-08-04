@@ -500,7 +500,7 @@ export class ProductSearchService {
         name: product.name,
         slug: product.slug,
         description: product.description,
-        price: Number(product.price) / 100,
+        price: product.price != null ? Number(product.price) / 100 : null,
         discount_price: product.discount_price
           ? Number(product.discount_price) / 100
           : null,

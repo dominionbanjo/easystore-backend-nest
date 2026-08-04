@@ -33,6 +33,7 @@ export interface ProductGalleryItem {
 export enum ProductStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
+  DRAFT = 'draft',
 }
 
 @Entity({ name: 'products' })
@@ -72,8 +73,8 @@ export class Product {
   @JoinColumn({ name: 'store_id' })
   store: Store;
   @Index('IDX_PRODUCT_CATEGORY_ID')
-  @Column({ type: 'uuid' })
-  category_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  category_id: string | null;
 
   @ManyToOne(() => ProductCategory, (category) => category.products, {
     onDelete: 'RESTRICT',
@@ -93,11 +94,11 @@ export class Product {
   /* ────────────────────────────────────────────────
      BASIC PRODUCT FIELDS
   ───────────────────────────────────────────────── */
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   name: string;
 
   @Index('IDX_PRODUCT_SLUG')
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
   slug: string;
 
   @Index('IDX_PRODUCT_BARCODE', { unique: true })
@@ -107,8 +108,8 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
-  @Column({ type: 'bigint' })
-  price: number;
+  @Column({ type: 'bigint', nullable: true })
+  price: number | null;
 
   @Column({ type: 'bigint', nullable: true })
   discount_price: number | null;

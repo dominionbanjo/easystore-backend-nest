@@ -17,6 +17,7 @@ import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
 import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
+import { SaveProductDraftDto } from '../dto/save-product-draft.dto';
 import { ProductVariantDto } from '../dto/product-variants.dto';
 import { UploadService } from 'src/common/services/upload.service';
 import { WishlistService } from '../../wishlist/wishlist.service';
@@ -631,6 +632,368 @@ export class ProductWriteService {
         ? 'Product marked as on sale successfully'
         : 'Product removed from sale successfully',
       on_sale: onSale,
+    };
+  }
+
+  /* ────────────────────────────────────────────────
+     🗒️ DRAFT METHODS (backend-controlled save-as-draft)
+  ──────────────────────────────────────────────── */
+
+  private buildDraftUpdateData(
+    dto: SaveProductDraftDto,
+  ): Record<string, unknown> {
+    const data: Record<string, unknown> = {};
+
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.category_id !== undefined) data.category_id = dto.category_id;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.price !== undefined) {
+      data.price =
+        dto.price !== null ? Math.round(Number(dto.price) * 100) : null;
+    }
+    if (dto.discount_price !== undefined) {
+      data.discount_price =
+        dto.discount_price !== null
+          ? Math.round(Number(dto.discount_price) * 100)
+          : null;
+    }
+    if (dto.stock !== undefined) data.stock = dto.stock ?? 0;
+    if (dto.barcode !== undefined) data.barcode = dto.barcode;
+    if (dto.tags !== undefined) data.tags = dto.tags;
+    if (dto.highlights !== undefined) data.highlights = dto.highlights;
+    if (dto.specs !== undefined) data.specs = dto.specs;
+    if (dto.options !== undefined) data.options = dto.options;
+    if (dto.shipping_note !== undefined) data.shipping_note = dto.shipping_note;
+    if (dto.returns_note !== undefined) data.returns_note = dto.returns_note;
+    if (dto.image !== undefined) data.image = dto.image;
+    if (dto.gallery !== undefined) data.gallery = dto.gallery;
+
+    return data;
+  }
+
+  /**
+   * Persist variant rows for a draft. Drafts may contain incomplete variant
+   * rows (missing price/stock/combinations), so only complete rows are saved
+   * and incomplete ones are left untouched until the draft is published.
+   */
+  private async syncDraftVariants(
+    manager: EntityManager,
+    productId: string,
+    variants?: SaveProductDraftDto['variants'] | null,
+  ) {
+    if (variants === undefined || variants === null) return;
+
+    const complete = variants.filter(
+      (v) =>
+        v.combinations &&
+        typeof v.combinations === 'object' &&
+        v.price !== undefined &&
+        v.price !== null &&
+        v.stock !== undefined &&
+        v.stock !== null,
+    );
+
+    if (variants.length > 0 && complete.length === 0) return;
+
+    const formatted = complete.map((v) => ({
+      ...v,
+      price: Math.round(Number(v.price) * 100),
+      discount_price:
+        v.discount_price !== undefined && v.discount_price !== null
+          ? Math.round(Number(v.discount_price) * 100)
+          : null,
+      stock: Number(v.stock) || 0,
+      sku: v.sku || null,
+    }));
+
+    const incomingIds = formatted
+      .map((v) => v.id)
+      .filter((v): v is string => Boolean(v));
+
+    if (incomingIds.length > 0) {
+      await manager.delete(ProductVariant, {
+        product_id: productId,
+        id: Not(In(incomingIds)),
+      });
+    } else {
+      await manager.delete(ProductVariant, { product_id: productId });
+    }
+
+    for (const v of formatted) {
+      const { id: vId, ...rest } = v;
+      if (vId) {
+        await manager.update(ProductVariant, vId, rest);
+      } else {
+        await manager.insert(ProductVariant, {
+          ...rest,
+          product_id: productId,
+        });
+      }
+    }
+  }
+
+  async saveDraft(
+    user: { sub: string; store_id: string | null },
+    dto: SaveProductDraftDto,
+  ) {
+    if (!user.store_id) {
+      throw new BadRequestException('Vendor does not have a store');
+    }
+
+    const draftData = this.buildDraftUpdateData(dto);
+
+    if (dto.id) {
+      return this.productRepo.manager.transaction(async (manager) => {
+        const existing = await manager.findOne(Product, {
+          where: {
+            id: dto.id!,
+            store_id: user.store_id!,
+          },
+          select: ['id', 'status'],
+        });
+
+        if (!existing) {
+          throw new NotFoundException('Draft not found in your store');
+        }
+
+        if (
+          Object.keys(draftData).length > 0 ||
+          existing.status !== ProductStatus.DRAFT
+        ) {
+          await manager.update(Product, dto.id!, {
+            ...draftData,
+            status: ProductStatus.DRAFT,
+            updated_at: new Date(),
+          });
+        }
+
+        await this.syncDraftVariants(manager, dto.id!, dto.variants);
+
+        if (dto.variants && dto.variants.length > 0) {
+          const { price: rootPrice, stock: rootStock } =
+            this.resolveRootPriceAndStock({
+              ...dto,
+              variants: dto.variants,
+            });
+          await manager.update(Product, dto.id!, {
+            price: Math.round(Number(rootPrice) * 100),
+            stock: rootStock,
+          });
+        } else {
+          await this.recalculateStockFromVariants(dto.id!, manager);
+        }
+
+        return {
+          message: 'Draft saved successfully',
+          success: true,
+          id: dto.id!,
+        };
+      });
+    }
+
+    return this.productRepo.manager.transaction(async (manager) => {
+      let slug: string | null = null;
+      if (dto.name) {
+        const baseSlug = slugify(dto.name, { lower: true, strict: true });
+        slug = baseSlug;
+        let counter = 1;
+        while (await manager.exists(Product, { where: { slug } })) {
+          slug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
+
+      const product = manager.create(Product, {
+        ...draftData,
+        vendor_id: user.sub,
+        store_id: user.store_id,
+        status: ProductStatus.DRAFT,
+        stock: dto.stock ?? 0,
+        slug: slug ?? undefined,
+      });
+
+      const saved = await manager.save(Product, product);
+
+      await this.syncDraftVariants(manager, saved.id, dto.variants);
+
+      if (dto.variants && dto.variants.length > 0) {
+        const { price: rootPrice, stock: rootStock } =
+          this.resolveRootPriceAndStock({
+            ...dto,
+            variants: dto.variants,
+          });
+        await manager.update(Product, saved.id, {
+          price: Math.round(Number(rootPrice) * 100),
+          stock: rootStock,
+        });
+      } else {
+        await this.recalculateStockFromVariants(saved.id, manager);
+      }
+
+      return {
+        message: 'Draft saved successfully',
+        success: true,
+        id: saved.id,
+      };
+    });
+  }
+
+  async publishDraft(
+    user: { sub: string; store_id: string | null },
+    draftId: string,
+    dto: CreateProductCloudinaryDto,
+  ) {
+    if (!user.store_id) {
+      throw new BadRequestException('Vendor does not have a store');
+    }
+
+    return this.productRepo.manager.transaction(async (manager) => {
+      const draft = await manager.findOne(Product, {
+        where: {
+          id: draftId,
+          store_id: user.store_id!,
+          status: ProductStatus.DRAFT,
+        },
+        select: ['id', 'status'],
+      });
+
+      if (!draft) {
+        throw new NotFoundException('Draft not found in your store');
+      }
+
+      if (!dto.name || !dto.category_id) {
+        throw new BadRequestException(
+          'A product name and category are required to publish a draft',
+        );
+      }
+
+      await this.helpers.ensureCategoryExists(dto.category_id);
+
+      const slug = slugify(dto.name, { lower: true, strict: true });
+      const slugExists = await manager.exists(Product, {
+        where: { slug, id: Not(draftId) },
+      });
+      if (slugExists) {
+        throw new BadRequestException('Product with same name exists');
+      }
+
+      if (dto.barcode) {
+        const barcodeExists = await manager.exists(Product, {
+          where: { barcode: dto.barcode, id: Not(draftId) },
+        });
+        if (barcodeExists) {
+          throw new BadRequestException(
+            'Barcode already in use by another product',
+          );
+        }
+      }
+
+      const { price, stock } = this.resolveRootPriceAndStock(dto);
+
+      const updateData: Record<string, unknown> = {
+        ...this.buildDraftUpdateData(dto as unknown as SaveProductDraftDto),
+        name: dto.name,
+        category_id: dto.category_id,
+        slug,
+        price: Math.round(Number(price) * 100),
+        discount_price:
+          dto.discount_price !== undefined && dto.discount_price !== null
+            ? Math.round(Number(dto.discount_price) * 100)
+            : null,
+        stock,
+        image: dto.image ?? null,
+        gallery: dto.gallery ?? null,
+        status: ProductStatus.ACTIVE,
+        updated_at: new Date(),
+      };
+
+      await manager.update(Product, draftId, updateData);
+
+      if (dto.variants) {
+        const formatted = this.formatVariants(dto.variants);
+        const incomingIds = formatted
+          .map((v) => v.id)
+          .filter((v): v is string => Boolean(v));
+
+        if (incomingIds.length > 0) {
+          await manager.delete(ProductVariant, {
+            product_id: draftId,
+            id: Not(In(incomingIds)),
+          });
+        } else {
+          await manager.delete(ProductVariant, { product_id: draftId });
+        }
+
+        for (const v of formatted) {
+          const { id: vId, ...rest } = v;
+          if (vId) {
+            await manager.update(ProductVariant, vId, rest);
+          } else {
+            await manager.insert(ProductVariant, {
+              ...rest,
+              product_id: draftId,
+            });
+          }
+        }
+
+        if (formatted.length > 0) {
+          await this.recalculateStockFromVariants(draftId, manager);
+        }
+      } else if (dto.variants === null) {
+        await manager.delete(ProductVariant, { product_id: draftId });
+      }
+
+      const published = await manager.findOne(Product, {
+        where: { id: draftId },
+        select: ['id', 'stock'],
+      });
+
+      if (published && published.stock <= 0) {
+        await this.handleOutOfStock(draftId, manager);
+      }
+
+      return {
+        message: 'Product published successfully',
+        success: true,
+        id: draftId,
+      };
+    });
+  }
+
+  async discardDraft(
+    user: { sub: string; store_id: string | null },
+    draftId: string,
+  ) {
+    if (!user.store_id) {
+      throw new BadRequestException('Vendor does not have a store');
+    }
+
+    const draft = await this.productRepo.findOne({
+      where: {
+        id: draftId,
+        store_id: user.store_id,
+        status: ProductStatus.DRAFT,
+      },
+      select: ['id', 'image', 'gallery'],
+    });
+
+    if (!draft) {
+      throw new NotFoundException('Draft not found in your store');
+    }
+
+    if (draft.image?.public_id) {
+      await this.upload.deleteSingle(draft.image.public_id);
+    }
+
+    if (draft.gallery?.length) {
+      await this.upload.deleteMultiple(draft.gallery);
+    }
+
+    await this.productRepo.delete(draftId);
+
+    return {
+      message: 'Draft discarded successfully',
+      success: true,
     };
   }
 

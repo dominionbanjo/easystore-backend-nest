@@ -15,7 +15,9 @@ export class StoreWelcomeMailService {
     storeName: string;
   }) {
     const title = 'Your Store Has Been Created! 🏪';
-    const videoUrl = 'https://www.youtube.com/watch?v=k_XUaKOn68Y'; // Placeholder video link
+    // Matches the "How to setup your store" video in the landing page hero (HeroSection.tsx)
+    const videoUrl =
+      'https://res.cloudinary.com/dcmg4skhv/video/upload/v1778502104/lv_0_20260511131325_fa0q0v.mp4';
 
     const content = `
       <p>Hi <b>${vendor.name}</b>,</p>

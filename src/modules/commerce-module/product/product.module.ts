@@ -16,6 +16,7 @@ import { WishlistModule } from '../wishlist/wishlist.module';
 import { ProductVariant } from './entities/product-variant.entity';
 import { ProductCustomer } from './entities/product-customer.entity';
 import { VendorProductController } from './controllers/vendor-product.controller';
+import { VendorProductDraftController } from './controllers/vendor-product-draft.controller';
 import { CartModule } from '../cart/cart.module';
 
 @Module({
@@ -33,7 +34,11 @@ import { CartModule } from '../cart/cart.module';
     StoreModule,
     WishlistModule,
   ],
-  controllers: [ProductController, VendorProductController],
+  controllers: [
+    ProductController,
+    VendorProductController,
+    VendorProductDraftController,
+  ],
   providers: [
     ProductService,
     ProductReadService,

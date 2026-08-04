@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, IsNull, Repository } from 'typeorm';
 import { Product, ProductStatus } from '../entities/product.entity';
 import { ProductVariant } from '../entities/product-variant.entity';
 import { ProductCategory } from '../../product-category/entities/product-category.entity';
 
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
+import { ProductSearchDto } from '../dto/product-search.dto';
 import { WishlistService } from '../../wishlist/wishlist.service';
 import { PRODUCTS_GROUPED_BY_CATEGORY_SQL } from '../queries/products-grouped-by-category.sql';
 import { buildPagination } from 'src/utils/response/pagination.util';
@@ -615,6 +616,140 @@ export class ProductReadService {
           options: product.options || [],
           variants,
           store_id: product.store_id || product.store?.id,
+        },
+      },
+    };
+  }
+
+  async getVendorDrafts(storeId: string, params: ProductSearchDto) {
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 20;
+
+    const where: FindOptionsWhere<Product> = {
+      store_id: storeId,
+      status: ProductStatus.DRAFT,
+    };
+
+    if (params.q?.trim()) {
+      where.name = ILike(`%${params.q.trim()}%`);
+    }
+
+    const [rows, total] = await this.productRepo.findAndCount({
+      where,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        price: true,
+        discount_price: true,
+        stock: true,
+        image: true,
+        gallery: true,
+        highlights: true,
+        specs: true,
+        tags: true,
+        options: true,
+        status: true,
+        category_id: true,
+        shipping_note: true,
+        returns_note: true,
+        updated_at: true,
+        created_at: true,
+      },
+      order: { updated_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const drafts = rows.map((draft) => ({
+      ...draft,
+      price: draft.price != null ? Number(draft.price) / 100 : null,
+      discount_price:
+        draft.discount_price != null
+          ? Number(draft.discount_price) / 100
+          : null,
+    }));
+
+    return {
+      message: 'Drafts retrieved successfully',
+      data: {
+        drafts,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      },
+    };
+  }
+
+  async getVendorDraft(storeId: string, id: string) {
+    const draft = await this.productRepo.findOne({
+      where: { id, store_id: storeId, status: ProductStatus.DRAFT },
+      relations: ['variants'],
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        price: true,
+        discount_price: true,
+        stock: true,
+        image: true,
+        gallery: true,
+        highlights: true,
+        specs: true,
+        tags: true,
+        options: true,
+        status: true,
+        category_id: true,
+        barcode: true,
+        shipping_note: true,
+        returns_note: true,
+        vendor_id: true,
+        store_id: true,
+        variants: {
+          id: true,
+          sku: true,
+          barcode: true,
+          combinations: true,
+          price: true,
+          discount_price: true,
+          stock: true,
+          image_url: true,
+          image_public_id: true,
+        },
+      },
+    });
+
+    if (!draft) {
+      throw new NotFoundException('Draft not found in your store');
+    }
+
+    const variants = (draft.variants || []).map((v) => ({
+      ...v,
+      price: Number(v.price) / 100,
+      discount_price: v.discount_price ? Number(v.discount_price) / 100 : null,
+    }));
+
+    const { variants: _v, ...productOnly } = draft;
+    void _v;
+
+    return {
+      message: 'Draft retrieved successfully',
+      data: {
+        product: {
+          ...productOnly,
+          price:
+            productOnly.price != null ? Number(productOnly.price) / 100 : null,
+          discount_price:
+            productOnly.discount_price != null
+              ? Number(productOnly.discount_price) / 100
+              : null,
+          options: productOnly.options || [],
+          variants,
         },
       },
     };
