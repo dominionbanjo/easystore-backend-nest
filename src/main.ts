@@ -8,6 +8,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { configureCloudinary } from './common/config/cloudinary.config';
 import { swaggerConfig } from './common/config/swagger.config';
+import { getCorsOrigins, isDevEnvironment } from './common/config/cors.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,17 +16,11 @@ async function bootstrap() {
   // 🔧 Cloudinary
   configureCloudinary();
 
-  // 🌍 CORS
+  // 🌍 CORS — localhost/dev bypass ONLY when NODE_ENV=development.
+  // Every other environment (production, staging, unset) gets the strict
+  // HTTPS allowlist, which never contains localhost.
   app.enableCors({
-    origin:
-      process.env.NODE_ENV === 'production'
-        ? [
-            process.env.FRONTEND_URL,
-            'https://eazystore.com.ng',
-            new RegExp('^https://([a-zA-Z0-9-]+\\.)?eazystore\\.com\\.ng$'),
-            'https://easy-store-liard.vercel.app',
-          ]
-        : true,
+    origin: isDevEnvironment() ? true : getCorsOrigins(),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
