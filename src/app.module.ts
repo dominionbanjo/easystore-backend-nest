@@ -11,6 +11,7 @@ import { DeliveryModule } from './modules/commerce-module/delivery/delivery.modu
 import { OrderModule } from './modules/commerce-module/order/order.module';
 import { ProductCategoryModule } from './modules/commerce-module/product-category/product-category.module';
 import { ProductModule } from './modules/commerce-module/product/product.module';
+import { RecommendationModule } from './modules/commerce-module/recommendation/recommendation.module';
 import { ReviewModule } from './modules/commerce-module/review/review.module';
 import { WishlistModule } from './modules/commerce-module/wishlist/wishlist.module';
 import { EscrowModule } from './modules/finance-module/escrow/escrow.module';
@@ -83,6 +84,7 @@ import { SchoolZoneModule } from './modules/school-zone/school-zone.module';
     ColorsModule,
     ReviewModule,
     WishlistModule,
+    RecommendationModule,
 
     // 📧 / ⚡ INFRA
     EmailModule,
