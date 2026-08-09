@@ -176,29 +176,19 @@ export class RecommendationService {
       : new Set<string>();
 
     const qb = this.buildBaseQuery(query).addSelect(
-      `
-        (
-          LN(1 + COALESCE(product.total_sold, 0)) * 3.0
-          + COALESCE(product.rating_average, 0) * 2.0
-          + (CASE WHEN product.on_sale THEN 0.5 ELSE 0 END)
-          + (CASE WHEN product.created_at >= NOW() - INTERVAL '${PURCHASE_WINDOW_DAYS} days' THEN 0.5 ELSE 0 END)
-          ${this.localBoostSql(query.state)}
-        )
-      `,
+      `(${this.trendingScoreSql(query.state)})`,
       'base_score',
     );
 
     const total = await qb.clone().getCount();
 
-    const { raw, entities } = await qb
+    const { entities } = await qb
       .orderBy('base_score', 'DESC')
       .addOrderBy('product.total_sold', 'DESC')
       .addOrderBy('product.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getRawAndEntities<RawScoreRow>();
-
-    void raw;
 
     const items = entities.map((product) =>
       mapToProductCardData(product, { wishlistSet }),
@@ -220,13 +210,15 @@ export class RecommendationService {
   }
 
   /* ────────────────────────────────────────────────
-     🏷️ DEALS — deepest discounts first
+     🏷️ DEALS — on-sale first (high weight), non-on-sale
+     products come in via the trending fill so the rail
+     is never scanty. Local state ranked first.
   ──────────────────────────────────────────────── */
   async getDeals(query: PaginationQueryDto, userId?: string) {
     const page = query.page ?? 1;
     const limit = Math.min(query.limit ?? 24, 48);
 
-    const cacheKey = `svc:rec:deals:v1:${page}-${limit}-${query.state ?? 'all'}`;
+    const cacheKey = `svc:rec:deals:v2:${page}-${limit}-${query.state ?? 'all'}`;
     const cached = await this.cache.get(cacheKey);
     if (cached && !userId) return cached;
 
@@ -236,14 +228,12 @@ export class RecommendationService {
 
     const qb = this.buildBaseQuery(query)
       .andWhere('product.on_sale = :onSale', { onSale: true })
-      .andWhere('product.discount_price IS NOT NULL')
-      .andWhere('product.price IS NOT NULL')
-      .andWhere('product.discount_price < product.price')
       .andWhere('product.stock > 0')
       .addSelect(
         `
         (
-          (1 - product.discount_price::numeric / NULLIF(product.price, 0)) * 2.0
+          (CASE WHEN product.on_sale THEN 2.5 ELSE 0 END)
+          + COALESCE((1 - product.discount_price::numeric / NULLIF(product.price, 0)), 0) * 1.5
           + LN(1 + COALESCE(product.total_sold, 0)) * 0.5
           + (CASE WHEN product.rating_average >= 4 THEN 0.5 ELSE 0 END)
           ${this.localBoostSql(query.state)}
@@ -254,23 +244,35 @@ export class RecommendationService {
 
     const total = await qb.clone().getCount();
 
-    const { raw, entities } = await qb
+    const { entities } = await qb
       .orderBy('base_score', 'DESC')
       .addOrderBy('product.total_sold', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getRawAndEntities<RawScoreRow>();
 
-    void raw;
-
-    const items = entities.map((product) =>
+    let items = entities.map((product) =>
       mapToProductCardData(product, { wishlistSet }),
     );
+
+    // Never-scanty fill: top up short deal rails with trending products
+    if (items.length < limit) {
+      const excludeIds = new Set(items.map((item) => item.id));
+      const fill = await this.fetchTrendingItems(
+        query,
+        limit - items.length,
+        excludeIds,
+        wishlistSet,
+      );
+      items = [...items, ...fill];
+    }
+
+    const responseTotal = Math.max(total, items.length);
 
     const response = {
       message: 'Deal products retrieved successfully',
       data: {
-        ...buildPagination(items, total, page, limit),
+        ...buildPagination(items, responseTotal, page, limit),
         personalized: false,
       },
     };
@@ -475,6 +477,47 @@ export class RecommendationService {
     }
 
     return qb;
+  }
+
+  private trendingScoreSql(state?: string) {
+    return `
+      LN(1 + COALESCE(product.total_sold, 0)) * 3.0
+      + COALESCE(product.rating_average, 0) * 2.0
+      + (CASE WHEN product.on_sale THEN 0.5 ELSE 0 END)
+      + (CASE WHEN product.created_at >= NOW() - INTERVAL '${PURCHASE_WINDOW_DAYS} days' THEN 0.5 ELSE 0 END)
+      ${this.localBoostSql(state)}
+    `;
+  }
+
+  private async fetchTrendingItems(
+    query: PaginationQueryDto,
+    take: number,
+    excludeIds: Set<string>,
+    wishlistSet: Set<string>,
+  ) {
+    if (take <= 0) return [];
+
+    const qb = this.buildBaseQuery(query).addSelect(
+      `(${this.trendingScoreSql(query.state)})`,
+      'base_score',
+    );
+
+    if (excludeIds.size > 0) {
+      qb.andWhere('product.id NOT IN (:...excludeIds)').setParameters({
+        excludeIds: Array.from(excludeIds),
+      });
+    }
+
+    const { entities } = await qb
+      .orderBy('base_score', 'DESC')
+      .addOrderBy('product.total_sold', 'DESC')
+      .addOrderBy('product.created_at', 'DESC')
+      .take(take)
+      .getRawAndEntities<RawScoreRow>();
+
+    return entities.map((product) =>
+      mapToProductCardData(product, { wishlistSet }),
+    );
   }
 
   private localBoostSql(state?: string) {
