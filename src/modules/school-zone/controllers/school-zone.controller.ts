@@ -19,6 +19,7 @@ import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
 import { RequirePermissions } from 'src/common/permissions/permissions.decorator';
 import { Permission } from 'src/common/permissions/permissions';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
+import { ProductSearchDto } from 'src/modules/commerce-module/product/dto/product-search.dto';
 import { SchoolZoneService } from '../services/school-zone.service';
 import { SchoolZoneMemberService } from '../services/school-zone-member.service';
 import { ZoneAdminGuard } from '../guards/zone-admin.guard';
@@ -142,15 +143,15 @@ export class SchoolZoneController {
 
   @Get(':identifier/products')
   @UseGuards(OptionalJwtAuthGuard)
-  @ApiOperation({ summary: 'Products in a school zone (paginated)' })
+  @ApiOperation({ summary: 'Products in a school zone (paginated, filterable)' })
   async zoneProducts(
     @Param('identifier') identifier: string,
-    @Query() pagination: PaginationQueryDto,
+    @Query() query: ProductSearchDto,
     @Req() req: RequestWithUser | undefined,
   ) {
     const zone = await this.zoneService.getByIdentifier(identifier);
     const user = req?.user;
-    return this.zoneService.getZoneProducts(zone.id, pagination, user?.sub);
+    return this.zoneService.getZoneProducts(zone.id, query, user?.sub);
   }
 
   /* ───────────────────────── AUTH (ANY USER / VENDOR) ───────────────────────── */

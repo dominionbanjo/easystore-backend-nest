@@ -21,6 +21,11 @@ import {
   addProductCardSelects,
   mapToProductCardData,
 } from 'src/modules/commerce-module/product/utils/product-card.util';
+import {
+  applyProductFilters,
+  applyProductSortOrder,
+} from 'src/modules/commerce-module/product/utils/product-filter.util';
+import { ProductSearchDto } from 'src/modules/commerce-module/product/dto/product-search.dto';
 import { Wishlist } from 'src/modules/commerce-module/wishlist/entities/wishlist.entity';
 import { SchoolZone } from '../entities/school-zone.entity';
 import { SchoolZoneAdmin } from '../entities/school-zone-admin.entity';
@@ -843,11 +848,11 @@ export class SchoolZoneService {
   ──────────────────────────────────────────────── */
   async getZoneProducts(
     zoneId: string,
-    pagination: PaginationDto = { page: 1, limit: 20 },
+    params: Partial<ProductSearchDto> = {},
     userId?: string,
   ) {
-    const page = pagination.page ?? 1;
-    const limit = pagination.limit ?? 20;
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 20;
 
     const zone = await this.zoneRepo.findOne({
       where: { id: zoneId },
@@ -875,7 +880,7 @@ export class SchoolZoneService {
       )
       .where('product.status = :status', { status: ProductStatus.ACTIVE });
 
-    const q = pagination.q?.trim();
+    const q = params.q?.trim();
     if (q) {
       qb.addSelect(
         `
@@ -886,8 +891,7 @@ export class SchoolZoneService {
         )
       `,
         'rank',
-      );
-      qb.andWhere(
+      ).andWhere(
         `(
           product.search_vector @@ websearch_to_tsquery(:q)
           OR similarity(product.name, :q) > 0.25
@@ -895,10 +899,10 @@ export class SchoolZoneService {
         )`,
         { q },
       );
-      qb.orderBy('rank', 'DESC');
-    } else {
-      qb.orderBy('product.created_at', 'DESC');
     }
+
+    applyProductFilters(qb, params);
+    applyProductSortOrder(qb, params.sort, { ranked: !!q });
 
     const [products, total] = await qb
       .skip((page - 1) * limit)
@@ -925,11 +929,33 @@ export class SchoolZoneService {
     );
 
     const enriched = await this.helpers.resolveColorsForList(items);
-    const data = buildPagination(enriched, total, page, limit);
+
+    // Aggregate available filter options from variant combinations so the
+    // frontend can build dynamic sidebar filters scoped to this zone.
+    const filtersMap = new Map<string, Set<string>>();
+    for (const item of enriched) {
+      const variants = (item.variants ?? []) as Array<{
+        combinations?: Record<string, string>;
+      }>;
+      for (const v of variants) {
+        if (!v.combinations) continue;
+        for (const [key, val] of Object.entries(v.combinations)) {
+          if (!filtersMap.has(key)) filtersMap.set(key, new Set());
+          filtersMap.get(key)!.add(val);
+        }
+      }
+    }
+    const filters: Record<string, string[]> = {};
+    for (const [key, vals] of filtersMap.entries()) {
+      filters[key] = Array.from(vals).sort();
+    }
 
     return {
       message: 'Zone products retrieved successfully',
-      data,
+      data: {
+        ...buildPagination(enriched, total, page, limit),
+        filters,
+      },
     };
   }
 

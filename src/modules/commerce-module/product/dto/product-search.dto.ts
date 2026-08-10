@@ -19,6 +19,14 @@ export class ProductSearchDto {
   q: string;
 
   @ApiPropertyOptional({
+    description: 'Category id or slug (includes child categories)',
+    example: 'shoes',
+  })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({
     description: 'Sort order',
     example: 'relevance',
     enum: ['relevance', 'price_asc', 'price_desc', 'rating_desc', 'date_desc'],

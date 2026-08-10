@@ -10,6 +10,10 @@ import {
   addProductCardSelects,
   mapToProductCardData,
 } from '../utils/product-card.util';
+import {
+  applyProductFilters,
+  applyProductSortOrder,
+} from '../utils/product-filter.util';
 
 @Injectable()
 export class ProductSearchService {
@@ -34,36 +38,17 @@ export class ProductSearchService {
       inStock,
       local = false,
       filter = {},
+      sort,
+      category,
     } = params;
 
-    if (!q?.trim()) {
-      throw new BadRequestException('Search query is required');
-    }
+    // Empty query = browse mode (all active products with filters + sort).
+    const searchQuery = q?.trim();
+    const isBrowse = !searchQuery;
 
     const wishlistSet = userId
       ? await this.wishlistService.getWishlistProductIds(userId)
       : new Set<string>();
-
-    // Build a prefix tsquery: "fant" → "fant:*", "jal biy" → "jal:* & biy:*"
-    // Strip special characters (like '&', '|', '!') that are tsquery operators
-    // to avoid syntax errors when the user's search term contains them.
-    const tsPrefix = q
-      .trim()
-      .replace(/[^a-zA-Z0-9\s]/g, ' ') // strip special chars
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((w) => `${w}:*`)
-      .join(' & ');
-
-    // For direct ILIKE substring matching — catches "fant" inside "fanta can drink"
-    const qLike = `%${q.trim()}%`;
-
-    // Local-first boost: when state + local are set, rank products from that
-    // state first instead of hard-filtering (soft mode).
-    const localBoost = state
-      ? ' + CASE WHEN store.address_state = :localState THEN 0.5 ELSE 0 END'
-      : '';
 
     const qb = addProductCardSelects(
       this.productRepo.createQueryBuilder('product'),
@@ -81,7 +66,31 @@ export class ProductSearchService {
         'vendorStore.id = product.store_id AND vendorStore.status = :store_status',
         { store_status: 'active' },
       )
-      .addSelect(
+      .where('product.status = :status', { status: ProductStatus.ACTIVE });
+
+    let ranked = false;
+    if (!isBrowse) {
+      // Build a prefix tsquery: "fant" → "fant:*", "jal biy" → "jal:* & biy:*"
+      // Strip special characters (like '&', '|', '!') that are tsquery operators
+      // to avoid syntax errors when the user's search term contains them.
+      const tsPrefix = searchQuery
+        .replace(/[^a-zA-Z0-9\s]/g, ' ') // strip special chars
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((w) => `${w}:*`)
+        .join(' & ');
+
+      // For direct ILIKE substring matching — catches "fant" inside "fanta can drink"
+      const qLike = `%${searchQuery}%`;
+
+      // Local-first boost: when state + local are set, rank products from that
+      // state first instead of hard-filtering (soft mode).
+      const localBoost = state
+        ? ' + CASE WHEN store.address_state = :localState THEN 0.5 ELSE 0 END'
+        : '';
+
+      qb.addSelect(
         `
       (
         COALESCE(ts_rank(product.search_vector, websearch_to_tsquery(:q)), 0) * 0.7
@@ -92,11 +101,9 @@ export class ProductSearchService {
       )
     `,
         'rank',
-      )
-      .where(
+      ).andWhere(
         `
-      product.status = :status
-      AND (
+      (
         product.search_vector @@ websearch_to_tsquery(:q)
         OR product.search_vector @@ to_tsquery('simple', :tsPrefix)
         OR product.name ILIKE :qLike
@@ -117,62 +124,52 @@ export class ProductSearchService {
       )
     `,
         {
-          q,
+          q: searchQuery,
           tsPrefix,
           qLike,
-          status: ProductStatus.ACTIVE,
           ...(state ? { localState: state } : {}),
         },
       );
-
-    if (minPrice) {
-      qb.andWhere('product.price >= :minPrice', { minPrice: minPrice * 100 });
-    }
-    if (maxPrice) {
-      qb.andWhere('product.price <= :maxPrice', { maxPrice: maxPrice * 100 });
-    }
-    if (country) {
-      qb.andWhere('store.address_country ILIKE :country', {
-        country: `%${country}%`,
-      });
-    }
-    if (state && !local) {
-      qb.andWhere('store.address_state ILIKE :state', {
-        state: `%${state}%`,
-      });
-    }
-    if (city) {
-      qb.andWhere('store.address_city ILIKE :city', {
-        city: `%${city}%`,
-      });
-    }
-    if (inStock) {
-      qb.andWhere('product.stock > 0');
-    }
-    if (rating) {
-      qb.andWhere('product.rating_average >= :rating', { rating });
+      ranked = true;
     }
 
-    // Dynamically apply variant filters
-    Object.entries(filter).forEach(([key, values], idx) => {
-      if (!values || values.length === 0) return;
-      values.forEach((val, vIdx) => {
-        qb.andWhere(
-          `EXISTS (
-            SELECT 1 FROM product_variants pv
-            WHERE pv.product_id = product.id
-            AND pv.combinations->>:key${idx} ILIKE :val${idx}_${vIdx}
-          )`,
-          { [`key${idx}`]: key, [`val${idx}_${vIdx}`]: val },
-        );
-      });
+    if (category) {
+      qb.andWhere(
+        `product.category_id IN (
+          WITH RECURSIVE category_tree AS (
+            SELECT id
+            FROM product_categories
+            WHERE id = :categoryId OR slug = :categorySlug
+            UNION ALL
+            SELECT c.id
+            FROM product_categories c
+            JOIN category_tree ct
+            ON c.parent_id = ct.id
+          )
+          SELECT id FROM category_tree
+        )`,
+        { categoryId: category, categorySlug: category },
+      );
+    }
+
+    applyProductFilters(qb, {
+      minPrice,
+      maxPrice,
+      country,
+      state,
+      city,
+      rating,
+      inStock,
+      local,
+      filter,
     });
-    qb.orderBy('rank', 'DESC')
-      .addOrderBy('product.created_at', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
 
-    const [products, total] = await qb.getManyAndCount();
+    applyProductSortOrder(qb, sort, { ranked });
+
+    const [products, total] = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
     const items = products.map((p) =>
       mapToProductCardData(p, {
