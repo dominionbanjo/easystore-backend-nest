@@ -33,6 +33,25 @@ export interface PaystackVerifyData {
   status: string;
   amount: number;
   reference: string;
+  authorization?: {
+    authorization_code?: string | null;
+    channel?: string | null;
+  } | null;
+}
+
+interface PaystackChargeAuthData {
+  status: string;
+  reference: string;
+  amount: number;
+  failure_message?: string | null;
+}
+
+interface PaystackRefundData {
+  status: string;
+  reference: string;
+  transaction: {
+    reference?: string;
+  };
 }
 
 interface PaystackBankResolveData {
@@ -324,6 +343,65 @@ export class PaystackService {
       return res.data.data;
     } catch (error) {
       this.handleError(error, 'Payment verification');
+    }
+  }
+
+  /**
+   * Charge a previously authorized (saved) card.
+   * Used by installment auto-pay mode.
+   */
+  async chargeAuthorization({
+    authorization_code,
+    email,
+    amountKobo,
+    reference,
+    metadata,
+  }: {
+    authorization_code: string;
+    email: string;
+    amountKobo: number;
+    reference: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<PaystackChargeAuthData | undefined> {
+    try {
+      const res = await axios.post<PaystackApiResponse<PaystackChargeAuthData>>(
+        `${this.baseUrl}/transaction/charge_authorization`,
+        {
+          authorization_code,
+          email,
+          amount: Math.round(amountKobo),
+          reference,
+          currency: 'NGN',
+          metadata,
+        },
+        { headers: this.headers },
+      );
+
+      return res.data.data;
+    } catch (error) {
+      this.handleError(error, 'Charge authorization');
+    }
+  }
+
+  /**
+   * Refund a transaction. Money returns to the original payment source
+   * (card/bank) — no buyer wallet or recipient code required.
+   * `referenceOrId` accepts a Paystack transaction reference or id.
+   */
+  async refundTransaction(
+    referenceOrId: string,
+    amountKobo?: number,
+  ): Promise<PaystackRefundData | undefined> {
+    try {
+      const res = await axios.post<PaystackApiResponse<PaystackRefundData>>(
+        `${this.baseUrl}/transaction/refund/${referenceOrId}`,
+        { amount: amountKobo },
+        { headers: this.headers },
+      );
+
+      return res.data.data;
+    } catch (error) {
+      this.handleError(error, 'Transaction refund');
     }
   }
 

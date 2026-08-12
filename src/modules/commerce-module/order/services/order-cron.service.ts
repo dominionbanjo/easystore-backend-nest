@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, In } from 'typeorm';
+import { Repository, LessThan, In, IsNull } from 'typeorm';
 import { Order } from '../entities/order.entity';
 import { OrderMailService } from 'src/modules/shared-module/email/services/order-mail.service';
 
@@ -26,11 +26,12 @@ export class OrderCronService {
     const twentyFourHoursAgo = new Date();
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
-    // 1. Find stale orders (unpaid and > 24h old)
+    // 1. Find stale orders (unpaid and > 24h old, no installment plan attached)
     const staleOrders = await this.orderRepo.find({
       where: {
         status: 'pending',
         payment_status: In(['pending', 'unpaid']),
+        payment_plan_id: IsNull(),
         created_at: LessThan(twentyFourHoursAgo),
       },
       relations: ['buyer', 'vendor', 'store'],

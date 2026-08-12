@@ -32,6 +32,10 @@ export enum Permission {
   VIEW_TRANSACTIONS = 'transaction:view',
   MANAGE_PAYOUTS = 'payout:manage',
 
+  // Installments
+  VIEW_INSTALLMENTS = 'installment:view',
+  MANAGE_INSTALLMENTS = 'installment:manage',
+
   // System
   MANAGE_SETTINGS = 'system:settings',
 }
@@ -53,6 +57,8 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.MANAGE_STORE,
     Permission.VIEW_ANALYTICS,
     Permission.VIEW_TRANSACTIONS,
+    Permission.VIEW_INSTALLMENTS,
+    Permission.MANAGE_INSTALLMENTS,
     Permission.MANAGE_ZONE,
   ],
 
@@ -60,6 +66,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     Permission.VIEW_PRODUCT,
     Permission.VIEW_ORDERS,
     Permission.MANAGE_ORDERS,
+    Permission.VIEW_INSTALLMENTS,
   ],
 
   user: [

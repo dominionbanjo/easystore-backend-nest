@@ -4,12 +4,10 @@ import { ProductReadService } from './product-read.service';
 import { ProductWriteService } from './product-write.service';
 import { ProductSearchService } from './product-search.service';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
-import { CreateProductDto } from '../dto/create-product.dto';
-import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductSearchDto } from '../dto/product-search.dto';
 import { ProductStatus } from '../entities/product.entity';
-import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
-import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
+import { CreateProductDto } from '../dto/create-product.dto';
+import { UpdateProductDto } from '../dto/update-product.dto';
 import { SaveProductDraftDto } from '../dto/save-product-draft.dto';
 
 @Injectable()
@@ -116,36 +114,14 @@ export class ProductService {
      WRITE OPERATIONS
   ──────────────────────────────────────────────── */
   create(
-    user: { sub: string; store_id: string | null; status: string },
-    dto: CreateProductDto,
-    files?: {
-      image?: Express.Multer.File[];
-      gallery?: Express.Multer.File[];
-    },
-  ) {
-    return this.writeService.create(user, dto, files);
-  }
-
-  createWithCloudinary(
     user: { sub: string; store_id: string | null },
-    dto: CreateProductCloudinaryDto,
+    dto: CreateProductDto,
   ) {
-    return this.writeService.createWithCloudinary(user, dto);
-  }
-
-  createMany(
-    user: { sub: string; store_id: string | null; status: string },
-    dtos: CreateProductDto[],
-  ) {
-    return this.writeService.createMany(user, dtos);
+    return this.writeService.create(user, dto);
   }
 
   update(id: string, dto: UpdateProductDto) {
     return this.writeService.update(id, dto);
-  }
-
-  updateWithCloudinary(id: string, dto: UpdateProductCloudinaryDto) {
-    return this.writeService.updateWithCloudinary(id, dto);
   }
 
   updateStatus(productId: string, status: ProductStatus) {
@@ -166,7 +142,7 @@ export class ProductService {
   publishDraft(
     user: { sub: string; store_id: string | null },
     draftId: string,
-    dto: CreateProductCloudinaryDto,
+    dto: CreateProductDto,
   ) {
     return this.writeService.publishDraft(user, draftId, dto);
   }

@@ -24,6 +24,7 @@ import { Repository } from 'typeorm';
 
 import { ApiPaginatedResponse } from '../../../../common/decorators/api-paginated-response.decorator';
 import { OrderListItemDto } from '../../../../common/dto/response/order-response.dto';
+import { CreateInstallmentOrderResponseDto } from 'src/modules/finance-module/installment/dto/installment-response.dto';
 import { OrderService } from '../services/order.service';
 import { CreateOfflineOrderDto } from '../dto/create-offline-order.dto';
 import { CreateOnlineOrderDto } from '../dto/create-online-order.dto';
@@ -203,6 +204,33 @@ export class PandaOrderController {
     return this.orderService.createOnlineOrderNoEscrow({
       buyer_id: user.sub,
       email: dto.email,
+      order_items: dto.order_items as ICartItem[],
+      delivery_rate_id: dto.delivery_rate_id,
+      delivery_address_id: dto.delivery_address_id,
+    });
+  }
+
+  /* ────────────────────────────────────────────────
+     CREATE INSTALLMENT ORDER (NO CHARGE — PLAN CHARGES THE DEPOSIT)
+  ──────────────────────────────────────────────── */
+  @ApiOperation({
+    summary: 'Create an installment order',
+    description:
+      'Creates a pending order without charging. The buyer then creates an installment plan for this order, which charges the deposit. The returned order_id is passed to POST /installments.',
+  })
+  @ApiCreatedResponse({
+    type: CreateInstallmentOrderResponseDto,
+    description: 'Installment order created. Create a plan next.',
+  })
+  @ApiStandardErrorResponses()
+  @Post('installment')
+  @RequirePermissions(Permission.MANAGE_ORDERS)
+  async createInstallmentOrder(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Body() dto: CreateOnlineOrderDto,
+  ) {
+    return this.orderService.createInstallmentOrder({
+      buyer_id: user.sub,
       order_items: dto.order_items as ICartItem[],
       delivery_rate_id: dto.delivery_rate_id,
       delivery_address_id: dto.delivery_address_id,

@@ -29,7 +29,7 @@ import {
 import { ProductService } from '../services/product.service';
 import { ProductStatus } from '../entities/product.entity';
 import { ProductSearchDto } from '../dto/product-search.dto';
-import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
+import { CreateProductDto } from '../dto/create-product.dto';
 
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
 import { CurrentUser } from 'src/modules/identity-module/auth/decorators/current-user.decorator';
@@ -41,7 +41,7 @@ import { RequirePermissions } from 'src/common/permissions/permissions.decorator
 import { PermissionsGuard } from 'src/common/permissions/permissions.guard';
 import { StoreOwnerGuard } from 'src/modules/vendor-module/store/guards/store-owner.guard';
 import { StoreGuard } from 'src/common/permissions/store.guard';
-import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
+import { UpdateProductDto } from '../dto/update-product.dto';
 import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-errors.decorator';
 
 @ApiTags('Vendor Products')
@@ -308,13 +308,12 @@ export class VendorProductController {
   }
 
   /* ────────────────────────────────────────────────
-     🆕 VENDOR: CREATE PRODUCT (CLOUDINARY)
+     🆕 VENDOR: CREATE PRODUCT
      POST /vendor/products
   ──────────────────────────────────────────────── */
   @ApiOperation({
     summary: 'Create a vendor product',
-    description:
-      'Creates a new product for the authenticated vendor store with Cloudinary image support.',
+    description: 'Creates a new product for the authenticated vendor store.',
   })
   @ApiCreatedResponse({
     type: SuccessWithIdDto,
@@ -324,11 +323,11 @@ export class VendorProductController {
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   @RequirePermissions(Permission.CREATE_PRODUCT)
-  createWithCloudinary(
+  create(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
-    @Body() dto: CreateProductCloudinaryDto,
+    @Body() dto: CreateProductDto,
   ) {
-    return this.productService.createWithCloudinary(user, dto);
+    return this.productService.create(user, dto);
   }
 
   /* ────────────────────────────────────────────────
@@ -349,11 +348,8 @@ export class VendorProductController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard, StoreOwnerGuard)
   @RequirePermissions(Permission.UPDATE_PRODUCT)
-  updateWithCloudinary(
-    @Param('id') productId: string,
-    @Body() dto: UpdateProductCloudinaryDto,
-  ) {
-    return this.productService.updateWithCloudinary(productId, dto);
+  update(@Param('id') productId: string, @Body() dto: UpdateProductDto) {
+    return this.productService.update(productId, dto);
   }
 
   /* ────────────────────────────────────────────────

@@ -6,19 +6,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager, In, Not } from 'typeorm';
 import slugify from 'slugify';
-import {
-  Product,
-  ProductStatus,
-  ProductImage,
-  ProductGalleryItem,
-} from '../entities/product.entity';
+import { Product, ProductStatus } from '../entities/product.entity';
 import { ProductVariant } from '../entities/product-variant.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
-import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
-import { UpdateProductCloudinaryDto } from '../dto/update-product-cloudinary.dto';
 import { SaveProductDraftDto } from '../dto/save-product-draft.dto';
 import { ProductVariantDto } from '../dto/product-variants.dto';
+import { INSTALLMENT_DEFAULT_PRESETS } from 'src/modules/finance-module/installment/installment.constants';
 import { UploadService } from 'src/common/services/upload.service';
 import { WishlistService } from '../../wishlist/wishlist.service';
 import { CartService } from '../../cart/cart.service';
@@ -145,81 +139,8 @@ export class ProductWriteService {
   }
 
   async create(
-    user: { sub: string; store_id: string | null; status: string },
-    dto: CreateProductDto,
-    files?: {
-      image?: Express.Multer.File[];
-      gallery?: Express.Multer.File[];
-    },
-  ) {
-    if (user.status === 'restricted') {
-      throw new BadRequestException(
-        'Your account is restricted from adding new products.',
-      );
-    }
-
-    if (!user.store_id) {
-      throw new BadRequestException('Vendor does not have a store');
-    }
-
-    if (!dto.name || typeof dto.name !== 'string') {
-      throw new BadRequestException('Product name is required');
-    }
-
-    await this.helpers.ensureCategoryExists(dto.category_id);
-
-    const slug = slugify(dto.name, { lower: true, strict: true });
-
-    const exists = await this.productRepo.exists({ where: { slug } });
-    if (exists) {
-      throw new BadRequestException('Product with same name exists');
-    }
-
-    let image: ProductImage | null = null;
-    if (files?.image?.[0]) {
-      image = await this.upload.uploadSingle(
-        files.image[0],
-        'easystore/products/main',
-      );
-    }
-
-    let gallery: ProductGalleryItem[] | null = null;
-    if (files?.gallery?.length) {
-      gallery = await this.upload.uploadMultiple(
-        files.gallery,
-        'easystore/products/gallery',
-      );
-    }
-
-    const { price, stock } = this.resolveRootPriceAndStock(dto);
-
-    const product = this.productRepo.create({
-      ...dto,
-      price: Math.round(Number(price) * 100),
-      stock,
-      discount_price: dto.discount_price
-        ? Math.round(Number(dto.discount_price) * 100)
-        : null,
-      vendor_id: user.sub,
-      store_id: user.store_id,
-      slug,
-      image,
-      gallery,
-      options: dto.options ?? null,
-      variants: dto.variants ? this.formatVariants(dto.variants) : [],
-    });
-
-    const saved = await this.productRepo.save(product);
-    return {
-      message: 'Product created successfully',
-      success: true,
-      id: saved.id,
-    };
-  }
-
-  async createWithCloudinary(
     user: { sub: string; store_id: string | null },
-    dto: CreateProductCloudinaryDto,
+    dto: CreateProductDto,
   ) {
     if (!user.store_id) {
       throw new BadRequestException('Vendor does not have a store');
@@ -273,188 +194,7 @@ export class ProductWriteService {
     };
   }
 
-  async createMany(
-    user: { sub: string; store_id: string | null; status: string },
-    dtos: CreateProductDto[],
-  ) {
-    if (user.status === 'restricted') {
-      throw new BadRequestException(
-        'Your account is restricted from adding new products.',
-      );
-    }
-
-    if (!user.store_id) {
-      throw new BadRequestException('Vendor does not have a store');
-    }
-
-    if (!dtos.length) {
-      throw new BadRequestException('No products provided');
-    }
-
-    const slugs = dtos.map((dto) =>
-      slugify(dto.name, { lower: true, strict: true }),
-    );
-
-    const duplicateSlugs = slugs.filter(
-      (slug, index) => slugs.indexOf(slug) !== index,
-    );
-
-    if (duplicateSlugs.length) {
-      throw new BadRequestException(
-        `Duplicate product names in request: ${duplicateSlugs.join(', ')}`,
-      );
-    }
-
-    const existing = await this.productRepo
-      .createQueryBuilder('product')
-      .where('product.slug IN (:...slugs)', { slugs })
-      .select(['product.slug'])
-      .getMany();
-
-    if (existing.length) {
-      throw new BadRequestException(
-        `Products already exist: ${existing.map((p) => p.slug).join(', ')}`,
-      );
-    }
-
-    const products = this.productRepo.create(
-      dtos.map((dto) => {
-        const { price, stock } = this.resolveRootPriceAndStock(dto);
-        return {
-          ...dto,
-          price: Math.round(Number(price) * 100),
-          stock,
-          discount_price: dto.discount_price
-            ? Math.round(Number(dto.discount_price) * 100)
-            : null,
-          vendor_id: user.sub,
-          store_id: user.store_id,
-          slug: slugify(dto.name, { lower: true, strict: true }),
-          options: dto.options ?? null,
-          variants: dto.variants ? this.formatVariants(dto.variants) : [],
-        };
-      }),
-    );
-
-    const saved = await this.productRepo.save(products);
-
-    return {
-      message: 'Products created successfully',
-      success: true,
-      count: saved.length,
-      ids: saved.map((s) => s.id),
-    };
-  }
-
   async update(id: string, dto: UpdateProductDto) {
-    return this.productRepo.manager.transaction(async (manager) => {
-      const product = await manager.findOne(Product, {
-        where: { id },
-        relations: ['variants'],
-      });
-
-      if (!product) {
-        throw new NotFoundException('Product not found');
-      }
-
-      const { price: rootPrice, stock: rootStock } =
-        this.resolveRootPriceAndStock({
-          ...dto,
-          variants: dto.variants ?? [],
-        });
-
-      // Prepare explicit update object for the root product
-      const updateData: Record<string, unknown> = {
-        price: Math.round(Number(rootPrice) * 100),
-        updated_at: new Date(),
-      };
-
-      // ONLY manually set stock if there are NO variants provided.
-      // If variants exist, the subscriber handles Product.stock synchronization.
-      if (!dto.variants || dto.variants.length === 0) {
-        updateData.stock = Number(rootStock);
-      }
-
-      if (dto.name && dto.name !== product.name) {
-        updateData.name = dto.name;
-        updateData.slug = slugify(dto.name, { lower: true, strict: true });
-      }
-      if (dto.description !== undefined)
-        updateData.description = dto.description;
-      if (dto.category_id !== undefined)
-        updateData.category_id = dto.category_id;
-      if (dto.discount_price !== undefined) {
-        updateData.discount_price = dto.discount_price
-          ? Math.round(Number(dto.discount_price) * 100)
-          : null;
-      }
-
-      updateData.shipping_note = dto.shipping_note ?? product.shipping_note;
-      updateData.returns_note = dto.returns_note ?? product.returns_note;
-      updateData.options = dto.options ?? product.options;
-      updateData.tags = dto.tags ?? product.tags;
-      updateData.highlights = dto.highlights ?? product.highlights;
-      updateData.specs = dto.specs ?? product.specs;
-
-      // 1. Update root product (Directly to bypass cascade stalls)
-      await manager.update(Product, id, updateData);
-
-      // 2. Sync variants manually
-      if (dto.variants) {
-        const formatted = this.formatVariants(dto.variants);
-        const incomingIds = formatted
-          .map((v) => v.id)
-          .filter((v): v is string => Boolean(v));
-
-        // Delete orphans
-        if (incomingIds.length > 0) {
-          await manager.delete(ProductVariant, {
-            product_id: id,
-            id: Not(In(incomingIds)),
-          });
-        } else {
-          await manager.delete(ProductVariant, { product_id: id });
-        }
-
-        // Upsert variants individually
-        for (const v of formatted) {
-          const { id: vId, ...rest } = v;
-          if (vId) {
-            await manager.update(ProductVariant, vId, rest);
-          } else {
-            await manager.insert(ProductVariant, {
-              ...rest,
-              product_id: id,
-            });
-          }
-        }
-
-        // Subscribers do NOT fire on QueryBuilder calls. Recalculate explicitly.
-        if (formatted.length > 0) {
-          await this.recalculateStockFromVariants(id, manager);
-        }
-      } else if (dto.variants === null) {
-        await manager.delete(ProductVariant, { product_id: id });
-      }
-
-      const updatedStock = await manager.findOne(Product, {
-        where: { id },
-        select: ['id', 'stock'],
-      });
-
-      if (updatedStock && updatedStock.stock <= 0) {
-        await this.handleOutOfStock(id, manager);
-      }
-
-      return {
-        message: 'Product updated successfully',
-        success: true,
-        id,
-      };
-    });
-  }
-
-  async updateWithCloudinary(id: string, dto: UpdateProductCloudinaryDto) {
     return this.productRepo.manager.transaction(async (manager) => {
       const product = await manager.findOne(Product, {
         where: { id },
@@ -506,6 +246,16 @@ export class ProductWriteService {
       updateData.tags = dto.tags ?? product.tags;
       updateData.highlights = dto.highlights ?? product.highlights;
       updateData.specs = dto.specs ?? product.specs;
+      if (dto.installment_enabled !== undefined)
+        updateData.installment_enabled = dto.installment_enabled;
+      if (dto.installment_presets !== undefined)
+        updateData.installment_presets = dto.installment_presets;
+      // An enabled product always offers at least the default preset.
+      const enabled = dto.installment_enabled ?? product.installment_enabled;
+      const presets = dto.installment_presets ?? product.installment_presets;
+      if (enabled && (!presets || presets.length === 0)) {
+        updateData.installment_presets = INSTALLMENT_DEFAULT_PRESETS;
+      }
 
       // 1. Update root product
       await manager.update(Product, id, updateData);
@@ -665,6 +415,15 @@ export class ProductWriteService {
     if (dto.options !== undefined) data.options = dto.options;
     if (dto.shipping_note !== undefined) data.shipping_note = dto.shipping_note;
     if (dto.returns_note !== undefined) data.returns_note = dto.returns_note;
+    if (dto.installment_enabled !== undefined)
+      data.installment_enabled = dto.installment_enabled;
+    if (dto.installment_presets !== undefined)
+      data.installment_presets = dto.installment_presets;
+    const enabledFlag = dto.installment_enabled ?? (data.installment_enabled as boolean | undefined);
+    const presetsArr = (data.installment_presets as string[] | undefined) ?? [];
+    if (enabledFlag && presetsArr.length === 0) {
+      data.installment_presets = INSTALLMENT_DEFAULT_PRESETS;
+    }
     if (dto.image !== undefined) data.image = dto.image;
     if (dto.gallery !== undefined) data.gallery = dto.gallery;
 
@@ -762,7 +521,9 @@ export class ProductWriteService {
         ) {
           await manager.update(Product, dto.id!, {
             ...draftData,
-            status: ProductStatus.DRAFT,
+            // Never demote a live product to DRAFT while it is being edited —
+            // it would vanish from the public storefront. New rows stay DRAFT.
+            status: existing.status,
             updated_at: new Date(),
           });
         }
@@ -841,18 +602,20 @@ export class ProductWriteService {
   async publishDraft(
     user: { sub: string; store_id: string | null },
     draftId: string,
-    dto: CreateProductCloudinaryDto,
+    dto: CreateProductDto,
   ) {
     if (!user.store_id) {
       throw new BadRequestException('Vendor does not have a store');
     }
 
     return this.productRepo.manager.transaction(async (manager) => {
+      // The publish endpoint doubles as the edit-update endpoint, so it must
+      // accept both DRAFT rows (create/resume flow) and ACTIVE products
+      // (edit flow). Ownership is enforced via store_id.
       const draft = await manager.findOne(Product, {
         where: {
           id: draftId,
           store_id: user.store_id!,
-          status: ProductStatus.DRAFT,
         },
         select: ['id', 'status'],
       });
@@ -1117,6 +880,129 @@ export class ProductWriteService {
         await this.handleOutOfStock(variant.product_id, manager);
       }
     }
+
+    await this.cache.clearPrefix('svc:product');
+  }
+
+  /**
+   * Reserve stock for an installment plan (plan quantity leaves the market
+   * until the plan completes or is defaulted/canceled).
+   * Throws if the requested quantity exceeds available stock (stock - reserved).
+   */
+  async reserveStock(
+    productId: string,
+    quantity: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager ? manager.getRepository(Product) : this.productRepo;
+
+    const product = await repo.findOne({
+      where: { id: productId },
+      select: ['stock', 'reserved_stock'],
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const available = product.stock - product.reserved_stock;
+    if (quantity > available) {
+      throw new BadRequestException(
+        `Only ${Math.max(available, 0)} unit(s) available for this product`,
+      );
+    }
+
+    await repo.increment({ id: productId }, 'reserved_stock', quantity);
+    await this.cache.clearPrefix('svc:product');
+  }
+
+  /** Release a reservation (default/cancel/refund) back to the market. */
+  async releaseReservation(
+    productId: string,
+    quantity: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager ? manager.getRepository(Product) : this.productRepo;
+    await repo
+      .createQueryBuilder()
+      .update(Product)
+      .set({
+        reserved_stock: () => `GREATEST(0, reserved_stock - ${quantity})`,
+      })
+      .where('id = :productId', { productId })
+      .execute();
+    await this.cache.clearPrefix('svc:product');
+  }
+
+  /** Variant-aware reserve — also keeps the parent product aggregate in sync. */
+  async reserveVariantStock(
+    variantId: string,
+    quantity: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const variantRepo = manager
+      ? manager.getRepository(ProductVariant)
+      : this.variantRepo;
+    const productRepo = manager
+      ? manager.getRepository(Product)
+      : this.productRepo;
+
+    const variant = await variantRepo.findOne({ where: { id: variantId } });
+    if (!variant) {
+      throw new NotFoundException('Product variant not found');
+    }
+
+    const available = variant.stock - variant.reserved_stock;
+    if (quantity > available) {
+      throw new BadRequestException(
+        `Only ${Math.max(available, 0)} unit(s) available for this variant`,
+      );
+    }
+
+    await variantRepo.increment({ id: variantId }, 'reserved_stock', quantity);
+    await productRepo.increment(
+      { id: variant.product_id },
+      'reserved_stock',
+      quantity,
+    );
+    await this.cache.clearPrefix('svc:product');
+  }
+
+  /** Variant-aware release. */
+  async releaseVariantReservation(
+    variantId: string,
+    quantity: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const variantRepo = manager
+      ? manager.getRepository(ProductVariant)
+      : this.variantRepo;
+    const productRepo = manager
+      ? manager.getRepository(Product)
+      : this.productRepo;
+
+    const variant = await variantRepo.findOne({
+      where: { id: variantId },
+      select: ['product_id'],
+    });
+    if (!variant) return;
+
+    await variantRepo
+      .createQueryBuilder()
+      .update(ProductVariant)
+      .set({
+        reserved_stock: () => `GREATEST(0, reserved_stock - ${quantity})`,
+      })
+      .where('id = :variantId', { variantId })
+      .execute();
+
+    await productRepo
+      .createQueryBuilder()
+      .update(Product)
+      .set({
+        reserved_stock: () => `GREATEST(0, reserved_stock - ${quantity})`,
+      })
+      .where('id = :productId', { productId: variant.product_id })
+      .execute();
 
     await this.cache.clearPrefix('svc:product');
   }

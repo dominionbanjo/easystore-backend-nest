@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Transaction } from './entities/transaction.entity';
@@ -21,16 +21,23 @@ export class TransactionsService {
 
   /* ────────────────────────────────────────────────
      CREATE TRANSACTION (ALL TYPES)
+     Pass an optional EntityManager to join an open DB transaction —
+     required when the transaction row references an entity that is
+     still uncommitted inside that transaction (e.g. a new order).
   ──────────────────────────────────────────────── */
-  async create(dto: CreateTransactionDto) {
-    const tx = this.transactionRepo.create({
+  async create(dto: CreateTransactionDto, manager?: EntityManager) {
+    const repo = manager
+      ? manager.getRepository(Transaction)
+      : this.transactionRepo;
+
+    const tx = repo.create({
       id: uuidv4(),
       ...dto,
       currency: dto.currency ?? 'NGN',
       status: dto.status ?? 'pending',
     });
 
-    const saved = await this.transactionRepo.save(tx);
+    const saved = await repo.save(tx);
 
     return {
       success: true,

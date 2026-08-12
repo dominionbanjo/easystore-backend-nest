@@ -19,7 +19,7 @@ import {
 
 import { ProductService } from '../services/product.service';
 import { SaveProductDraftDto } from '../dto/save-product-draft.dto';
-import { CreateProductCloudinaryDto } from '../dto/create-product-cloudinary.dto';
+import { CreateProductDto } from '../dto/create-product.dto';
 import { ProductSearchDto } from '../dto/product-search.dto';
 
 import * as jwtStrategy from 'src/modules/identity-module/auth/strategies/jwt.strategy';
@@ -78,7 +78,7 @@ export class VendorProductDraftController {
     description:
       'Converts an existing draft into a live (active) product for the vendor store. Requires the usual product completeness (name, category, price/stock where applicable).',
   })
-  @ApiBody({ type: CreateProductCloudinaryDto })
+  @ApiBody({ type: CreateProductDto })
   @ApiOkResponse({
     description: 'Product published successfully',
     schema: {
@@ -96,7 +96,7 @@ export class VendorProductDraftController {
   publishDraft(
     @CurrentUser() user: jwtStrategy.JwtAuthUser,
     @Param('id') draftId: string,
-    @Body() dto: CreateProductCloudinaryDto,
+    @Body() dto: CreateProductDto,
   ) {
     return this.productService.publishDraft(user, draftId, dto);
   }

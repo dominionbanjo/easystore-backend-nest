@@ -60,6 +60,7 @@ export class OrderQueryService {
         payment_status: true,
         payment_method: true,
         payment_reference: true,
+        payment_plan_id: true,
         subtotal: true,
         shipping_fee: true,
         platform_fee: true,
@@ -193,6 +194,7 @@ export class OrderQueryService {
         payment_method: true,
         payment_reference: true,
         payment_url: true,
+        payment_plan_id: true,
       },
     });
 
@@ -267,6 +269,7 @@ export class OrderQueryService {
       'order.status',
       'order.payment_status',
       'order.payment_reference',
+      'order.payment_plan_id',
       'order.created_at',
       'order.order_items',
       'delivery.id',
@@ -344,6 +347,7 @@ export class OrderQueryService {
       'order.total',
       'order.payment_method',
       'order.payment_reference',
+      'order.payment_plan_id',
       'order.payment_status',
       'order.status',
       'order.created_at',

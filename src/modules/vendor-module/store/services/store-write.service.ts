@@ -163,6 +163,7 @@ export class StoreWriteService {
       'cover_image_public_id',
       'setup_stage',
       'escrow_enabled',
+      'installments_enabled',
     ] as const;
 
     const filtered: Partial<Store> = {};

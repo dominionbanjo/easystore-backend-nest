@@ -662,7 +662,7 @@ export class StoreDetailService {
       order: { created_at: 'ASC' },
     });
 
-    const enrichedRows = await this.helpers.resolveColorsForList(rows);
+    const enrichedRows = rows;
     const grouped = new Map<string, GroupedProductItem[]>();
 
     const extractImageUrl = (image: unknown): string | null => {
@@ -702,8 +702,6 @@ export class StoreDetailService {
         is_in_wishlist: wishlistSet.has(row.id),
         store_name: store.store_name,
         store_slug: store.slug,
-        colors: row.colors || [],
-        sizes: row.sizes || [],
         options: row.options || [],
         variants: (row.variants || []).map((v) => ({
           ...v,
@@ -749,8 +747,6 @@ interface StoreGroupedProductRow {
   rating_average: string;
   image: unknown;
   parent_category_id: string;
-  colors?: unknown[];
-  sizes?: unknown[];
   options?: unknown[];
   variants?: Array<{ price: string; discount_price: string | null }>;
 }
@@ -768,8 +764,6 @@ export interface GroupedProductItem {
   is_in_wishlist: boolean;
   store_name: string;
   store_slug: string;
-  colors: unknown[];
-  sizes: unknown[];
   options: unknown[];
   variants: unknown[];
 }

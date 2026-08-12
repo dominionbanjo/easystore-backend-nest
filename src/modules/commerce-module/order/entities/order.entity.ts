@@ -34,7 +34,8 @@ export type PaymentStatus =
   | 'failed'
   | 'canceled'
   | 'refunded'
-  | 'unpaid';
+  | 'unpaid'
+  | 'partial';
 
 export type PaymentMethod =
   | 'online'
@@ -152,6 +153,11 @@ export class Order {
   @Index('IDX_ORDER_PAYMENT_REFERENCE')
   @Column({ type: 'varchar', length: 255, nullable: true })
   payment_reference: string | null;
+
+  /* Installment plan linkage (set when the order is paid via a plan) */
+  @Index('IDX_ORDER_PAYMENT_PLAN_ID')
+  @Column({ type: 'uuid', nullable: true })
+  payment_plan_id: string | null;
 
   @Column({ type: 'text', nullable: true })
   payment_url: string | null;

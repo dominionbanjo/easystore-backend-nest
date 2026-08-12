@@ -101,7 +101,9 @@ export const applyProductSortOrder = (
 ): SelectQueryBuilder<ObjectLiteral> => {
   if (!sort || sort === 'relevance') {
     if (options?.ranked) {
-      return qb.orderBy('rank', 'DESC').addOrderBy('product.created_at', 'DESC');
+      return qb
+        .orderBy('rank', 'DESC')
+        .addOrderBy('product.created_at', 'DESC');
     }
     return qb.orderBy('product.created_at', 'DESC');
   }
@@ -109,4 +111,3 @@ export const applyProductSortOrder = (
   const [column, direction] = SORT_COLUMNS[sort] ?? SORT_COLUMNS.date_desc;
   return qb.orderBy(column, direction);
 };
-

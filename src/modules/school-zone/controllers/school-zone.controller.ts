@@ -143,7 +143,9 @@ export class SchoolZoneController {
 
   @Get(':identifier/products')
   @UseGuards(OptionalJwtAuthGuard)
-  @ApiOperation({ summary: 'Products in a school zone (paginated, filterable)' })
+  @ApiOperation({
+    summary: 'Products in a school zone (paginated, filterable)',
+  })
   async zoneProducts(
     @Param('identifier') identifier: string,
     @Query() query: ProductSearchDto,

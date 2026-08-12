@@ -113,6 +113,18 @@ export class OrderService {
     return this.onlineOrderService.createOnlineOrderNoEscrow(data);
   }
 
+  /**
+   * Create an installment order (pending — the plan deposit is charged next)
+   */
+  async createInstallmentOrder(data: {
+    buyer_id: string;
+    order_items: ICartItem[];
+    delivery_rate_id?: string;
+    delivery_address_id?: string;
+  }) {
+    return this.onlineOrderService.createInstallmentOrder(data);
+  }
+
   /* ────────────────────────────────────────────────
      PAYMENT VERIFICATION
   ──────────────────────────────────────────────── */

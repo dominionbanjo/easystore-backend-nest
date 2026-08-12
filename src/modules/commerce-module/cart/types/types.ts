@@ -16,4 +16,8 @@ export interface ICartItem {
   size: string | null;
   color: string | null;
   color_hex?: string | null;
+  /** Whether the product's vendor has enabled installment purchase (set at validation). */
+  installment_enabled?: boolean;
+  /** Vendor-offered installment presets for this product (set at validation). */
+  installment_presets?: string[];
 }

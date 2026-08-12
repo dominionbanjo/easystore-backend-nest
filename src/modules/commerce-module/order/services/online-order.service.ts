@@ -207,12 +207,15 @@ export class OnlineOrderService {
         async (manager) => {
           const saved = await manager.save(Order, orderData);
 
-          const escrowRecord = await this.escrowService.createEscrow({
-            order_id: saved.id,
-            buyer_id,
-            vendor_id,
-            amount: subtotalKobo + shippingKobo,
-          });
+          const escrowRecord = await this.escrowService.createEscrow(
+            {
+              order_id: saved.id,
+              buyer_id,
+              vendor_id,
+              amount: subtotalKobo + shippingKobo,
+            },
+            manager,
+          );
 
           await manager.update(Order, saved.id, { escrow_id: escrowRecord.id });
 
@@ -393,6 +396,133 @@ export class OnlineOrderService {
         payment_url: payment.authorization_url,
         reference,
         order_id: savedOrder.id,
+      };
+    } finally {
+      await this.cache.releaseLock(lockKey);
+    }
+  }
+
+  /**
+   * Create an installment order (SINGLE VENDOR).
+   * Unlike the online paths, NO Paystack payment is initialized here —
+   * the order is created pending and the buyer's plan (deposit) is
+   * created afterwards via the installment module.
+   */
+  async createInstallmentOrder(data: {
+    buyer_id: string;
+    order_items: ICartItem[];
+    delivery_rate_id?: string;
+    delivery_address_id?: string;
+  }) {
+    const { buyer_id, order_items } = data;
+
+    const lockKey = `lock:order:create:${buyer_id}`;
+    const acquired = await this.cache.acquireLock(lockKey, 10);
+    if (!acquired) {
+      throw new ConflictException(
+        'An order is already being processed. Please wait.',
+      );
+    }
+
+    try {
+      const { validatedItems } = await this.validationService.buildOrderItems(
+        order_items,
+        buyer_id,
+      );
+
+      const groups =
+        await this.validationService.groupItemsByStore(validatedItems);
+
+      if (groups.length === 0) {
+        throw new BadRequestException('No items to order');
+      }
+      if (groups.length > 1) {
+        throw new BadRequestException(
+          'Multi-vendor checkout is deprecated. Please order from one vendor at a time.',
+        );
+      }
+
+      const { store_id, vendor_id } = groups[0];
+      const storeForOrder = await this.storeService.getStoreByUser(
+        vendor_id,
+        store_id ?? undefined,
+      );
+      if (!storeForOrder) {
+        throw new BadRequestException('Vendor store not found');
+      }
+      if (!storeForOrder.payout_verified || !storeForOrder.recipient_code) {
+        throw new BadRequestException(
+          `Vendor ${storeForOrder.store_name} cannot receive online payments`,
+        );
+      }
+      if (!storeForOrder.installments_enabled) {
+        throw new BadRequestException(
+          `Vendor ${storeForOrder.store_name} has installment payments disabled`,
+        );
+      }
+
+      /* CALCULATE TOTALS IN KOBO (escrow fee model — installment plans hold money in escrow) */
+      let subtotalKobo = 0;
+      let shippingKobo = 0;
+
+      if (data.delivery_rate_id) {
+        const rate = await this.deliveryRateService.getRateById(
+          data.delivery_rate_id,
+        );
+        if (rate && rate.store_id === storeForOrder.id) {
+          shippingKobo = Number(rate.fee) * 100;
+        }
+      }
+
+      for (const item of groups[0].items) {
+        subtotalKobo += item.unit_price * item.quantity;
+      }
+
+      const ESCROW_FEE_RATE = 0.03;
+      const ESCROW_FEE_CAP_KOBO = 300_000;
+      const rawEscrowFeeKobo = Math.round(
+        (subtotalKobo + shippingKobo) * ESCROW_FEE_RATE,
+      );
+      const totalEscrowFeeKobo = Math.min(
+        rawEscrowFeeKobo,
+        ESCROW_FEE_CAP_KOBO,
+      );
+
+      const grandTotalKobo = subtotalKobo + shippingKobo + totalEscrowFeeKobo;
+
+      const orderData = this.orderRepo.create({
+        id: uuidv4(),
+        buyer_id,
+        vendor_id,
+        store_id: storeForOrder.id,
+        order_items: groups[0].items,
+        subtotal: subtotalKobo,
+        shipping_fee: shippingKobo,
+        platform_fee: totalEscrowFeeKobo,
+        total: grandTotalKobo,
+        payment_method: 'online',
+        payment_status: 'pending',
+        status: 'pending',
+        delivery_address_id: data.delivery_address_id,
+        notes: JSON.stringify({
+          subtotal_kobo: subtotalKobo,
+          shipping_fee_kobo: shippingKobo,
+          escrow_fee_kobo: totalEscrowFeeKobo,
+          total_kobo: grandTotalKobo,
+          installment_order: true,
+        }),
+      });
+
+      const savedOrder = await this.dataSource.transaction(async (manager) => {
+        return manager.save(Order, orderData);
+      });
+
+      await this.cache.clearPrefix('svc:order');
+
+      return {
+        success: true,
+        order_id: savedOrder.id,
+        total_kobo: grandTotalKobo,
       };
     } finally {
       await this.cache.releaseLock(lockKey);

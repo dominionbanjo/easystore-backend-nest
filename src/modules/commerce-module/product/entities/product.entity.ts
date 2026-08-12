@@ -117,6 +117,22 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
+  /** Quantity locked by active installment plans (availability = stock - reserved_stock). */
+  @Column({ type: 'int', default: 0 })
+  reserved_stock: number;
+
+  /** Vendor toggle — this product can be bought with an installment plan. */
+  @Column({ type: 'boolean', default: false })
+  installment_enabled: boolean;
+
+  /** Platform preset chosen by the vendor for this product's plans. */
+  @Column({ type: 'varchar', length: 64, default: 'fifty-fifty-2wk' })
+  installment_preset_id: string;
+
+  /** Subset of platform presets the vendor offers — buyers pick within this list. */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  installment_presets: string[];
+
   @Column({
     type: 'boolean',
     generatedType: 'STORED',
@@ -147,12 +163,6 @@ export class Product {
 
   @Column({ type: 'jsonb', nullable: true })
   options: { name: string; values: string[] }[] | null;
-
-  //   @Column({ type: 'text', array: true, nullable: true })
-  //   colors: string[] | null;
-
-  //   @Column({ type: 'text', array: true, nullable: true })
-  //   sizes: string[] | null;
 
   /* ────────────────────────────────────────────────
      SHIPPING DETAILS

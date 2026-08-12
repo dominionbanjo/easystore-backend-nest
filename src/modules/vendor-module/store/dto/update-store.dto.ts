@@ -189,6 +189,21 @@ class UpdateStoreBaseDto {
   })
   @IsBoolean()
   escrow_enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      "Store-wide opt-in for installment (partial payment) plans. When off, buyers cannot start plans for this store's products.",
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ obj }) => {
+    const raw = (obj as { installments_enabled?: unknown } | undefined)
+      ?.installments_enabled;
+    if (raw === undefined) return undefined;
+    return typeof raw === 'string' ? raw === 'true' : raw === true;
+  })
+  @IsBoolean()
+  installments_enabled?: boolean;
 }
 
 export class UpdateStoreDto extends PartialType(UpdateStoreBaseDto) {}

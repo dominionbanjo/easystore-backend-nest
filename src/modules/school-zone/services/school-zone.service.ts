@@ -1121,5 +1121,4 @@ export interface ZoneProductCard {
   address_postal_code: string;
   created_at: Date;
   is_in_wishlist: boolean;
-  colors?: unknown[];
 }

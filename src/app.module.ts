@@ -17,6 +17,7 @@ import { WishlistModule } from './modules/commerce-module/wishlist/wishlist.modu
 import { EscrowModule } from './modules/finance-module/escrow/escrow.module';
 import { PayoutModule } from './modules/finance-module/payout/payout.module';
 import { TransactionsModule } from './modules/finance-module/transactions/transactions.module';
+import { InstallmentModule } from './modules/finance-module/installment/installment.module';
 import { AuthModule } from './modules/identity-module/auth/auth.module';
 import { UsersModule } from './modules/identity-module/users/users.module';
 import { CacheModule } from './modules/shared-module/cache/cache.module';
@@ -75,6 +76,7 @@ import { SchoolZoneModule } from './modules/school-zone/school-zone.module';
     EscrowModule,
     PayoutModule,
     TransactionsModule,
+    InstallmentModule,
 
     // 🏪 STORE / PRODUCT
     StoreModule,

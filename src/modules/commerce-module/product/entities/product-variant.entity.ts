@@ -47,6 +47,10 @@ export class ProductVariant {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
+  /** Quantity locked by active installment plans (availability = stock - reserved_stock). */
+  @Column({ type: 'int', default: 0 })
+  reserved_stock: number;
+
   @Column({ type: 'varchar', length: 1024, nullable: true })
   image_url: string | null;
 

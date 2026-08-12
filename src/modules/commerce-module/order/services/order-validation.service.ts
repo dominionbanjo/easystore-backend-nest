@@ -88,7 +88,7 @@ export class OrderValidationService {
           product.on_sale && variant.discount_price
             ? Number(variant.discount_price)
             : null;
-        activeStock = variant.stock;
+        activeStock = variant.stock - variant.reserved_stock;
         variantOptions = variant.combinations ?? null;
 
         if (variant.image_url) {
@@ -101,7 +101,7 @@ export class OrderValidationService {
           product.on_sale && product.discount_price
             ? Number(product.discount_price)
             : null;
-        activeStock = product.stock;
+        activeStock = product.stock - product.reserved_stock;
       }
 
       /* ─── Stock check ─── */
@@ -132,6 +132,8 @@ export class OrderValidationService {
         size: item.size ?? null,
         color: item.color ?? null,
         color_hex: item.color_hex ?? null,
+        installment_enabled: product.installment_enabled ?? false,
+        installment_presets: product.installment_presets ?? [],
       });
     }
 

@@ -10,8 +10,6 @@ WITH ranked_products AS (
     p.rating_average,
     p.created_at,
     p.image,
-    p.colors,
-    p.sizes,
     p.options,
     (
       SELECT jsonb_agg(v)

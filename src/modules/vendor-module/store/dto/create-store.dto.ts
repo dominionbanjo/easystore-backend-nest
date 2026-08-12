@@ -1,4 +1,11 @@
-import { IsString, IsUUID, IsOptional, IsEmail, IsInt } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsEmail,
+  IsInt,
+  IsBoolean,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStoreDto {
@@ -101,4 +108,22 @@ export class CreateStoreDto {
   @IsOptional()
   @IsInt()
   setup_stage?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Escrow protection: buyer funds are held safely until delivery is confirmed, then released to the vendor.',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  escrow_enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Installments: let buyers pay for products in parts (deposit + scheduled payments). The vendor ships only when fully paid.',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  installments_enabled?: boolean;
 }

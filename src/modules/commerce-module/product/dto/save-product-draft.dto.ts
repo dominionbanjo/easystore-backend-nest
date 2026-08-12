@@ -6,13 +6,14 @@ import {
   IsArray,
   IsObject,
   IsUUID,
+  IsBoolean,
   Min,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { CloudinaryAssetDto } from './create-product-cloudinary.dto';
+import { CloudinaryAssetDto } from './create-product.dto';
 
 export class DraftProductOptionDto {
   @ApiPropertyOptional({ description: 'Option name', example: 'Size' })
@@ -206,6 +207,25 @@ export class SaveProductDraftDto {
   @IsOptional()
   @IsString()
   returns_note?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Allow buyers to pay for this product with an installment plan',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  installment_enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Subset of platform presets the vendor offers — buyers pick within this list',
+    example: ['fifty-fifty-2wk', 'quarters-4mo'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  installment_presets?: string[];
 
   @ApiPropertyOptional({
     description: 'Product tags',

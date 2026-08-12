@@ -171,6 +171,10 @@ export class Store {
   @Column({ type: 'boolean', default: false })
   escrow_enabled: boolean;
 
+  /** Store-wide opt-in for installment (partial payment) plans. */
+  @Column({ type: 'boolean', default: false })
+  installments_enabled: boolean;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   paystack_subaccount_code: string | null;
 

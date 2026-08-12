@@ -463,6 +463,7 @@ export class StoreAnalyticsService {
         id: storeRow?.id,
         payout_verified: !!storeRow?.payout_verified,
         escrow_enabled: !!storeRow?.escrow_enabled,
+        installments_enabled: !!storeRow?.installments_enabled,
       },
       trends: {
         monthly: monthlyTrends,

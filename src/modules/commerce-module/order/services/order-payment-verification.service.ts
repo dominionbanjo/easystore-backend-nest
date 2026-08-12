@@ -18,6 +18,8 @@ import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { OrderMailService } from 'src/modules/shared-module/email/services/order-mail.service';
 import { ReceiptService } from './receipt.service';
 import { OrderManagementService } from './order-management.service';
+import { InstallmentService } from 'src/modules/finance-module/installment/services/installment.service';
+import { INSTALLMENT_REFERENCE_PREFIX } from 'src/modules/finance-module/installment/installment.constants';
 
 /* ────────────────────────────────────────────────
    PAYSTACK RESPONSE TYPES
@@ -50,12 +52,27 @@ export class OrderPaymentVerificationService {
     private readonly orderMailService: OrderMailService,
     private readonly receiptService: ReceiptService,
     private readonly orderManagementService: OrderManagementService,
+    private readonly installments: InstallmentService,
   ) {}
 
   /* ────────────────────────────────────────────────
    VERIFY PAYMENT (MULTI-ORDER, SINGLE REFERENCE)
 ──────────────────────────────────────────────── */
   async verifyPayment(reference: string) {
+    /* Installment references are handled by the installment module */
+    if (reference.startsWith(INSTALLMENT_REFERENCE_PREFIX)) {
+      await this.installments.handleInstallmentPayment(reference);
+      const context = await this.installments.getPaymentContext(reference);
+      return {
+        success: true,
+        installment: true,
+        reference,
+        ...(context
+          ? { plan_id: context.plan_id, order_id: context.order_id }
+          : {}),
+      };
+    }
+
     const lockKey = `lock:verify-payment:${reference}`;
     const acquired = await this.cache.acquireLock(lockKey, 30); // 30 sec lock
     if (!acquired) {

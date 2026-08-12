@@ -33,6 +33,7 @@ import { ReceiptService } from './services/receipt.service';
 import { CartModule } from '../cart/cart.module';
 import { StoreAnalyticsModule } from 'src/modules/vendor-module/store-analytics/store-analytics.module';
 import { OrderCronService } from './services/order-cron.service';
+import { InstallmentModule } from 'src/modules/finance-module/installment/installment.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { OrderCronService } from './services/order-cron.service';
     StoreModule,
     CartModule,
     StoreAnalyticsModule,
+    InstallmentModule,
   ],
   controllers: [OrderController, PandaOrderController, OrderPaymentController],
   providers: [

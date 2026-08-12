@@ -38,6 +38,7 @@ export class OrderSummaryService {
       subtotal: number;
       delivery_options: StoreDeliveryRate[];
       escrow_enabled: boolean;
+      installments_enabled: boolean;
     }[] = [];
 
     for (const group of groups) {
@@ -63,6 +64,7 @@ export class OrderSummaryService {
         subtotal,
         delivery_options: rates,
         escrow_enabled: store.escrow_enabled ?? false,
+        installments_enabled: store.installments_enabled ?? false,
       });
     }
 

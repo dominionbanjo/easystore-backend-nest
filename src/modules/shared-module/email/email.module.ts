@@ -14,6 +14,7 @@ import { StoreWelcomeMailService } from './services/store-welcome-mail.service';
 import { VendorAwarenessMailService } from './services/vendor-awareness-mail.service';
 import { BuyerEngagementMailService } from './services/buyer-engagement-mail.service';
 import { StaffInviteMailService } from './services/staff-invite-mail.service';
+import { InstallmentMailService } from './services/installment-mail.service';
 import { EmailLog } from './entities/email-log.entity';
 import { EmailRetryService } from './services/email-retry.service';
 
@@ -37,6 +38,7 @@ import { EmailRetryService } from './services/email-retry.service';
     VendorAwarenessMailService,
     BuyerEngagementMailService,
     StaffInviteMailService,
+    InstallmentMailService,
   ],
 
   exports: [
@@ -57,6 +59,7 @@ import { EmailRetryService } from './services/email-retry.service';
     BuyerEngagementMailService,
     StaffInviteMailService,
     EmailRetryService,
+    InstallmentMailService,
   ],
 })
 export class EmailModule {}

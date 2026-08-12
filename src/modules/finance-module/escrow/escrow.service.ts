@@ -9,7 +9,7 @@ import { Order } from 'src/modules/commerce-module/order/entities/order.entity';
 import { UsersService } from 'src/modules/identity-module/users/users.service';
 import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 import { EscrowMailService } from 'src/modules/shared-module/email/services/escrow-mail.service';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { PayoutService, PaystackTransferData } from '../payout/payout.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { Escrow, EscrowPayoutType } from './entities/escrow.entity';
@@ -53,14 +53,19 @@ export class EscrowService {
 
   /* ────────────────────────────────────────────────
      1️⃣ CREATE ESCROW (IDEMPOTENT)
+     Pass an optional EntityManager to join an open DB transaction
+     (required when the order row is still uncommitted inside it).
   ──────────────────────────────────────────────── */
-  async createEscrow(data: {
-    order_id: string;
-    buyer_id: string;
-    vendor_id: string;
-    amount: number;
-    payout_type?: EscrowPayoutType;
-  }) {
+  async createEscrow(
+    data: {
+      order_id: string;
+      buyer_id: string;
+      vendor_id: string;
+      amount: number;
+      payout_type?: EscrowPayoutType;
+    },
+    manager?: EntityManager,
+  ) {
     const {
       order_id,
       buyer_id,
@@ -73,11 +78,16 @@ export class EscrowService {
       throw new BadRequestException('Missing escrow fields');
     }
 
+    const escrowRepo = manager
+      ? manager.getRepository(Escrow)
+      : this.escrowRepo;
+    const orderRepo = manager ? manager.getRepository(Order) : this.orderRepo;
+
     const cacheKey = `escrow:order:${order_id}`;
     const cached = await this.cache.get<Escrow>(cacheKey);
     if (cached) return cached;
 
-    const existing = await this.escrowRepo.findOne({ where: { order_id } });
+    const existing = await escrowRepo.findOne({ where: { order_id } });
     if (existing) {
       await this.cache.set(cacheKey, existing);
       return existing;
@@ -86,12 +96,12 @@ export class EscrowService {
     const escrow_fee = this.computeEscrowFee(amount);
 
     // ⭐ Resolve the store the order belongs to (multi-store safe).
-    const order = await this.orderRepo.findOne({
+    const order = await orderRepo.findOne({
       where: { id: order_id },
       select: { store_id: true },
     });
 
-    const escrow = this.escrowRepo.create({
+    const escrow = escrowRepo.create({
       order_id,
       buyer_id,
       vendor_id,
@@ -103,19 +113,22 @@ export class EscrowService {
       status: 'pending',
     });
 
-    const saved = await this.escrowRepo.save(escrow);
+    const saved = await escrowRepo.save(escrow);
 
-    await this.transactions.create({
-      order_id,
-      escrow_id: saved.id,
-      user_id: buyer_id,
-      vendor_id,
-      type: 'escrow_hold',
-      amount,
-      currency: 'NGN',
-      status: 'pending',
-      description: `Escrow created for order ${order_id} (fee: ₦${(escrow_fee / 100).toLocaleString()})`,
-    });
+    await this.transactions.create(
+      {
+        order_id,
+        escrow_id: saved.id,
+        user_id: buyer_id,
+        vendor_id,
+        type: 'escrow_hold',
+        amount,
+        currency: 'NGN',
+        status: 'pending',
+        description: `Escrow created for order ${order_id} (fee: ₦${(escrow_fee / 100).toLocaleString()})`,
+      },
+      manager,
+    );
 
     await this.cache.set(cacheKey, saved);
     return saved;

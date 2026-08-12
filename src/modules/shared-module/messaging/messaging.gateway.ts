@@ -11,7 +11,10 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { MessagingService } from './messaging.service';
-import { getCorsOrigins, isDevEnvironment } from '../../../common/config/cors.config';
+import {
+  getCorsOrigins,
+  isDevEnvironment,
+} from '../../../common/config/cors.config';
 
 interface AuthenticatedSocket extends Socket {
   data: {
@@ -33,7 +36,10 @@ const CHATROOM_ROOM = 'chatroom';
 
 @WebSocketGateway({
   namespace: '/messaging',
-  cors: { origin: isDevEnvironment() ? true : getCorsOrigins(), credentials: true },
+  cors: {
+    origin: isDevEnvironment() ? true : getCorsOrigins(),
+    credentials: true,
+  },
 })
 export class MessagingGateway
   implements OnGatewayConnection, OnGatewayDisconnect

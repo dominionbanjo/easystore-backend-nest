@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { PaginationQueryDto } from 'src/common/dto/pagination.dto';
 import { Product, ProductStatus } from '../entities/product.entity';
 import { ProductSearchDto } from '../dto/product-search.dto';
@@ -14,6 +14,8 @@ import {
   applyProductFilters,
   applyProductSortOrder,
 } from '../utils/product-filter.util';
+import { StoreHelperService } from 'src/modules/vendor-module/store/services/store-helper.service';
+import { CacheService } from 'src/modules/shared-module/cache/cache.service';
 
 @Injectable()
 export class ProductSearchService {
@@ -22,9 +24,51 @@ export class ProductSearchService {
     private readonly productRepo: Repository<Product>,
 
     private readonly wishlistService: WishlistService,
+    private readonly storeHelpers: StoreHelperService,
+    private readonly cache: CacheService,
   ) {}
 
   async search(params: ProductSearchDto, userId?: string) {
+    const {
+      q,
+      page = 1,
+      limit = 20,
+      minPrice,
+      maxPrice,
+      country,
+      state,
+      city,
+      rating,
+      inStock,
+      local = false,
+      filter = {},
+      sort,
+      category,
+      store_id,
+    } = params;
+
+    if (store_id) {
+      const cacheKey = `svc:search:store:${store_id}:q:${q || ''}:cat:${category || ''}:p:${page}:l:${limit}:u:${userId || 'anon'}`;
+      const cached = await this.cache.get(cacheKey);
+      if (cached) return cached;
+
+      const result = await this.runSearchQuery(
+        params,
+        userId,
+        (qb) => qb.andWhere('product.store_id = :storeId', { storeId: store_id }),
+      );
+      await this.cache.set(cacheKey, result);
+      return result;
+    }
+
+    return this.runSearchQuery(params, userId);
+  }
+
+  private async runSearchQuery(
+    params: ProductSearchDto,
+    userId?: string,
+    scope?: (qb: SelectQueryBuilder<Product>) => void,
+  ) {
     const {
       q,
       page = 1,
@@ -67,6 +111,8 @@ export class ProductSearchService {
         { store_status: 'active' },
       )
       .where('product.status = :status', { status: ProductStatus.ACTIVE });
+
+    scope?.(qb);
 
     let ranked = false;
     if (!isBrowse) {
@@ -171,13 +217,15 @@ export class ProductSearchService {
       .take(limit)
       .getManyAndCount();
 
-    const items = products.map((p) =>
-      mapToProductCardData(p, {
-        wishlistSet,
-        extra: {
-          category: p.category_ref?.name,
-        },
-      }),
+    const items = await this.storeHelpers.resolveColorsForList(
+      products.map((p) =>
+        mapToProductCardData(p, {
+          wishlistSet,
+          extra: {
+            category: p.category_ref?.name,
+          },
+        }),
+      ),
     );
 
     // Aggregate available filter options from variant combinations

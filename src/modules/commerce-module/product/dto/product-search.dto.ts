@@ -5,6 +5,7 @@ import {
   IsInt,
   Min,
   IsBoolean,
+  IsUUID,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -17,6 +18,14 @@ export class ProductSearchDto {
   @IsOptional()
   @IsString()
   q: string;
+
+  @ApiPropertyOptional({
+    description: 'Scope results to a single store (by store UUID)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  store_id?: string;
 
   @ApiPropertyOptional({
     description: 'Category id or slug (includes child categories)',

@@ -23,7 +23,9 @@ export type TransactionType =
   | 'payment_confirmed'
   | 'order_canceled'
   | 'payment_webhook'
-  | 'offline_fulfillment';
+  | 'offline_fulfillment'
+  | 'installment_payment'
+  | 'installment_refund';
 
 export type TransactionStatus = 'pending' | 'success' | 'failed' | 'reversed';
 
@@ -95,6 +97,8 @@ export class Transaction {
       'order_canceled',
       'payment_webhook',
       'offline_fulfillment',
+      'installment_payment',
+      'installment_refund',
     ],
   })
   type: TransactionType;
