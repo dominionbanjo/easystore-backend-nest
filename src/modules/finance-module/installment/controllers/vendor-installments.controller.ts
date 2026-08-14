@@ -1,5 +1,5 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiOkResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/identity-module/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/identity-module/auth/guards/roles.guard';
 import { Roles } from 'src/modules/identity-module/auth/decorators/roles.decorator';
@@ -12,7 +12,7 @@ import { ApiStandardErrorResponses } from 'src/common/decorators/api-standard-er
 import { ApiPaginatedResponse } from 'src/common/decorators/api-paginated-response.decorator';
 import { InstallmentService } from '../services/installment.service';
 import { ListInstallmentsDto } from '../dto/installment.dto';
-import { InstallmentPlanListItemDto } from '../dto/installment-response.dto';
+import { InstallmentPlanListItemDto, InstallmentPlanDetailDto } from '../dto/installment-response.dto';
 
 @ApiTags('Vendor Installments')
 @ApiBearerAuth('JWT-auth')
@@ -36,5 +36,22 @@ export class VendorInstallmentsController {
     @Query() query: ListInstallmentsDto,
   ) {
     return this.installments.listVendorPlans(user.sub, query.page, query.limit);
+  }
+
+  @Get(':id')
+  @RequirePermissions(Permission.VIEW_INSTALLMENTS)
+  @ApiOperation({
+    summary: 'Get one installment plan for my store',
+    description:
+      'Returns a single plan owned by the authenticated vendor’s orders, including the full payment schedule and trail.',
+  })
+  @ApiParam({ name: 'id', description: 'Installment plan ID', type: String })
+  @ApiOkResponse({ type: InstallmentPlanDetailDto })
+  @ApiStandardErrorResponses()
+  getVendorPlan(
+    @CurrentUser() user: jwtStrategy.JwtAuthUser,
+    @Param('id') id: string,
+  ) {
+    return this.installments.getVendorPlan(id, user.sub);
   }
 }

@@ -965,6 +965,19 @@ export class InstallmentService {
     };
   }
 
+  async getVendorPlan(plan_id: string, vendor_id: string) {
+    const plan = await this.planRepo.findOne({
+      where: { id: plan_id, vendor_id },
+      relations: ['order', 'buyer'],
+    });
+    if (!plan) throw new NotFoundException('Plan not found');
+    const payments = await this.paymentRepo.find({
+      where: { plan_id },
+      order: { index: 'ASC' },
+    });
+    return { success: true, data: { ...this.toPlanView(plan), payments } };
+  }
+
   async listAllPlans(
     where: FindOptionsWhere<InstallmentPlan>,
     page = 1,
