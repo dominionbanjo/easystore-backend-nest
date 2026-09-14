@@ -104,13 +104,8 @@ export class ProductSearchService {
         'user.id = product.vendor_id AND user.account_status = :status_user',
         { status_user: 'active' },
       )
-      .innerJoin(
-        'stores',
-        'vendorStore',
-        'vendorStore.id = product.store_id AND vendorStore.status = :store_status',
-        { store_status: 'active' },
-      )
-      .where('product.status = :status', { status: ProductStatus.ACTIVE });
+      .where('product.status = :status', { status: ProductStatus.ACTIVE })
+      .andWhere('store.status = :store_status', { store_status: 'active' });
 
     scope?.(qb);
 
