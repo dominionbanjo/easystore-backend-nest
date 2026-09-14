@@ -180,7 +180,7 @@ export class ProductSearchService {
           WITH RECURSIVE category_tree AS (
             SELECT id
             FROM product_categories
-            WHERE id = :categoryId OR slug = :categorySlug
+            WHERE slug = :categorySlug
             UNION ALL
             SELECT c.id
             FROM product_categories c
@@ -189,7 +189,7 @@ export class ProductSearchService {
           )
           SELECT id FROM category_tree
         )`,
-        { categoryId: category, categorySlug: category },
+        { categorySlug: category },
       );
     }
 
